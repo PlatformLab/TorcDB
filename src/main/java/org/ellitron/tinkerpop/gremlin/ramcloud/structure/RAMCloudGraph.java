@@ -13,12 +13,37 @@ import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Transaction;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 
+import edu.stanford.ramcloud.*;
+
 /**
  *
  * @author ellitron
  */
 public final class RAMCloudGraph implements Graph {
 
+    private static final String CONFIG_COORD_LOC = "gremlin.ramcloud.coordinatorLocator";
+    
+    private final Configuration configuration;
+    private final String coordinatorLocator;
+    private final RAMCloud ramcloud;
+    
+    private RAMCloudGraph(final Configuration configuration) {
+        this.configuration = configuration;
+        
+        this.coordinatorLocator = configuration.getString(CONFIG_COORD_LOC);
+        
+        // Attempt to connect to the target RAMCloud cluster
+        try {
+            ramcloud = new RAMCloud(coordinatorLocator);
+        } catch(ClientException e) {
+            throw e;
+        }
+    }
+    
+    public static RAMCloudGraph open(final Configuration configuration) {
+        return new RAMCloudGraph(configuration);
+    }
+    
     @Override
     public Vertex addVertex(Object... os) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
