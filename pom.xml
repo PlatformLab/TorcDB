@@ -9,7 +9,7 @@
         <dependency>
             <groupId>org.apache.tinkerpop</groupId>
             <artifactId>gremlin-core</artifactId>
-            <version>3.0.0-SNAPSHOT</version>
+            <version>3.0.1-incubating</version>
             <type>jar</type>
         </dependency>
         <dependency>
