@@ -13,6 +13,13 @@
             <type>jar</type>
         </dependency>
         <dependency>
+            <groupId>org.apache.tinkerpop</groupId>
+            <artifactId>gremlin-core</artifactId>
+            <version>3.0.1-incubating</version>
+            <classifier>sources</classifier>
+            <type>jar</type>
+        </dependency>
+        <dependency>
             <groupId>edu.stanford</groupId>
             <artifactId>ramcloud</artifactId>
             <version>1.0</version>
