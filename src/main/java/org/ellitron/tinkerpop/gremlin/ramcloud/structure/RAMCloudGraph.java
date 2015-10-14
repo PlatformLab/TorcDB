@@ -24,6 +24,9 @@ import org.apache.tinkerpop.gremlin.structure.Transaction;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 
 import edu.stanford.ramcloud.*;
+import static edu.stanford.ramcloud.ClientException.*;
+import edu.stanford.ramcloud.multiop.*;
+import edu.stanford.ramcloud.transactions.*;
 
 /**
  *
@@ -37,20 +40,22 @@ public final class RAMCloudGraph implements Graph {
     private final String coordinatorLocator;
     private final RAMCloud ramcloud;
     
+//    static {
+//        // Load C++ shared library for JNI
+//        Util.loadLibrary("ramcloud_java");
+//    }
+    
     private RAMCloudGraph(final Configuration configuration) {
         this.configuration = configuration;
         
         this.coordinatorLocator = configuration.getString(CONFIG_COORD_LOC);
         
-        // Attempt to connect to the target RAMCloud cluster
-        System.out.println("Attempting to connect to RAMCloud @ " + configuration.getString(CONFIG_COORD_LOC));
         try {
             ramcloud = new RAMCloud(coordinatorLocator);
         } catch(ClientException e) {
-            System.out.println("Caught exception");
+            System.out.println(e.toString());
             throw e;
         }
-        System.out.println("Created RAMCloudGraph successfully");
     }
     
     public static RAMCloudGraph open(final Configuration configuration) {
@@ -58,7 +63,7 @@ public final class RAMCloudGraph implements Graph {
     }
     
     @Override
-    public Vertex addVertex(Object... os) {
+    public RAMCloudVertex addVertex(Object... os) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 

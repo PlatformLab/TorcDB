@@ -60,6 +60,7 @@ public class RAMCloudGraphTest {
      * Test of open method, of class RAMCloudGraph.
      */
     @Test
+    @Ignore
     public void testOpen() {
         System.out.println("open");
         Configuration configuration = new BaseConfiguration();
