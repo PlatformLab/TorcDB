@@ -27,6 +27,9 @@ import edu.stanford.ramcloud.*;
 import static edu.stanford.ramcloud.ClientException.*;
 import edu.stanford.ramcloud.multiop.*;
 import edu.stanford.ramcloud.transactions.*;
+import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.util.FeatureDescriptor;
+import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 
 /**
  *
@@ -39,11 +42,6 @@ public final class RAMCloudGraph implements Graph {
     private final Configuration configuration;
     private final String coordinatorLocator;
     private final RAMCloud ramcloud;
-    
-//    static {
-//        // Load C++ shared library for JNI
-//        Util.loadLibrary("ramcloud_java");
-//    }
     
     private RAMCloudGraph(final Configuration configuration) {
         this.configuration = configuration;
@@ -107,4 +105,564 @@ public final class RAMCloudGraph implements Graph {
         ramcloud.disconnect();
     }
     
+    @Override
+    public Features features() {
+        return new RAMCloudGraphFeatures();
+    }
+
+    public class RAMCloudGraphFeatures implements Features {
+
+        private RAMCloudGraphFeatures() {
+        }
+
+        @Override
+        public Features.GraphFeatures graph() {
+            return new RAMCloudGraphGraphFeatures();
+        }
+
+        @Override
+        public Features.VertexFeatures vertex() {
+            return new RAMCloudGraphVertexFeatures();
+        }
+        
+        @Override
+        public Features.EdgeFeatures edge() {
+            return new RAMCloudGraphEdgeFeatures();
+        }
+
+        @Override
+        public String toString() {
+            return StringFactory.featureString(this);
+        }
+    }
+
+    public class RAMCloudGraphGraphFeatures implements Features.GraphFeatures {
+
+        private RAMCloudGraphGraphFeatures() {
+        }
+
+        @Override
+        public boolean supportsComputer() {
+            return false;
+        }
+
+        @Override
+        public boolean supportsPersistence() {
+            return false;
+        }
+
+        @Override
+        public boolean supportsConcurrentAccess() {
+            return false;
+        }
+
+        @Override
+        public boolean supportsTransactions() {
+            return false;
+        }
+
+        @Override
+        public boolean supportsThreadedTransactions() {
+            return false;
+        }
+
+        @Override
+        public Features.VariableFeatures variables() {
+            return new RAMCloudGraphVariableFeatures() {
+            };
+        }
+
+    }
+    
+    public class RAMCloudGraphVertexFeatures implements Features.VertexFeatures {
+
+        private RAMCloudGraphVertexFeatures() {
+        }
+
+        /** {@link Graph.Features.VertexFeatures} */
+        
+        @Override
+        public VertexProperty.Cardinality getCardinality(final String key) {
+            return VertexProperty.Cardinality.single;
+        }
+
+        @Override
+        public boolean supportsAddVertices() {
+            return false;
+        }
+
+        @Override
+        public boolean supportsRemoveVertices() {
+            return false;
+        }
+
+        @Override
+        public boolean supportsMultiProperties() {
+            return false;
+        }
+
+        @Override
+        public boolean supportsMetaProperties() {
+            return false;
+        }
+        
+        @Override
+        public Features.VertexPropertyFeatures properties() {
+            return new RAMCloudGraphVertexPropertyFeatures();
+        }
+        
+        /** {@link Graph.Features.ElementFeatures} */
+        
+        @Override
+        public boolean supportsAddProperty() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsRemoveProperty() {
+            return false;
+        }
+                
+        @Override
+        public boolean supportsUserSuppliedIds() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsNumericIds() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsStringIds() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsUuidIds() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsCustomIds() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsAnyIds() {
+            return false;
+        }
+    }
+
+    public class RAMCloudGraphEdgeFeatures implements Features.EdgeFeatures {
+
+        private RAMCloudGraphEdgeFeatures() {
+        }
+
+        /** {@link Graph.Features.EdgeFeatures} */
+        
+        @Override
+        public boolean supportsAddEdges() {
+            return false;
+        }
+
+        @Override
+        public boolean supportsRemoveEdges() {
+            return false;
+        }
+
+        @Override
+        public Features.EdgePropertyFeatures properties() {
+            return new RAMCloudGraphEdgePropertyFeatures() {
+            };
+        }
+        
+        /** {@link Graph.Features.ElementFeatures} */
+        
+        @Override
+        public boolean supportsAddProperty() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsRemoveProperty() {
+            return false;
+        }
+                
+        @Override
+        public boolean supportsUserSuppliedIds() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsNumericIds() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsStringIds() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsUuidIds() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsCustomIds() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsAnyIds() {
+            return false;
+        }
+    }
+
+    public class RAMCloudGraphVertexPropertyFeatures implements Features.VertexPropertyFeatures {
+
+        private RAMCloudGraphVertexPropertyFeatures() {
+        }
+
+        /** {@link Graph.Features.VertexPropertyFeatures} */
+        
+        @Override
+        public boolean supportsAddProperty() {
+            return false;
+        }
+
+        @Override
+        public boolean supportsRemoveProperty() {
+            return false;
+        }
+
+        @Override
+        public boolean supportsUserSuppliedIds() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsNumericIds() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsStringIds() {
+            return false;
+        }
+
+        @Override
+        public boolean supportsUuidIds() {
+            return false;
+        }
+
+        @Override
+        public boolean supportsCustomIds() {
+            return false;
+        }
+
+        @Override
+        public boolean supportsAnyIds() {
+            return false;
+        }
+        
+        /** {@link Graph.Features.PropertyFeatures} */
+        
+        /** {@link Graph.Features.DataTypeFeatures} */
+        
+        @Override
+        public boolean supportsBooleanValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsByteValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsDoubleValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsFloatValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsIntegerValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsLongValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsMapValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsMixedListValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsBooleanArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsByteArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsDoubleArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsFloatArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsIntegerArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsStringArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsLongArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsSerializableValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsStringValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsUniformListValues() {
+            return false;
+        }
+
+
+    }
+    
+    public class RAMCloudGraphEdgePropertyFeatures implements Features.EdgePropertyFeatures {
+
+        private RAMCloudGraphEdgePropertyFeatures() {
+        }
+
+        /** {@link Graph.Features.EdgePropertyFeatures} */
+        
+        /** {@link Graph.Features.PropertyFeatures} */
+        
+        /** {@link Graph.Features.DataTypeFeatures} */
+        
+        @Override
+        public boolean supportsBooleanValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsByteValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsDoubleValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsFloatValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsIntegerValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsLongValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsMapValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsMixedListValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsBooleanArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsByteArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsDoubleArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsFloatArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsIntegerArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsStringArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsLongArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsSerializableValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsStringValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsUniformListValues() {
+            return false;
+        }
+    }
+    
+    public class RAMCloudGraphVariableFeatures implements Features.VariableFeatures {
+
+        private RAMCloudGraphVariableFeatures() {
+        }
+
+        /** {@link Graph.Features.VariableFeatures} */
+        
+        /** {@link Graph.Features.DataTypeFeatures} */
+        
+        @Override
+        public boolean supportsBooleanValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsByteValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsDoubleValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsFloatValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsIntegerValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsLongValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsMapValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsMixedListValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsBooleanArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsByteArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsDoubleArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsFloatArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsIntegerArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsStringArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsLongArrayValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsSerializableValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsStringValues() {
+            return false;
+        }
+        
+        @Override
+        public boolean supportsUniformListValues() {
+            return false;
+        }
+    }
 }
