@@ -172,7 +172,7 @@ public final class RAMCloudGraph implements Graph {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         ramcloud.disconnect();
     }
     

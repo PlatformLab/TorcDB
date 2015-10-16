@@ -21,6 +21,11 @@ import org.apache.commons.configuration.BaseConfiguration;
 import org.apache.commons.configuration.Configuration;
 import org.apache.tinkerpop.gremlin.structure.T;
 
+import edu.stanford.ramcloud.*;
+import edu.stanford.ramcloud.multiop.*;
+import edu.stanford.ramcloud.transactions.*;
+import static edu.stanford.ramcloud.ClientException.*;
+
 /**
  *
  * @author ellitron
@@ -31,17 +36,32 @@ public class TestStuff {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
-        Configuration configuration = new BaseConfiguration();
-        configuration.setProperty(RAMCloudGraph.CONFIG_COORD_LOC, args[0]);
+        RAMCloud ramcloud = new RAMCloud("infrc:host=192.168.1.109,port=12246");
         
-        RAMCloudGraph graphdb = RAMCloudGraph.open(configuration);
+        long tableId = ramcloud.createTable("test");
         
-        RAMCloudVertex person1 = graphdb.addVertex(T.label, "person");
+        long retVal;
+        String key = "bob";
         
-        try {
-            graphdb.close();
-        } catch (Exception ex) {
-            Logger.getLogger(TestStuff.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        System.out.println(ramcloud.incrementInt64(tableId, key.getBytes(), 1, null));
+        System.out.println(ramcloud.incrementInt64(tableId, key.getBytes(), 1, null));
+        System.out.println(ramcloud.incrementInt64(tableId, key.getBytes(), 1, null));
+        
+        System.out.println(ramcloud.incrementInt64(tableId, key.getBytes(), 2, null));
+        System.out.println(ramcloud.incrementInt64(tableId, key.getBytes(), 2, null));
+        System.out.println(ramcloud.incrementInt64(tableId, key.getBytes(), 2, null));
+        
+//        Configuration configuration = new BaseConfiguration();
+//        configuration.setProperty(RAMCloudGraph.CONFIG_COORD_LOC, args[0]);
+//        
+//        RAMCloudGraph graphdb = RAMCloudGraph.open(configuration);
+//        
+//        RAMCloudVertex person1 = graphdb.addVertex(T.label, "person");
+//        
+//        try {
+//            graphdb.close();
+//        } catch (Exception ex) {
+//            Logger.getLogger(TestStuff.class.getName()).log(Level.SEVERE, null, ex);
+//        }
     }
 }

@@ -21,6 +21,7 @@ import org.apache.commons.configuration.Configuration;
 import org.apache.tinkerpop.gremlin.process.computer.GraphComputer;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Transaction;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.junit.After;
@@ -37,6 +38,9 @@ import org.junit.Ignore;
  */
 public class RAMCloudGraphTest {
     
+    private String coordinatorLocator;
+    private int totalMasterServers;
+    
     public RAMCloudGraphTest() {
     }
     
@@ -50,6 +54,9 @@ public class RAMCloudGraphTest {
     
     @Before
     public void setUp() {
+        coordinatorLocator = System.getProperty("coordLoc");
+        totalMasterServers = Integer.decode(System.getProperty("servers"));
+        System.out.println("RAMCloudGraphTest: {coordLoc: " + coordinatorLocator + ", servers: " + totalMasterServers + "}");
     }
     
     @After
@@ -60,28 +67,50 @@ public class RAMCloudGraphTest {
      * Test of open method, of class RAMCloudGraph.
      */
     @Test
-    @Ignore
     public void testOpen() {
         System.out.println("open");
+        
         Configuration configuration = new BaseConfiguration();
-        configuration.setProperty(RAMCloudGraph.CONFIG_COORD_LOC, "infrc:host=192.168.1.110\\,port=12246");
-        RAMCloudGraph result = RAMCloudGraph.open(configuration);
+        configuration.setProperty(RAMCloudGraph.CONFIG_COORD_LOC, coordinatorLocator);
+        configuration.setProperty(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, totalMasterServers);
+        
+        RAMCloudGraph graph = RAMCloudGraph.open(configuration);
+        
+        graph.close();
     }
 
     /**
      * Test of addVertex method, of class RAMCloudGraph.
      */
     @Test
-    @Ignore
     public void testAddVertex() {
         System.out.println("addVertex");
-        Object[] os = null;
-        RAMCloudGraph instance = null;
-        Vertex expResult = null;
-        Vertex result = instance.addVertex(os);
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
+        
+        Configuration configuration = new BaseConfiguration();
+        configuration.setProperty(RAMCloudGraph.CONFIG_COORD_LOC, coordinatorLocator);
+        configuration.setProperty(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, totalMasterServers);
+        
+        RAMCloudGraph graph = RAMCloudGraph.open(configuration);
+        
+        RAMCloudVertex v1 = graph.addVertex(T.label, "Person", "name", "bob");
+        RAMCloudVertex v2 = graph.addVertex(T.label, "Person", "name", "alice");
+        RAMCloudVertex v3 = graph.addVertex(T.label, "Animal", "name", "boots", "species", "british shorthair");
+        RAMCloudVertex v4 = graph.addVertex(T.label, "Animal", "name", "puff", "species", "foldex cat");
+        RAMCloudVertex v5 = graph.addVertex(T.label, "Animal", "name", "sassy", "species", "havana brown");
+        
+        assertEquals((long)v1.id(), 1);
+        assertEquals((long)v2.id(), 2);
+        assertEquals((long)v3.id(), 3);
+        assertEquals((long)v4.id(), 4);
+        assertEquals((long)v5.id(), 5);
+        
+        assertEquals(v1.label(), "Person");
+        assertEquals(v2.label(), "Person");
+        assertEquals(v3.label(), "Animal");
+        assertEquals(v4.label(), "Animal");
+        assertEquals(v5.label(), "Animal");
+        
+        graph.close();
     }
 
     /**
