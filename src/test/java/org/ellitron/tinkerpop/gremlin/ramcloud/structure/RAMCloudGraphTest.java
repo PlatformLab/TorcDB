@@ -98,18 +98,19 @@ public class RAMCloudGraphTest {
         RAMCloudVertex v4 = graph.addVertex(T.label, "Animal", "name", "puff", "species", "foldex cat");
         RAMCloudVertex v5 = graph.addVertex(T.label, "Animal", "name", "sassy", "species", "havana brown");
         
-        assertEquals((long)v1.id(), 1);
-        assertEquals((long)v2.id(), 2);
-        assertEquals((long)v3.id(), 3);
-        assertEquals((long)v4.id(), 4);
-        assertEquals((long)v5.id(), 5);
+        assertEquals(1, (long)v1.id());
+        assertEquals(2, (long)v2.id());
+        assertEquals(3, (long)v3.id());
+        assertEquals(4, (long)v4.id());
+        assertEquals(5, (long)v5.id());
         
-        assertEquals(v1.label(), "Person");
-        assertEquals(v2.label(), "Person");
-        assertEquals(v3.label(), "Animal");
-        assertEquals(v4.label(), "Animal");
-        assertEquals(v5.label(), "Animal");
+        assertEquals("Person", v1.label());
+        assertEquals("Person", v2.label());
+        assertEquals("Animal", v3.label());
+        assertEquals("Animal", v4.label());
+        assertEquals("Animal", v5.label());
         
+        graph.eraseAll();
         graph.close();
     }
 

@@ -176,6 +176,12 @@ public final class RAMCloudGraph implements Graph {
         ramcloud.disconnect();
     }
     
+    public void eraseAll() {
+        ramcloud.dropTable(ID_TABLE_NAME);
+        ramcloud.dropTable(VERTEX_TABLE_NAME);
+        ramcloud.dropTable(EDGE_TABLE_NAME);
+    }
+    
     @Override
     public Features features() {
         return new RAMCloudGraphFeatures();
