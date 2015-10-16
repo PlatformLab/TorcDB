@@ -15,38 +15,60 @@
  */
 package org.ellitron.tinkerpop.gremlin.ramcloud.structure;
 
-import java.util.Iterator;
-import org.apache.commons.configuration.Configuration;
 import org.apache.tinkerpop.gremlin.process.computer.GraphComputer;
-import org.apache.tinkerpop.gremlin.structure.Edge;
+
 import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.Transaction;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.structure.Transaction;
+import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+
+import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
+import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 
 import edu.stanford.ramcloud.*;
-import static edu.stanford.ramcloud.ClientException.*;
 import edu.stanford.ramcloud.multiop.*;
 import edu.stanford.ramcloud.transactions.*;
-import org.apache.tinkerpop.gremlin.structure.VertexProperty;
-import org.apache.tinkerpop.gremlin.structure.util.FeatureDescriptor;
-import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
+import static edu.stanford.ramcloud.ClientException.*;
+import java.nio.ByteBuffer;
+
+import org.apache.commons.configuration.Configuration;
+
+import java.util.Iterator;
+import org.apache.tinkerpop.gremlin.structure.Element;
+import org.apache.tinkerpop.gremlin.structure.Property;
+import org.apache.tinkerpop.gremlin.structure.T;
 
 /**
  *
  * @author ellitron
  */
 public final class RAMCloudGraph implements Graph {
-
+    // User specified configuration parameters.
     static final String CONFIG_COORD_LOC = "gremlin.ramcloud.coordinatorLocator";
+    static final String CONFIG_NUM_MASTER_SERVERS = "gremlin.ramcloud.numMasterServers";
     
+    // TODO: Make graph name a configuration parameter to enable separate graphs
+    // to co-exist in the same ramcloud cluster.
+    
+    // Hard set configuration parameters.
+    private static final String ID_TABLE_NAME = "idTable";
+    private static final String VERTEX_TABLE_NAME = "vertexTable";
+    private static final String EDGE_TABLE_NAME = "edgeTable";
+    private static final String LARGEST_ID_KEY = "largestId";
+    
+    // Normal private members.
     private final Configuration configuration;
     private final String coordinatorLocator;
+    private final int totalMasterServers;
     private final RAMCloud ramcloud;
+    private final long idTableId, vertexTableId, edgeTableId;
     
     private RAMCloudGraph(final Configuration configuration) {
         this.configuration = configuration;
         
-        this.coordinatorLocator = configuration.getString(CONFIG_COORD_LOC);
+        coordinatorLocator = configuration.getString(CONFIG_COORD_LOC);
+        totalMasterServers = configuration.getInt(CONFIG_NUM_MASTER_SERVERS);
         
         try {
             ramcloud = new RAMCloud(coordinatorLocator);
@@ -54,6 +76,10 @@ public final class RAMCloudGraph implements Graph {
             System.out.println(e.toString());
             throw e;
         }
+        
+        idTableId = ramcloud.createTable(ID_TABLE_NAME, totalMasterServers);
+        vertexTableId = ramcloud.createTable(VERTEX_TABLE_NAME, totalMasterServers);
+        edgeTableId = ramcloud.createTable(EDGE_TABLE_NAME, totalMasterServers);
     }
     
     public static RAMCloudGraph open(final Configuration configuration) {
@@ -61,8 +87,53 @@ public final class RAMCloudGraph implements Graph {
     }
     
     @Override
-    public RAMCloudVertex addVertex(Object... os) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    public RAMCloudVertex addVertex(Object... keyValues) {
+        // Validate key/value pairs
+        int keyValuesSerializedLength = 0;
+        if (keyValues.length % 2 != 0)
+            throw Element.Exceptions.providedKeyValuesMustBeAMultipleOfTwo();
+        for (int i = 0; i < keyValues.length; i = i + 2) {
+            if (!(keyValues[i] instanceof String) && !(keyValues[i] instanceof T))
+                throw Element.Exceptions.providedKeyValuesMustHaveALegalKeyOnEvenIndices();
+            if (keyValues[i].equals(T.id))
+                throw Vertex.Exceptions.userSuppliedIdsNotSupported();
+            if (!(keyValues[i+1] instanceof String))
+                throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(keyValues[i+1]);
+            
+            if(keyValues[i] instanceof String) {
+                keyValuesSerializedLength += (Short.SIZE/Byte.SIZE) + ((String)keyValues[i]).length();
+                keyValuesSerializedLength += (Short.SIZE/Byte.SIZE) + ((String)keyValues[i+1]).length();
+            }
+                
+        }
+        
+        final String label = ElementHelper.getLabelValue(keyValues).orElse(Vertex.DEFAULT_LABEL);
+        keyValuesSerializedLength += (Short.SIZE/Byte.SIZE) + T.label.getAccessor().length();
+        keyValuesSerializedLength += (Short.SIZE/Byte.SIZE) + label.length();
+        long id = ramcloud.incrementInt64(idTableId, LARGEST_ID_KEY.getBytes(), 1, null);
+        
+        // Serialize the key/value pairs, starting with the label.
+        ByteBuffer key = ByteBuffer.allocate(Long.SIZE/Byte.SIZE);
+        key.putLong(id);
+        ByteBuffer value = ByteBuffer.allocate(keyValuesSerializedLength);
+        value.putShort((short)T.label.getAccessor().length());
+        value.put(T.label.getAccessor().getBytes());
+        value.putShort((short)label.length());
+        value.put(label.getBytes());
+        for (int i = 0; i < keyValues.length; i = i + 2) {
+            if(keyValues[i] instanceof String) {
+                value.putShort((short)((String)keyValues[i]).length());
+                value.put(((String)keyValues[i]).getBytes());
+                value.putShort((short)((String)keyValues[i+1]).length());
+                value.put(((String)keyValues[i+1]).getBytes());
+            }
+        }
+        
+        ramcloud.write(vertexTableId, key.array(), value.array(), null);
+        
+        RAMCloudVertex resultVertex = new RAMCloudVertex(this, id, label);
+        
+        return resultVertex;
     }
 
     @Override
@@ -188,7 +259,7 @@ public final class RAMCloudGraph implements Graph {
 
         @Override
         public boolean supportsAddVertices() {
-            return false;
+            return true;
         }
 
         @Override
@@ -453,15 +524,13 @@ public final class RAMCloudGraph implements Graph {
         
         @Override
         public boolean supportsStringValues() {
-            return false;
+            return true;
         }
         
         @Override
         public boolean supportsUniformListValues() {
             return false;
         }
-
-
     }
     
     public class RAMCloudGraphEdgePropertyFeatures implements Features.EdgePropertyFeatures {
@@ -557,7 +626,7 @@ public final class RAMCloudGraph implements Graph {
         
         @Override
         public boolean supportsStringValues() {
-            return false;
+            return true;
         }
         
         @Override

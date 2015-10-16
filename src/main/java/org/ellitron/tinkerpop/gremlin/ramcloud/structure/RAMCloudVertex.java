@@ -28,6 +28,16 @@ import org.apache.tinkerpop.gremlin.structure.VertexProperty;
  * @author ellitron
  */
 public class RAMCloudVertex implements Vertex {
+    private final RAMCloudGraph graph;
+    private long id;
+    private String label;
+    
+    public RAMCloudVertex(RAMCloudGraph graph, long id, String label) {
+        this.graph = graph;
+        this.id = id;
+        this.label = label;
+    }
+    
     @Override
     public Iterator<Edge> edges(final Direction direction, final String... edgeLabels) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
@@ -44,18 +54,18 @@ public class RAMCloudVertex implements Vertex {
     }
     
     @Override
-    public Object id() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    public Long id() {
+        return id;
     }
     
     @Override
     public String label() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return label;
     }
     
     @Override
     public Graph graph() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return graph;
     }
     
     @Override
