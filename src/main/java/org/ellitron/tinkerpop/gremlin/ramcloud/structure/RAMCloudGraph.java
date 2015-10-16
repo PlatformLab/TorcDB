@@ -255,8 +255,6 @@ public final class RAMCloudGraph implements Graph {
 
         private RAMCloudGraphVertexFeatures() {
         }
-
-        /** {@link Graph.Features.VertexFeatures} */
         
         @Override
         public VertexProperty.Cardinality getCardinality(final String key) {
@@ -287,8 +285,6 @@ public final class RAMCloudGraph implements Graph {
         public Features.VertexPropertyFeatures properties() {
             return new RAMCloudGraphVertexPropertyFeatures();
         }
-        
-        /** {@link Graph.Features.ElementFeatures} */
         
         @Override
         public boolean supportsAddProperty() {
@@ -335,8 +331,6 @@ public final class RAMCloudGraph implements Graph {
 
         private RAMCloudGraphEdgeFeatures() {
         }
-
-        /** {@link Graph.Features.EdgeFeatures} */
         
         @Override
         public boolean supportsAddEdges() {
@@ -353,8 +347,6 @@ public final class RAMCloudGraph implements Graph {
             return new RAMCloudGraphEdgePropertyFeatures() {
             };
         }
-        
-        /** {@link Graph.Features.ElementFeatures} */
         
         @Override
         public boolean supportsAddProperty() {
@@ -401,8 +393,6 @@ public final class RAMCloudGraph implements Graph {
 
         private RAMCloudGraphVertexPropertyFeatures() {
         }
-
-        /** {@link Graph.Features.VertexPropertyFeatures} */
         
         @Override
         public boolean supportsAddProperty() {
@@ -443,10 +433,6 @@ public final class RAMCloudGraph implements Graph {
         public boolean supportsAnyIds() {
             return false;
         }
-        
-        /** {@link Graph.Features.PropertyFeatures} */
-        
-        /** {@link Graph.Features.DataTypeFeatures} */
         
         @Override
         public boolean supportsBooleanValues() {
@@ -543,12 +529,6 @@ public final class RAMCloudGraph implements Graph {
 
         private RAMCloudGraphEdgePropertyFeatures() {
         }
-
-        /** {@link Graph.Features.EdgePropertyFeatures} */
-        
-        /** {@link Graph.Features.PropertyFeatures} */
-        
-        /** {@link Graph.Features.DataTypeFeatures} */
         
         @Override
         public boolean supportsBooleanValues() {
@@ -645,10 +625,6 @@ public final class RAMCloudGraph implements Graph {
 
         private RAMCloudGraphVariableFeatures() {
         }
-
-        /** {@link Graph.Features.VariableFeatures} */
-        
-        /** {@link Graph.Features.DataTypeFeatures} */
         
         @Override
         public boolean supportsBooleanValues() {
