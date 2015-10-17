@@ -45,8 +45,8 @@ import org.apache.tinkerpop.gremlin.structure.T;
  */
 public final class RAMCloudGraph implements Graph {
     // User specified configuration parameters.
-    static final String CONFIG_COORD_LOC = "gremlin.ramcloud.coordinatorLocator";
-    static final String CONFIG_NUM_MASTER_SERVERS = "gremlin.ramcloud.numMasterServers";
+    public static final String CONFIG_COORD_LOC = "gremlin.ramcloud.coordinatorLocator";
+    public static final String CONFIG_NUM_MASTER_SERVERS = "gremlin.ramcloud.numMasterServers";
     
     // TODO: Make graph name a configuration parameter to enable separate graphs
     // to co-exist in the same ramcloud cluster.
