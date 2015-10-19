@@ -29,11 +29,17 @@ import edu.stanford.ramcloud.transactions.*;
 import static edu.stanford.ramcloud.ClientException.*;
 import java.awt.BasicStroke;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import static java.lang.Thread.sleep;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.configuration.AbstractConfiguration;
@@ -62,87 +68,281 @@ public class MeasurementClient {
 
     private static final Logger logger = Logger.getLogger(MeasurementClient.class.getName());
     
-    private static final String CONFIG_TEST_DURATION = "testDuration";
-    private static final String CONFIG_RCGRAPH_CONFIG = "ramCloudGraphConfiguration";
-    private static final String CONFIG_THREADS = "threads";
-    private static final String CONFIG_NUM_CLIENTS = "numClients";
-    private static final String CONFIG_CLIENT_INDEX = "clientIndex";
-    private static final String CONFIG_LOG_FILE = "logFile";
+    private final String        coordinatorLocator;
+    private final int           numClients;
+    private final int           clientIndex;
+    private final PrintWriter   logFile;
+    private final int           numMasters;
+    private final long          testDuration;
+    private final int           threads;
     
-    public static void testAddVertexThroughput(final Configuration testConfig) {
-        // Extract test configuration parameters.
-        Configuration ramCloudGraphConfig = (Configuration)testConfig.getProperty(CONFIG_RCGRAPH_CONFIG);
-        long testDuration = testConfig.getLong(CONFIG_TEST_DURATION);
-        int threads = testConfig.getInt(CONFIG_THREADS);
+    private static final Map<String, Runnable> tests = new HashMap<>();
+    
+    RAMCloud cluster;
+    
+    private long controlTableId;
+    
+    public MeasurementClient(   String          coordinatorLocator,
+                                int             numClients,
+                                int             clientIndex,
+                                PrintWriter     logFile,
+                                int             numMasters,
+                                long            testDuration,
+                                int             threads){
+        this.coordinatorLocator = coordinatorLocator;
+        this.numClients = numClients;
+        this.clientIndex = clientIndex;
+        this.logFile = logFile;
+        this.numMasters = numMasters;
+        this.testDuration = testDuration;
+        this.threads = threads;
         
-        Thread t[] = new Thread[threads];
-        long threadOps[] = new long[threads];
-        long totalOps = 0;
+        tests.put("testAddVertexThroughput", () -> testAddVertexThroughput());
+        tests.put("testAddVertexLatency", () -> testAddVertexLatency());
         
-        for (int i = 0; i < threads; ++i) {
-            int threadNum = i;
-            t[i] = new Thread(() -> {
-                threadOps[threadNum] = 0;
-                long startTime, endTime, elapsedTime;
+        cluster = new RAMCloud(coordinatorLocator);
+        
+        controlTableId = cluster.createTable("controlTable");
+    }
+    
+    private enum ControlRegister {
+        COMMAND,
+        ARGUMENTS,
+        RETURN_CODE,
+        RETURN_VALUE,
+    }
+    
+    private enum CommandCode {
+        RUN,
+        DIE,
+    }
+    
+    private enum ReturnStatus {
+        STATUS_OK,
+        UNRECOGNIZED_COMMAND,
+    }
+    
+    private String getRegisterKey(int clientIndex, ControlRegister reg) {
+        return String.format("%d:%s", clientIndex, reg.name());
+    }
 
-                RAMCloudGraph graph = RAMCloudGraph.open(ramCloudGraphConfig);
+    /** Helper methods used by masters. */
 
-                startTime = System.nanoTime();
-                while (true) {
-                    graph.addVertex(T.label, "Person", "name", "Raggles");
-                    threadOps[threadNum]++;
-                    if (threadOps[threadNum] % 1000 == 0) {
-                        if ((System.nanoTime() - startTime) / 1000000000L > testDuration) {
-                            break;
+    private void issueCommandToSlaves(CommandCode cmd, String args, int firstSlave, int numSlaves) {
+        // Clear status and return value registers.
+        for (int i = 0; i < numSlaves; ++i) {
+            String regKey = getRegisterKey(firstSlave + i, ControlRegister.RETURN_CODE);
+            cluster.remove(controlTableId, regKey);
+            regKey = getRegisterKey(firstSlave + i, ControlRegister.RETURN_VALUE);
+            cluster.remove(controlTableId, regKey);
+        }
+        
+        // If this command has args, first write the args.
+        if(args != null) {
+            for (int i = 0; i < numSlaves; ++i) {
+                String regKey = getRegisterKey(firstSlave + i, ControlRegister.ARGUMENTS);
+                cluster.write(controlTableId, regKey, args);
+            }
+        }
+        
+        // Finally issue the command. 
+        for (int i = 0; i < numSlaves; ++i) {
+            String regKey = getRegisterKey(firstSlave + i, ControlRegister.COMMAND);
+            cluster.write(controlTableId, regKey, cmd.name());
+        }
+    }
+    
+    private void pollSlaves(int firstSlave, int numSlaves, double timeoutSeconds) throws Exception {
+        for (int i = 0; i < numSlaves; ++i) {
+            String regKey = getRegisterKey(firstSlave + i, ControlRegister.RETURN_CODE);
+            long startTimeMillis = System.currentTimeMillis();
+            while (true) {
+                try {
+                    RAMCloudObject obj = cluster.read(controlTableId, regKey);
+                    if (obj.getValue().equals(ReturnStatus.STATUS_OK.name())) {
+                        break;
+                    } else {
+                        throw new Exception("Slave " + (firstSlave + i) + 
+                                " returned error status " + obj.getValue());
+                    }
+                } catch (TableDoesntExistException | ObjectDoesntExistException e) {
+                }
+
+                double elapsedTimeSeconds = (System.currentTimeMillis() - startTimeMillis) / 1000.0;
+                if (elapsedTimeSeconds > timeoutSeconds) {
+                    throw new Exception("Slave " + (firstSlave + i) + 
+                            " did not return a status after "
+                            + timeoutSeconds + "s.");
+                }
+
+                try {
+                    sleep(10L);
+                } catch (InterruptedException ex) {
+                }
+            }
+        }
+    }
+    
+    private String[] readSlavesReturnValues(int firstSlave, int numSlaves) {
+        String[] values = new String[numSlaves];
+        
+        for (int i = 0; i < numSlaves; ++i) {
+            String regKey = getRegisterKey(firstSlave + i, ControlRegister.RETURN_VALUE);
+            try {
+                RAMCloudObject obj = cluster.read(controlTableId, regKey);
+                values[i] = obj.getValue();
+            } catch (TableDoesntExistException | ObjectDoesntExistException e) {
+                values[i] = null;
+            }
+        }
+        
+        return values;
+    }
+    
+    /** Helper methods used by slaves. */
+    
+    private CommandCode pollForCommand() {
+        String regKey = getRegisterKey(clientIndex, ControlRegister.COMMAND);
+        while (true) {
+            try {
+                RAMCloudObject obj = cluster.read(controlTableId, regKey);
+                return CommandCode.valueOf(obj.getValue());
+            } catch (TableDoesntExistException | ObjectDoesntExistException e) {
+            }
+
+            try {
+                sleep(10L);
+            } catch (InterruptedException ex) {
+            }
+        }
+    }
+    
+    private String readCommandArguments() {
+        String regKey = getRegisterKey(clientIndex, ControlRegister.ARGUMENTS);
+        try {
+            RAMCloudObject obj = cluster.read(controlTableId, regKey);
+            return obj.getValue();
+        } catch (TableDoesntExistException | ObjectDoesntExistException e) {
+        }
+        
+        return null;
+    }
+    
+    private void setStatusAndReturnValue(ReturnStatus status, String returnValue) {
+        // Clear command register.
+        String regKey = getRegisterKey(clientIndex, ControlRegister.COMMAND);
+        cluster.remove(controlTableId, regKey);
+        
+        // Clear command arguments register.
+        regKey = getRegisterKey(clientIndex, ControlRegister.ARGUMENTS);
+        cluster.remove(controlTableId, regKey);
+
+        // First write out the return value string.
+        if (returnValue != null) {
+            regKey = getRegisterKey(clientIndex, ControlRegister.RETURN_VALUE);
+            cluster.write(controlTableId, regKey, returnValue);
+        }
+        
+        // Finally write out the return status.
+        regKey = getRegisterKey(clientIndex, ControlRegister.RETURN_CODE);
+        cluster.write(controlTableId, regKey, status.name());
+    }
+    
+    
+    public void testAddVertexThroughput() {
+        BaseConfiguration ramCloudGraphConfig = new BaseConfiguration();
+        ramCloudGraphConfig.setDelimiterParsingDisabled(true);
+        ramCloudGraphConfig.setProperty(RAMCloudGraph.CONFIG_COORD_LOC, coordinatorLocator);
+        ramCloudGraphConfig.setProperty(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, numMasters);
+        
+        RAMCloudGraph graph = RAMCloudGraph.open(ramCloudGraphConfig);
+        
+        if(clientIndex == 0) {
+            logFile.println("## testAddVertexThroughput(): testDuration=" + testDuration);
+            logFile.println("## clients      operations per second");
+            logFile.println("-------------------------------------");
+            
+            for (int slaves = 1; slaves < numClients; ++slaves) {
+                try {
+                    pollSlaves(1, slaves, 10.0);
+                } catch (Exception ex) {
+                    logger.log(Level.SEVERE, null, ex);
+                    issueCommandToSlaves(CommandCode.DIE, null, 1, numClients-1);
+                    return;
+                }
+                
+                long startTime = System.currentTimeMillis();
+                issueCommandToSlaves(CommandCode.RUN, null, 1, slaves);
+                
+                try {
+                    pollSlaves(1, slaves, testDuration*2.0);
+                } catch (Exception ex) {
+                    logger.log(Level.SEVERE, null, ex);
+                    issueCommandToSlaves(CommandCode.DIE, null, 1, numClients-1);
+                    return;
+                }
+                long elapsedTime = (System.currentTimeMillis() - startTime) / 1000;
+                
+                String retVals[] = readSlavesReturnValues(1, slaves);
+                
+                long totalOps = 0;
+                for (int i = 0; i < slaves; ++i)
+                    totalOps += Long.decode(retVals[i]);
+                
+                logFile.println(String.format("%8d\t%d", slaves, totalOps/elapsedTime));
+                logFile.flush();
+            }
+            
+            issueCommandToSlaves(CommandCode.DIE, null, 1, numClients-1);
+            
+            try {
+                pollSlaves(1, numClients-1, 10.0);
+            } catch (Exception ex) {
+                logger.log(Level.SEVERE, null, ex);
+            }
+            
+        } else {
+            setStatusAndReturnValue(ReturnStatus.STATUS_OK, null);
+            
+            while(true) {
+                CommandCode cmd = pollForCommand();
+
+                if (cmd == CommandCode.RUN) {
+                    long opCount = 0;
+
+                    long startTime = System.nanoTime();
+                    while (true) {
+                        graph.addVertex(T.label, "Person", "name", "Raggles");
+                        opCount++;
+                        if (opCount % 1000 == 0) {
+                            if ((System.nanoTime() - startTime) / 1000000000L > testDuration) {
+                                break;
+                            }
                         }
                     }
+                    
+                    setStatusAndReturnValue(ReturnStatus.STATUS_OK, Long.toString(opCount));
+                } else if (cmd == CommandCode.DIE) { 
+                    setStatusAndReturnValue(ReturnStatus.STATUS_OK, null);
+                    break;
+                } else {
+                    // Don't recognize this command."
+                    setStatusAndReturnValue(ReturnStatus.UNRECOGNIZED_COMMAND, null);
                 }
-                endTime = System.nanoTime();
-                elapsedTime = endTime - startTime;
-
-                System.out.println(threadNum + ": Test Finished. Stats:");
-                System.out.println("\tTest Duration: " + elapsedTime / 1000000000L + "s");
-                System.out.println("\tVertices added: " + threadOps[threadNum]);
-                System.out.println("\tThroughput: " + threadOps[threadNum] / (elapsedTime / 1000000000L) + " operations per second");
-                System.out.println("\tAvg. Latency: " + (elapsedTime / 1000L) / threadOps[threadNum] + "us");
-
-                graph.close();
-            });
+            }
         }
         
-        long startTime, endTime, elapsedTime;
+        logFile.flush();
         
-        startTime = System.nanoTime();
-        for(int i = 0; i < threads; ++i)
-            t[i].start();
-        
-        try {
-            for(int i = 0; i < threads; ++i)
-                t[i].join();
-        } catch (InterruptedException ex) {
-            logger.log(Level.SEVERE, null, ex);
-        }
-        endTime = System.nanoTime();
-        elapsedTime = endTime - startTime;
-        
-        for(int i = 0; i < threads; ++i)
-            totalOps += threadOps[i];
-        
-        System.out.println(Thread.currentThread().getName() + ": Test Finished. Stats:");
-        System.out.println("\tTest Duration: " + elapsedTime / 1000000000L + "s");
-        System.out.println("\tVertices added: " + totalOps);
-        System.out.println("\tThroughput: " + totalOps / (elapsedTime / 1000000000L) + " operations per second");
-        
-        // Erase the graph.
-        RAMCloudGraph graph = RAMCloudGraph.open(ramCloudGraphConfig);
         graph.eraseAll();
         graph.close();
     }
     
-    public static void testAddVertexLatency(final Configuration testConfig) {
-        // Extract test configuration parameters.
-        Configuration ramCloudGraphConfig = (Configuration)testConfig.getProperty(CONFIG_RCGRAPH_CONFIG);
-        long testDuration = testConfig.getLong(CONFIG_TEST_DURATION);
+    public void testAddVertexLatency() {
+        BaseConfiguration ramCloudGraphConfig = new BaseConfiguration();
+        ramCloudGraphConfig.setDelimiterParsingDisabled(true);
+        ramCloudGraphConfig.setProperty(RAMCloudGraph.CONFIG_COORD_LOC, coordinatorLocator);
+        ramCloudGraphConfig.setProperty(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, numMasters);
         
         RAMCloudGraph graph = RAMCloudGraph.open(ramCloudGraphConfig);
         
@@ -258,28 +458,32 @@ public class MeasurementClient {
         graph.close();
     }
     
+    public void executeTest(String testName) {
+        tests.get(testName).run();
+    }
+    
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {
         Options options = new Options();
-        AbstractConfiguration ramCloudGraphConfig = new BaseConfiguration();
-        AbstractConfiguration testConfig = new BaseConfiguration();
         String coordinatorLocator;
         int numClients;
         int clientIndex;
-        String logFile;
-        int masterServers;
+        String logFileName;
+        int numMasters;
         long testDuration;
         int threads;
+        String testName;
         
         options.addOption("C", "coordinator", true, "Service locator where the coordinator can be contacted.");
         options.addOption(null, "numClients", true, "Total number of clients.");
         options.addOption(null, "clientIndex", true, "This client's index number in total clients.");
         options.addOption(null, "logFile", true, "File to use as the log.");
-        options.addOption(null, "masterServers", true, "Total master servers.");
+        options.addOption(null, "numMasters", true, "Total master servers.");
         options.addOption(null, "testDuration", true, "Duration of each test.");
         options.addOption(null, "threads", true, "Number of threads to use.");
+        options.addOption(null, "testName", true, "Name of the test to run.");
         options.addOption("h", "help", false, "Print usage.");
         
         CommandLineParser parser = new DefaultParser();
@@ -305,35 +509,38 @@ public class MeasurementClient {
             return;
         }
         
-        if(cmd.hasOption("masterServers")) {
-            masterServers = Integer.decode(cmd.getOptionValue("masterServers"));
+        if(cmd.hasOption("numMasters")) {
+            numMasters = Integer.decode(cmd.getOptionValue("numMasters"));
         } else {
-            logger.log(Level.SEVERE, "Missing required argument: masterServers");
+            logger.log(Level.SEVERE, "Missing required argument: numMasters");
             return;
         }
         
         // Optional parameters.
         testDuration = Long.decode(cmd.getOptionValue("testDuration", "5"));
-        threads = Integer.decode(cmd.getOptionValue(CONFIG_THREADS, "1"));
+        threads = Integer.decode(cmd.getOptionValue("threads", "1"));
         numClients = Integer.decode(cmd.getOptionValue("numClients", "1"));
         clientIndex = Integer.decode(cmd.getOptionValue("clientIndex", "0"));
-        logFile = cmd.getOptionValue("logFile", null);
+        logFileName = cmd.getOptionValue("logFile");
+        testName = cmd.getOptionValue("testName");
         
-        ramCloudGraphConfig.setDelimiterParsingDisabled(true);
-        testConfig.setDelimiterParsingDisabled(true);
-        ramCloudGraphConfig.setProperty(RAMCloudGraph.CONFIG_COORD_LOC, coordinatorLocator);
-        ramCloudGraphConfig.setProperty(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, masterServers);
+        PrintWriter logFile;
+        try {
+            logFile = new PrintWriter(logFileName, "UTF-8");
+        } catch (FileNotFoundException | UnsupportedEncodingException ex) {
+            logger.log(Level.SEVERE, null, ex);
+            return;
+        }
         
-        testConfig.addProperty(CONFIG_RCGRAPH_CONFIG, ramCloudGraphConfig);
-        testConfig.addProperty(CONFIG_TEST_DURATION, testDuration);
-        testConfig.addProperty(CONFIG_THREADS, threads);
-        testConfig.addProperty(CONFIG_NUM_CLIENTS, numClients);
-        testConfig.addProperty(CONFIG_CLIENT_INDEX, clientIndex);
-        testConfig.addProperty(CONFIG_LOG_FILE, logFile);
+        MeasurementClient mc = new MeasurementClient(   coordinatorLocator,
+                                                        numClients,
+                                                        clientIndex,
+                                                        logFile,
+                                                        numMasters,
+                                                        testDuration,
+                                                        threads);
         
-        // Run through the tests.
-        //testAddVertexThroughput(testConfig);
-        testAddVertexLatency(testConfig);
+        mc.executeTest(testName);
     }
     
 }
