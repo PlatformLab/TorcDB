@@ -31,10 +31,14 @@ import edu.stanford.ramcloud.multiop.*;
 import edu.stanford.ramcloud.transactions.*;
 import static edu.stanford.ramcloud.ClientException.*;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.apache.commons.configuration.Configuration;
 
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.T;
@@ -61,7 +65,7 @@ public final class RAMCloudGraph implements Graph {
     private final Configuration configuration;
     private final String coordinatorLocator;
     private final int totalMasterServers;
-    private final RAMCloud ramcloud;
+    final RAMCloud ramcloud;
     private final long idTableId, vertexTableId, edgeTableId;
     
     private RAMCloudGraph(final Configuration configuration) {
@@ -147,8 +151,31 @@ public final class RAMCloudGraph implements Graph {
     }
 
     @Override
-    public Iterator<Vertex> vertices(Object... os) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    public Iterator<Vertex> vertices(Object... vertexIds) {
+        List<Vertex> list = new ArrayList<>();
+        ByteBuffer key = ByteBuffer.allocate(Long.BYTES);
+        
+        for (int i = 0; i < vertexIds.length; ++i) {
+            if(!(vertexIds[i] instanceof Long))
+                throw Vertex.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
+            
+            key.rewind();
+            key.putLong((Long)vertexIds[i]);
+            RAMCloudObject obj = ramcloud.read(vertexTableId, key.array());
+            
+            ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
+            value.put(obj.getValueBytes());
+            value.rewind();
+            
+            short strLen = value.getShort();
+            byte labelKey[] = new byte[strLen];
+            value.get(labelKey);
+            strLen = value.getShort();
+            byte label[] = new byte[strLen];
+            value.get(label);
+            
+            list.add(new RAMCloudVertex(this, (Long)vertexIds[i], label.toString()));
+        }
     }
 
     @Override

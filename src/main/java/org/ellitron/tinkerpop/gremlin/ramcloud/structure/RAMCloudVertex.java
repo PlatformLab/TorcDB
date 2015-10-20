@@ -15,7 +15,12 @@
  */
 package org.ellitron.tinkerpop.gremlin.ramcloud.structure;
 
+import edu.stanford.ramcloud.RAMCloudObject;
+import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Graph;
@@ -29,10 +34,10 @@ import org.apache.tinkerpop.gremlin.structure.VertexProperty;
  */
 public class RAMCloudVertex implements Vertex {
     private final RAMCloudGraph graph;
-    private long id;
+    private Long id;
     private String label;
     
-    public RAMCloudVertex(RAMCloudGraph graph, long id, String label) {
+    public RAMCloudVertex(final RAMCloudGraph graph, final long id, final String label) {
         this.graph = graph;
         this.id = id;
         this.label = label;
