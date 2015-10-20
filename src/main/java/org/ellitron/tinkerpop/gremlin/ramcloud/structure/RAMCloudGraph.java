@@ -32,6 +32,8 @@ import edu.stanford.ramcloud.transactions.*;
 import static edu.stanford.ramcloud.ClientException.*;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 
 import org.apache.commons.configuration.Configuration;
@@ -39,6 +41,7 @@ import org.apache.commons.configuration.Configuration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.T;
@@ -60,12 +63,13 @@ public final class RAMCloudGraph implements Graph {
     private static final String VERTEX_TABLE_NAME = "vertexTable";
     private static final String EDGE_TABLE_NAME = "edgeTable";
     private static final String LARGEST_ID_KEY = "largestId";
+    private static final int MAX_TX_RETRY_COUNT = 100;
     
     // Normal private members.
     private final Configuration configuration;
     private final String coordinatorLocator;
     private final int totalMasterServers;
-    final RAMCloud ramcloud;
+    private final RAMCloud ramcloud;
     private final long idTableId, vertexTableId, edgeTableId;
     
     private RAMCloudGraph(final Configuration configuration) {
@@ -139,7 +143,7 @@ public final class RAMCloudGraph implements Graph {
         
         return resultVertex;
     }
-
+    
     @Override
     public <C extends GraphComputer> C compute(Class<C> type) throws IllegalArgumentException {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
@@ -176,6 +180,8 @@ public final class RAMCloudGraph implements Graph {
             
             list.add(new RAMCloudVertex(this, (Long)vertexIds[i], label.toString()));
         }
+        
+        return list.iterator();
     }
 
     @Override
@@ -212,6 +218,122 @@ public final class RAMCloudGraph implements Graph {
     @Override
     public Features features() {
         return new RAMCloudGraphFeatures();
+    }
+
+    <V> Iterator<VertexProperty<V>> getVertexProperties(final RAMCloudVertex vertex, final String... propertyKeys) {
+        ByteBuffer key = ByteBuffer.allocate(Long.BYTES);
+        key.putLong(vertex.id());
+        
+        RAMCloudObject obj = ramcloud.read(vertexTableId, key.array());
+        
+        ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
+        value.put(obj.getValueBytes());
+        value.rewind();
+
+        short strLen = value.getShort();
+        byte labelKey[] = new byte[strLen];
+        value.get(labelKey);
+        strLen = value.getShort();
+        byte label[] = new byte[strLen];
+        value.get(label);
+        
+        List<VertexProperty<V>> propList = new ArrayList<>();
+        
+        List<String> propertyKeysList = Arrays.asList(propertyKeys);
+        
+        while(value.hasRemaining()) {
+            strLen = value.getShort();
+            byte propKey[] = new byte[strLen];
+            value.get(propKey);
+            strLen = value.getShort();
+            byte propVal[] = new byte[strLen];
+            value.get(propVal);
+            
+            if (propertyKeysList.contains(propKey.toString()))
+                propList.add(new RAMCloudVertexProperty(vertex, propKey.toString(), propVal.toString()));
+        }
+        
+        return propList.iterator();
+    }
+
+    <V> VertexProperty<V> setVertexProperty(final RAMCloudVertex vertex, final VertexProperty.Cardinality cardinality, final String key, final V value, final Object... keyValues) {
+        if (keyValues != null) 
+            throw VertexProperty.Exceptions.metaPropertiesNotSupported();
+        
+        if (!(value instanceof String))
+            throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(value);
+        
+        ByteBuffer rcKey = ByteBuffer.allocate(Long.BYTES);
+        rcKey.putLong(vertex.id());
+        
+        int txRetryCount = 0;
+        
+        while(txRetryCount < MAX_TX_RETRY_COUNT) {
+            RAMCloudTransaction tx = new RAMCloudTransaction(ramcloud);
+
+            RAMCloudObject obj = tx.read(vertexTableId, rcKey.array());
+
+            ByteBuffer rcValue = ByteBuffer.allocate(obj.getValueBytes().length);
+            rcValue.put(obj.getValueBytes());
+            rcValue.rewind();
+
+            short strLen = rcValue.getShort();
+            byte labelKey[] = new byte[strLen];
+            rcValue.get(labelKey);
+            strLen = rcValue.getShort();
+            byte label[] = new byte[strLen];
+            rcValue.get(label);
+
+            Map<String, String> properties = new HashMap<>();
+
+            while (rcValue.hasRemaining()) {
+                strLen = rcValue.getShort();
+                byte propKey[] = new byte[strLen];
+                rcValue.get(propKey);
+                strLen = rcValue.getShort();
+                byte propVal[] = new byte[strLen];
+                rcValue.get(propVal);
+
+                properties.put(propKey.toString(), propVal.toString());
+            }
+
+            if (properties.containsKey(key)) {
+                if (cardinality == VertexProperty.Cardinality.single) {
+                    properties.put(key, (String) value);
+                } else if (cardinality == VertexProperty.Cardinality.list) {
+                    throw VertexProperty.Exceptions.multiPropertiesNotSupported();
+                } else if (cardinality == VertexProperty.Cardinality.set) {
+                    throw VertexProperty.Exceptions.multiPropertiesNotSupported();
+                } else {
+                    throw new UnsupportedOperationException("Do not recognize Cardinality of this type: " + cardinality.toString());
+                }
+            } else {
+                properties.put(key, (String) value);
+            }
+
+            int totalSizeBytes = 0;
+            for (HashMap.Entry<String, String> entry : properties.entrySet()) {
+                totalSizeBytes += Short.BYTES + entry.getKey().length();
+                totalSizeBytes += Short.BYTES + entry.getValue().length();
+            }
+
+            ByteBuffer newRcValue = ByteBuffer.allocate(totalSizeBytes);
+            for (HashMap.Entry<String, String> entry : properties.entrySet()) {
+                newRcValue.putShort((short) entry.getKey().length());
+                newRcValue.put(entry.getKey().getBytes());
+                newRcValue.putShort((short) entry.getValue().length());
+                newRcValue.put(entry.getValue().getBytes());
+            }
+
+            tx.write(vertexTableId, rcKey.array(), newRcValue.array());
+
+            if (tx.commitAndSync())
+                break;
+            else
+                txRetryCount++;
+        }
+        
+        return new RAMCloudVertexProperty(vertex, key, value);
     }
 
     public class RAMCloudGraphFeatures implements Features {

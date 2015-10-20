@@ -15,6 +15,7 @@
  */
 package org.ellitron.tinkerpop.gremlin.ramcloud.structure;
 
+import edu.stanford.ramcloud.RAMCloud;
 import edu.stanford.ramcloud.RAMCloudObject;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
@@ -80,16 +81,16 @@ public class RAMCloudVertex implements Vertex {
     
     @Override
     public <V> Iterator<VertexProperty<V>> properties(final String... propertyKeys) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return graph.getVertexProperties(this, propertyKeys);
     }
     
     @Override
     public <V> VertexProperty<V> property(final VertexProperty.Cardinality cardinality, final String key, final V value, final Object... keyValues) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return graph.setVertexProperty(this, cardinality, key, value, keyValues);
     }
 
     @Override
     public <V> VertexProperty<V> property(final String key, final V value) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return property(VertexProperty.Cardinality.single, key, value);
     }
 }
