@@ -258,9 +258,9 @@ public class MeasurementClient {
         RAMCloudGraph graph = RAMCloudGraph.open(ramCloudGraphConfig);
         
         if(clientIndex == 0) {
-            logFile.println("## testAddVertexThroughput(): testDuration=" + testDuration);
+            logFile.println("## testAddVertexThroughput(): testDuration=" + testDuration + ", numMasters=" + numMasters);
             logFile.println("## clients      operations per second");
-            logFile.println("-------------------------------------");
+            logFile.println("## ----------------------------------");
             
             for (int slaves = 1; slaves < numClients; ++slaves) {
                 try {
