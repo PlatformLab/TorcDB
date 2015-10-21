@@ -15,44 +15,15 @@
  */
 package org.ellitron.tinkerpop.gremlin.ramcloud.structure;
 
-import java.util.Iterator;
 import java.util.NoSuchElementException;
-import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Property;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 
 /**
  *
  * @author ellitron
- * @param <V>
  */
-public class RAMCloudVertexProperty<V> extends RAMCloudElement implements VertexProperty<V> {
-    private final RAMCloudVertex vertex;
-    private final String key;
-    private final V value;
-    
-    public RAMCloudVertexProperty(final RAMCloudVertex vertex, final String key, V value) {
-        super(vertex.graph, vertex.id, vertex.label);
-        this.vertex = vertex;
-        this.key = key;
-        this.value = value;
-    }
-
-    @Override
-    public void remove() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-    
-    @Override
-    public Vertex element() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
-    @Override
-    public <U> Iterator<Property<U>> properties(String... propertyKeys) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
+public class RAMCloudProperty<V> implements Property<V> {
 
     @Override
     public String key() {
@@ -70,8 +41,13 @@ public class RAMCloudVertexProperty<V> extends RAMCloudElement implements Vertex
     }
 
     @Override
-    public <V> Property<V> property(String key, V value) {
+    public Element element() {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
+    @Override
+    public void remove() {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+    
 }

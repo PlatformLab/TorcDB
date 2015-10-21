@@ -42,6 +42,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.T;
@@ -50,15 +51,17 @@ import org.apache.tinkerpop.gremlin.structure.T;
  *
  * @author ellitron
  */
+@Graph.OptIn(Graph.OptIn.SUITE_STRUCTURE_STANDARD)
 public final class RAMCloudGraph implements Graph {
-    // User specified configuration parameters.
+    // Configuration keys.
+    public static final String CONFIG_GRAPH_NAME = "gremlin.ramcloud.graphName";
     public static final String CONFIG_COORD_LOC = "gremlin.ramcloud.coordinatorLocator";
     public static final String CONFIG_NUM_MASTER_SERVERS = "gremlin.ramcloud.numMasterServers";
     
     // TODO: Make graph name a configuration parameter to enable separate graphs
     // to co-exist in the same ramcloud cluster.
     
-    // Hard set configuration parameters.
+    // Constants.
     private static final String ID_TABLE_NAME = "idTable";
     private static final String VERTEX_TABLE_NAME = "vertexTable";
     private static final String EDGE_TABLE_NAME = "edgeTable";
@@ -71,10 +74,12 @@ public final class RAMCloudGraph implements Graph {
     private final int totalMasterServers;
     private final RAMCloud ramcloud;
     private final long idTableId, vertexTableId, edgeTableId;
+    private final String graphName;
     
     private RAMCloudGraph(final Configuration configuration) {
         this.configuration = configuration;
         
+        graphName = configuration.getString(CONFIG_GRAPH_NAME);
         coordinatorLocator = configuration.getString(CONFIG_COORD_LOC);
         totalMasterServers = configuration.getInt(CONFIG_NUM_MASTER_SERVERS);
         
@@ -85,9 +90,9 @@ public final class RAMCloudGraph implements Graph {
             throw e;
         }
         
-        idTableId = ramcloud.createTable(ID_TABLE_NAME, totalMasterServers);
-        vertexTableId = ramcloud.createTable(VERTEX_TABLE_NAME, totalMasterServers);
-        edgeTableId = ramcloud.createTable(EDGE_TABLE_NAME, totalMasterServers);
+        idTableId = ramcloud.createTable(graphName + "_" + ID_TABLE_NAME, totalMasterServers);
+        vertexTableId = ramcloud.createTable(graphName + "_" + VERTEX_TABLE_NAME, totalMasterServers);
+        edgeTableId = ramcloud.createTable(graphName + "_" + EDGE_TABLE_NAME, totalMasterServers);
     }
     
     public static RAMCloudGraph open(final Configuration configuration) {
@@ -95,7 +100,7 @@ public final class RAMCloudGraph implements Graph {
     }
     
     @Override
-    public RAMCloudVertex addVertex(Object... keyValues) {
+    public Vertex addVertex(Object... keyValues) {
         // Validate key/value pairs
         int keyValuesSerializedLength = 0;
         if (keyValues.length % 2 != 0)
@@ -201,7 +206,7 @@ public final class RAMCloudGraph implements Graph {
 
     @Override
     public Configuration configuration() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return configuration;
     }
 
     @Override
@@ -220,9 +225,27 @@ public final class RAMCloudGraph implements Graph {
         return new RAMCloudGraphFeatures();
     }
 
-    <V> Iterator<VertexProperty<V>> getVertexProperties(final RAMCloudVertex vertex, final String... propertyKeys) {
+    /** Methods called by RAMCloudVertex. */
+    
+    void removeVertex(RAMCloudVertex vertex) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    Edge addEdge(RAMCloudVertex vertex, Vertex inVertex, String label, Object[] keyValues) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    Iterator<Edge> vertexEdges(RAMCloudVertex vertex, Direction direction, String[] edgeLabels) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    Iterator<Vertex> vertexNeighbors(RAMCloudVertex vertex, Direction direction, String[] edgeLabels) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    <V> Iterator<VertexProperty<V>> getVertexProperties(final RAMCloudVertex vertex, final String[] propertyKeys) {
         ByteBuffer key = ByteBuffer.allocate(Long.BYTES);
-        key.putLong(vertex.id());
+        key.putLong((long) vertex.id());
         
         RAMCloudObject obj = ramcloud.read(vertexTableId, key.array());
         
@@ -256,7 +279,7 @@ public final class RAMCloudGraph implements Graph {
         return propList.iterator();
     }
 
-    <V> VertexProperty<V> setVertexProperty(final RAMCloudVertex vertex, final VertexProperty.Cardinality cardinality, final String key, final V value, final Object... keyValues) {
+    <V> VertexProperty<V> setVertexProperty(final RAMCloudVertex vertex, final VertexProperty.Cardinality cardinality, final String key, final V value, final Object[] keyValues) {
         if (keyValues != null) 
             throw VertexProperty.Exceptions.metaPropertiesNotSupported();
         
@@ -264,7 +287,7 @@ public final class RAMCloudGraph implements Graph {
             throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(value);
         
         ByteBuffer rcKey = ByteBuffer.allocate(Long.BYTES);
-        rcKey.putLong(vertex.id());
+        rcKey.putLong((long) vertex.id());
         
         int txRetryCount = 0;
         
@@ -336,6 +359,24 @@ public final class RAMCloudGraph implements Graph {
         return new RAMCloudVertexProperty(vertex, key, value);
     }
 
+    /** Methods called by RAMCloudEdge. */
+    
+    void removeEdge(RAMCloudEdge aThis) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    Iterator<Vertex> edgeVertices(RAMCloudEdge aThis, Direction direction) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    <V> Iterator<Property<V>> getEdgeProperties(RAMCloudEdge aThis, String[] propertyKeys) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    <V> Property<V> setEdgeProperty(RAMCloudEdge aThis, String key, V value) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+    
     public class RAMCloudGraphFeatures implements Features {
 
         private RAMCloudGraphFeatures() {

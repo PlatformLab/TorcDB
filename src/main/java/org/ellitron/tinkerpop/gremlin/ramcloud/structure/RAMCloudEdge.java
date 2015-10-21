@@ -27,36 +27,30 @@ import org.apache.tinkerpop.gremlin.structure.VertexProperty;
  *
  * @author ellitron
  */
-public class RAMCloudEdge implements Edge {
-    public Object id() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+public class RAMCloudEdge extends RAMCloudElement implements Edge {
+    
+    public RAMCloudEdge(final RAMCloudGraph graph, final long id, final String label) {
+        super(graph, id, label);
     }
 
-    public String label() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
-    public Graph graph() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-    
-    @Override
-    public <V> Property<V> property(final String key, final V value) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-    
     @Override
     public void remove() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        graph.removeEdge(this);
+    }
+
+    @Override
+    public Iterator<Vertex> vertices(Direction direction) {
+        return graph.edgeVertices(this, direction);
+    }
+
+    @Override
+    public <V> Iterator<Property<V>> properties(String... propertyKeys) {
+        return graph.getEdgeProperties(this, propertyKeys);
     }
     
     @Override
-    public Iterator<Vertex> vertices(final Direction direction) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    public <V> Property<V> property(String key, V value) {
+        return graph.setEdgeProperty(this, key, value);
     }
     
-    @Override
-    public <V> Iterator<Property<V>> properties(final String... propertyKeys) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
 }

@@ -33,64 +33,44 @@ import org.apache.tinkerpop.gremlin.structure.VertexProperty;
  *
  * @author ellitron
  */
-public class RAMCloudVertex implements Vertex {
-    private final RAMCloudGraph graph;
-    private Long id;
-    private String label;
+public class RAMCloudVertex extends RAMCloudElement implements Vertex {
     
     public RAMCloudVertex(final RAMCloudGraph graph, final long id, final String label) {
-        this.graph = graph;
-        this.id = id;
-        this.label = label;
-    }
-    
-    @Override
-    public Iterator<Edge> edges(final Direction direction, final String... edgeLabels) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-    
-    @Override
-    public Edge addEdge(final String label, final Vertex inVertex, final Object... keyValues) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-    
-    @Override
-    public void remove() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-    
-    @Override
-    public Long id() {
-        return id;
-    }
-    
-    @Override
-    public String label() {
-        return label;
-    }
-    
-    @Override
-    public Graph graph() {
-        return graph;
-    }
-    
-    @Override
-    public Iterator<Vertex> vertices(final Direction direction, final String... edgeLabels) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-    
-    @Override
-    public <V> Iterator<VertexProperty<V>> properties(final String... propertyKeys) {
-        return graph.getVertexProperties(this, propertyKeys);
-    }
-    
-    @Override
-    public <V> VertexProperty<V> property(final VertexProperty.Cardinality cardinality, final String key, final V value, final Object... keyValues) {
-        return graph.setVertexProperty(this, cardinality, key, value, keyValues);
+        super(graph, id, label);
     }
 
     @Override
-    public <V> VertexProperty<V> property(final String key, final V value) {
+    public void remove() {
+        graph.removeVertex(this);
+    }
+
+    @Override
+    public Edge addEdge(String label, Vertex inVertex, Object... keyValues) {
+        return graph.addEdge(this, inVertex, label, keyValues);
+    }
+    
+    @Override
+    public Iterator<Edge> edges(Direction direction, String... edgeLabels) {
+        return graph.vertexEdges(this, direction, edgeLabels);
+    }
+
+    @Override
+    public Iterator<Vertex> vertices(Direction direction, String... edgeLabels) {
+        return graph.vertexNeighbors(this, direction, edgeLabels);
+    }
+
+    @Override
+    public <V> Iterator<VertexProperty<V>> properties(String... propertyKeys) {
+        return graph.getVertexProperties(this, propertyKeys);
+    }
+
+    @Override
+    public <V> VertexProperty<V> property(String key, V value) {
         return property(VertexProperty.Cardinality.single, key, value);
+    }
+    
+    @Override
+    public <V> VertexProperty<V> property(VertexProperty.Cardinality cardinality, String key, V value, Object... keyValues) {
+        return graph.setVertexProperty(this, cardinality, key, value, keyValues);
     }
 }
