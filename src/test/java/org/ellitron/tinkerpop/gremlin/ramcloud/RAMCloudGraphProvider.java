@@ -19,8 +19,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import org.apache.commons.configuration.BaseConfiguration;
 import org.apache.commons.configuration.Configuration;
+
 import org.apache.tinkerpop.gremlin.AbstractGraphProvider;
 import org.apache.tinkerpop.gremlin.LoadGraphWith;
 import org.apache.tinkerpop.gremlin.structure.Graph;
@@ -53,16 +53,17 @@ public class RAMCloudGraphProvider extends AbstractGraphProvider {
         Map<String, Object> config = new HashMap<>();
         config.put(Graph.GRAPH, RAMCloudGraph.class.getName());
         config.put(RAMCloudGraph.CONFIG_GRAPH_NAME, graphName);
-        config.put(RAMCloudGraph.CONFIG_COORD_LOC, "infrc:host=192.168.1.120,port=12246");
+        config.put(RAMCloudGraph.CONFIG_COORD_LOC, "infrc:host=192.168.1.130\\,port=12246");
         config.put(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, 1);
         return config;
     }
 
     @Override
     public void clear(Graph graph, Configuration configuration) throws Exception {
-        if (graph != null) {
-            ((RAMCloudGraph)graph).eraseAll();
-        }
+        if (graph == null)
+            graph = RAMCloudGraph.open(configuration);
+        
+        ((RAMCloudGraph)graph).deleteDatabaseAndCloseConnection();
     }
 
     @Override

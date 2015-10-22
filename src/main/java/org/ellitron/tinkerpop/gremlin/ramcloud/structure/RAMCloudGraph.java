@@ -27,25 +27,28 @@ import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 
 import edu.stanford.ramcloud.*;
-import edu.stanford.ramcloud.multiop.*;
 import edu.stanford.ramcloud.transactions.*;
-import static edu.stanford.ramcloud.ClientException.*;
+import edu.stanford.ramcloud.ClientException.*;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 
 import org.apache.commons.configuration.Configuration;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import org.apache.log4j.BasicConfigurator;
+import org.apache.log4j.PropertyConfigurator;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.T;
+import org.ellitron.tinkerpop.gremlin.ramcloud.structure.util.RAMCloudHelper;
 
 /**
  *
@@ -53,10 +56,17 @@ import org.apache.tinkerpop.gremlin.structure.T;
  */
 @Graph.OptIn(Graph.OptIn.SUITE_STRUCTURE_STANDARD)
 public final class RAMCloudGraph implements Graph {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RAMCloudGraph.class);
+    
+    static {
+        BasicConfigurator.configure();
+    }
+    
     // Configuration keys.
     public static final String CONFIG_GRAPH_NAME = "gremlin.ramcloud.graphName";
     public static final String CONFIG_COORD_LOC = "gremlin.ramcloud.coordinatorLocator";
     public static final String CONFIG_NUM_MASTER_SERVERS = "gremlin.ramcloud.numMasterServers";
+    public static final String CONFIG_LOG_LEVEL = "gremlin.ramcloud.logLevel";
     
     // TODO: Make graph name a configuration parameter to enable separate graphs
     // to co-exist in the same ramcloud cluster.
@@ -102,7 +112,6 @@ public final class RAMCloudGraph implements Graph {
     @Override
     public Vertex addVertex(Object... keyValues) {
         // Validate key/value pairs
-        int keyValuesSerializedLength = 0;
         if (keyValues.length % 2 != 0)
             throw Element.Exceptions.providedKeyValuesMustBeAMultipleOfTwo();
         for (int i = 0; i < keyValues.length; i = i + 2) {
@@ -112,35 +121,23 @@ public final class RAMCloudGraph implements Graph {
                 throw Vertex.Exceptions.userSuppliedIdsNotSupported();
             if (!(keyValues[i+1] instanceof String))
                 throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(keyValues[i+1]);
-            
-            if(keyValues[i] instanceof String) {
-                keyValuesSerializedLength += (Short.SIZE/Byte.SIZE) + ((String)keyValues[i]).length();
-                keyValuesSerializedLength += (Short.SIZE/Byte.SIZE) + ((String)keyValues[i+1]).length();
-            }
-                
         }
         
+        // Create property map.
+        Map<String, String> properties = new HashMap<>();
         final String label = ElementHelper.getLabelValue(keyValues).orElse(Vertex.DEFAULT_LABEL);
-        keyValuesSerializedLength += (Short.SIZE/Byte.SIZE) + T.label.getAccessor().length();
-        keyValuesSerializedLength += (Short.SIZE/Byte.SIZE) + label.length();
+        properties.put(T.label.getAccessor(), label);
+        for (int i = 0; i < keyValues.length; i = i + 2) {
+            if (keyValues[i] instanceof String)
+                properties.put((String)keyValues[i], (String)keyValues[i+1]);
+        }
+        
         long id = ramcloud.incrementInt64(idTableId, LARGEST_ID_KEY.getBytes(), 1, null);
         
         // Serialize the key/value pairs, starting with the label.
-        ByteBuffer key = ByteBuffer.allocate(Long.SIZE/Byte.SIZE);
+        ByteBuffer key = ByteBuffer.allocate(Long.BYTES);
         key.putLong(id);
-        ByteBuffer value = ByteBuffer.allocate(keyValuesSerializedLength);
-        value.putShort((short)T.label.getAccessor().length());
-        value.put(T.label.getAccessor().getBytes());
-        value.putShort((short)label.length());
-        value.put(label.getBytes());
-        for (int i = 0; i < keyValues.length; i = i + 2) {
-            if(keyValues[i] instanceof String) {
-                value.putShort((short)((String)keyValues[i]).length());
-                value.put(((String)keyValues[i]).getBytes());
-                value.putShort((short)((String)keyValues[i+1]).length());
-                value.put(((String)keyValues[i+1]).getBytes());
-            }
-        }
+        ByteBuffer value = RAMCloudHelper.serializeProperties(properties);
         
         ramcloud.write(vertexTableId, key.array(), value.array(), null);
         
@@ -161,6 +158,8 @@ public final class RAMCloudGraph implements Graph {
 
     @Override
     public Iterator<Vertex> vertices(Object... vertexIds) {
+        ElementHelper.validateMixedElementIds(RAMCloudVertex.class, vertexIds);
+        
         List<Vertex> list = new ArrayList<>();
         ByteBuffer key = ByteBuffer.allocate(Long.BYTES);
         
@@ -170,7 +169,13 @@ public final class RAMCloudGraph implements Graph {
             
             key.rewind();
             key.putLong((Long)vertexIds[i]);
-            RAMCloudObject obj = ramcloud.read(vertexTableId, key.array());
+            
+            RAMCloudObject obj;
+            try {
+                obj = ramcloud.read(vertexTableId, key.array());
+            } catch (ObjectDoesntExistException e) {
+                throw Graph.Exceptions.elementNotFound(RAMCloudVertex.class, (Long)vertexIds[i]);
+            }
             
             ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
             value.put(obj.getValueBytes());
@@ -183,7 +188,7 @@ public final class RAMCloudGraph implements Graph {
             byte label[] = new byte[strLen];
             value.get(label);
             
-            list.add(new RAMCloudVertex(this, (Long)vertexIds[i], label.toString()));
+            list.add(new RAMCloudVertex(this, (Long)vertexIds[i], new String(label)));
         }
         
         return list.iterator();
@@ -214,10 +219,22 @@ public final class RAMCloudGraph implements Graph {
         ramcloud.disconnect();
     }
     
-    public void eraseAll() {
+    public void deleteDatabase() {
         ramcloud.dropTable(ID_TABLE_NAME);
         ramcloud.dropTable(VERTEX_TABLE_NAME);
         ramcloud.dropTable(EDGE_TABLE_NAME);
+    }
+    
+    public void deleteDatabaseAndCloseConnection() {
+        ramcloud.dropTable(ID_TABLE_NAME);
+        ramcloud.dropTable(VERTEX_TABLE_NAME);
+        ramcloud.dropTable(EDGE_TABLE_NAME);
+        ramcloud.disconnect();
+    }
+    
+    @Override
+    public String toString() {
+        return StringFactory.graphString(this, "coordLoc:" + this.coordinatorLocator + " graphName:" + this.graphName);
     }
     
     @Override
@@ -272,8 +289,8 @@ public final class RAMCloudGraph implements Graph {
             byte propVal[] = new byte[strLen];
             value.get(propVal);
             
-            if (propertyKeysList.contains(propKey.toString()))
-                propList.add(new RAMCloudVertexProperty(vertex, propKey.toString(), propVal.toString()));
+            if (propertyKeysList.contains(new String(propKey)))
+                propList.add(new RAMCloudVertexProperty(vertex, new String(propKey), new String(propVal)));
         }
         
         return propList.iterator();
@@ -300,25 +317,7 @@ public final class RAMCloudGraph implements Graph {
             rcValue.put(obj.getValueBytes());
             rcValue.rewind();
 
-            short strLen = rcValue.getShort();
-            byte labelKey[] = new byte[strLen];
-            rcValue.get(labelKey);
-            strLen = rcValue.getShort();
-            byte label[] = new byte[strLen];
-            rcValue.get(label);
-
-            Map<String, String> properties = new HashMap<>();
-
-            while (rcValue.hasRemaining()) {
-                strLen = rcValue.getShort();
-                byte propKey[] = new byte[strLen];
-                rcValue.get(propKey);
-                strLen = rcValue.getShort();
-                byte propVal[] = new byte[strLen];
-                rcValue.get(propVal);
-
-                properties.put(propKey.toString(), propVal.toString());
-            }
+            Map<String, String> properties = RAMCloudHelper.deserializeProperties(rcValue);
 
             if (properties.containsKey(key)) {
                 if (cardinality == VertexProperty.Cardinality.single) {
@@ -334,19 +333,7 @@ public final class RAMCloudGraph implements Graph {
                 properties.put(key, (String) value);
             }
 
-            int totalSizeBytes = 0;
-            for (HashMap.Entry<String, String> entry : properties.entrySet()) {
-                totalSizeBytes += Short.BYTES + entry.getKey().length();
-                totalSizeBytes += Short.BYTES + entry.getValue().length();
-            }
-
-            ByteBuffer newRcValue = ByteBuffer.allocate(totalSizeBytes);
-            for (HashMap.Entry<String, String> entry : properties.entrySet()) {
-                newRcValue.putShort((short) entry.getKey().length());
-                newRcValue.put(entry.getKey().getBytes());
-                newRcValue.putShort((short) entry.getValue().length());
-                newRcValue.put(entry.getValue().getBytes());
-            }
+            ByteBuffer newRcValue = RAMCloudHelper.serializeProperties(properties);
 
             tx.write(vertexTableId, rcKey.array(), newRcValue.array());
 

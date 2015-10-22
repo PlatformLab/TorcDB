@@ -46,7 +46,7 @@ public class RAMCloudVertexProperty<V> extends RAMCloudElement implements Vertex
     
     @Override
     public Vertex element() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return vertex;
     }
 
     @Override
@@ -56,17 +56,17 @@ public class RAMCloudVertexProperty<V> extends RAMCloudElement implements Vertex
 
     @Override
     public String key() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return key;
     }
 
     @Override
     public V value() throws NoSuchElementException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return value;
     }
 
     @Override
     public boolean isPresent() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return (value != null);
     }
 
     @Override

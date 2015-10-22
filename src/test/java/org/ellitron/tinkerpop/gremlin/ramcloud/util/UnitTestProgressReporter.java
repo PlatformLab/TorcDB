@@ -16,6 +16,7 @@
 package org.ellitron.tinkerpop.gremlin.ramcloud.util;
 
 import org.junit.runner.Description;
+import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
 
 /**
@@ -33,5 +34,20 @@ public class UnitTestProgressReporter extends RunListener {
         }
         
         System.out.println("Test Method: " + description.getMethodName());
+    }
+    
+    @Override
+    public void testAssumptionFailure(Failure failure) {
+        System.out.println("Test Assumption Failure: " + failure.getMessage());
+    }
+    
+    @Override
+    public void testFailure(Failure failure) throws Exception {
+        System.out.println("Test Failed: " + failure.getMessage());
+    }
+    
+    @Override
+    public void testIgnored(Description description) throws Exception {
+        System.out.println("Test Ignored: " + description.getDisplayName());
     }
 }

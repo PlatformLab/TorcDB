@@ -114,7 +114,7 @@ public class RAMCloudGraphTest {
         assertEquals("Animal", v4.label());
         assertEquals("Animal", v5.label());
         
-        graph.eraseAll();
+        graph.deleteDatabase();
         graph.close();
     }
 
