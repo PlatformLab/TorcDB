@@ -36,6 +36,7 @@ import org.junit.Ignore;
  *
  * @author ellitron
  */
+@Ignore
 public class RAMCloudGraphTest {
     
     private String coordinatorLocator;
@@ -67,10 +68,12 @@ public class RAMCloudGraphTest {
      * Test of open method, of class RAMCloudGraph.
      */
     @Test
-    public void testOpen() {
+    public 
+        void testOpen() {
         System.out.println("open");
         
-        Configuration configuration = new BaseConfiguration();
+        BaseConfiguration configuration = new BaseConfiguration();
+        configuration.setDelimiterParsingDisabled(true);
         configuration.setProperty(RAMCloudGraph.CONFIG_COORD_LOC, coordinatorLocator);
         configuration.setProperty(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, totalMasterServers);
         
@@ -83,6 +86,7 @@ public class RAMCloudGraphTest {
      * Test of addVertex method, of class RAMCloudGraph.
      */
     @Test
+    @Ignore
     public void testAddVertex() {
         System.out.println("addVertex");
         
@@ -92,11 +96,11 @@ public class RAMCloudGraphTest {
         
         RAMCloudGraph graph = RAMCloudGraph.open(configuration);
         
-        RAMCloudVertex v1 = graph.addVertex(T.label, "Person", "name", "bob");
-        RAMCloudVertex v2 = graph.addVertex(T.label, "Person", "name", "alice");
-        RAMCloudVertex v3 = graph.addVertex(T.label, "Animal", "name", "boots", "species", "british shorthair");
-        RAMCloudVertex v4 = graph.addVertex(T.label, "Animal", "name", "puff", "species", "foldex cat");
-        RAMCloudVertex v5 = graph.addVertex(T.label, "Animal", "name", "sassy", "species", "havana brown");
+        Vertex v1 = graph.addVertex(T.label, "Person", "name", "bob");
+        Vertex v2 = graph.addVertex(T.label, "Person", "name", "alice");
+        Vertex v3 = graph.addVertex(T.label, "Animal", "name", "boots", "species", "british shorthair");
+        Vertex v4 = graph.addVertex(T.label, "Animal", "name", "puff", "species", "foldex cat");
+        Vertex v5 = graph.addVertex(T.label, "Animal", "name", "sassy", "species", "havana brown");
         
         assertEquals(1, (long)v1.id());
         assertEquals(2, (long)v2.id());
