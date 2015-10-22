@@ -334,8 +334,7 @@ public class MeasurementClient {
         
         logFile.flush();
         
-        graph.eraseAll();
-        graph.close();
+        graph.deleteDatabaseAndCloseConnection();
     }
     
     public void testAddVertexLatency() {
