@@ -45,6 +45,7 @@ import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.configuration.BaseConfiguration;
 import org.apache.commons.configuration.Configuration;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudGraph;
 import org.jfree.chart.ChartFactory;
@@ -72,8 +73,10 @@ public class MeasurementClient {
     private final int           numClients;
     private final int           clientIndex;
     private final PrintWriter   logFile;
+    private final String        logDir;
     private final int           numMasters;
     private final long          testDuration;
+    private final int          numSamples;
     private final int           threads;
     
     private static final Map<String, Runnable> tests = new HashMap<>();
@@ -86,15 +89,19 @@ public class MeasurementClient {
                                 int             numClients,
                                 int             clientIndex,
                                 PrintWriter     logFile,
+                                String          logDir,
                                 int             numMasters,
                                 long            testDuration,
+                                int            numSamples,
                                 int             threads){
         this.coordinatorLocator = coordinatorLocator;
         this.numClients = numClients;
         this.clientIndex = clientIndex;
         this.logFile = logFile;
+        this.logDir = logDir;
         this.numMasters = numMasters;
         this.testDuration = testDuration;
+        this.numSamples = numSamples;
         this.threads = threads;
         
         tests.put("testAddVertexThroughput", () -> testAddVertexThroughput());
@@ -114,12 +121,15 @@ public class MeasurementClient {
     
     private enum CommandCode {
         RUN,
+        RUN_CONTINUOUSLY,
+        STOP,
         DIE,
     }
     
     private enum ReturnStatus {
         STATUS_OK,
         UNRECOGNIZED_COMMAND,
+        INVALID_COMMAND,
     }
     
     private String getRegisterKey(int clientIndex, ControlRegister reg) {
@@ -217,6 +227,17 @@ public class MeasurementClient {
         }
     }
     
+    private CommandCode checkForCommand() {
+        String regKey = getRegisterKey(clientIndex, ControlRegister.COMMAND);
+     
+        try {
+            RAMCloudObject obj = cluster.read(controlTableId, regKey);
+            return CommandCode.valueOf(obj.getValue());
+        } catch (TableDoesntExistException | ObjectDoesntExistException e) {
+            return null;
+        }
+    }
+    
     private String readCommandArguments() {
         String regKey = getRegisterKey(clientIndex, ControlRegister.ARGUMENTS);
         try {
@@ -258,11 +279,20 @@ public class MeasurementClient {
         RAMCloudGraph graph = RAMCloudGraph.open(ramCloudGraphConfig);
         
         if(clientIndex == 0) {
-            logFile.println("## testAddVertexThroughput(): testDuration=" + testDuration + ", numMasters=" + numMasters);
-            logFile.println("## clients      operations per second");
-            logFile.println("## ----------------------------------");
+            PrintWriter dataFile;
+            try {
+                dataFile = new PrintWriter(logDir + "/testAddVertexThroughput.data", "UTF-8");
+            } catch (FileNotFoundException | UnsupportedEncodingException ex) {
+                logger.log(Level.SEVERE, null, ex);
+                return;
+            }
+
+            dataFile.println("## testAddVertexThroughput(): testDuration=" + testDuration + ", numMasters=" + numMasters);
+            dataFile.println("## clients      operations per second");
+            dataFile.println("## ----------------------------------");
             
             for (int slaves = 1; slaves < numClients; ++slaves) {
+                System.out.println("testAddVertexThroughput(): testDuration=" + testDuration + ", numMasters=" + numMasters + ", clients=" + slaves);
                 try {
                     pollSlaves(1, slaves, 10.0);
                 } catch (Exception ex) {
@@ -289,8 +319,8 @@ public class MeasurementClient {
                 for (int i = 0; i < slaves; ++i)
                     totalOps += Long.decode(retVals[i]);
                 
-                logFile.println(String.format("%8d\t%d", slaves, totalOps/elapsedTime));
-                logFile.flush();
+                dataFile.println(String.format("%8d\t%d", slaves, totalOps/elapsedTime));
+                dataFile.flush();
             }
             
             issueCommandToSlaves(CommandCode.DIE, null, 1, numClients-1);
@@ -301,6 +331,10 @@ public class MeasurementClient {
                 logger.log(Level.SEVERE, null, ex);
             }
             
+            dataFile.flush();
+            dataFile.close();
+            graph.deleteDatabaseAndCloseConnection();
+            return;
         } else {
             setStatusAndReturnValue(ReturnStatus.STATUS_OK, null);
             
@@ -324,17 +358,16 @@ public class MeasurementClient {
                     setStatusAndReturnValue(ReturnStatus.STATUS_OK, Long.toString(opCount));
                 } else if (cmd == CommandCode.DIE) { 
                     setStatusAndReturnValue(ReturnStatus.STATUS_OK, null);
-                    break;
+                    graph.close();
+                    return;
                 } else {
                     // Don't recognize this command."
                     setStatusAndReturnValue(ReturnStatus.UNRECOGNIZED_COMMAND, null);
+                    graph.close();
+                    return;
                 }
             }
         }
-        
-        logFile.flush();
-        
-        graph.deleteDatabaseAndCloseConnection();
     }
     
     public void testAddVertexLatency() {
@@ -345,116 +378,123 @@ public class MeasurementClient {
         
         RAMCloudGraph graph = RAMCloudGraph.open(ramCloudGraphConfig);
         
-        int opCount = 0;
-        long startTime, endTime, elapsedTime;
+        if (clientIndex == 0) {
+            for (int slaves = 1; slaves < numClients; ++slaves) {
+                System.out.println("testAddVertexLatency(): numSamples=" + numSamples + ", numMasters=" + numMasters + ", clients=" + slaves);
+                PrintWriter dataFile;
+                try {
+                    dataFile = new PrintWriter(logDir + "/testAddVertexLatency" + slaves + ".data", "UTF-8");
+                } catch (FileNotFoundException | UnsupportedEncodingException ex) {
+                    logger.log(Level.SEVERE, null, ex);
+                    return;
+                }
 
-        List<Double> latencyTimes = new ArrayList<>();
-        
-        startTime = System.nanoTime();
-        while (true) {
-            long opStartTime = System.nanoTime();
-            graph.addVertex(T.label, "Person", "name", "Raggles");
-            long latency = System.nanoTime() - opStartTime;
+                dataFile.println("## testAddVertexLatency(): numSamples=" + numSamples + ", numMasters=" + numMasters + ", clients=" + slaves);
+                dataFile.println("## latency (us)      % Samples > X");
+                dataFile.println("## ----------------------------------");
+
+                // Wait for slaves to be ready.
+                try {
+                    pollSlaves(1, slaves, 10.0);
+                } catch (Exception ex) {
+                    logger.log(Level.SEVERE, null, ex);
+                    issueCommandToSlaves(CommandCode.DIE, null, 1, numClients - 1);
+                    return;
+                }
+
+                issueCommandToSlaves(CommandCode.RUN_CONTINUOUSLY, null, 1, slaves);
+
+                // Wait for slaves to be running.
+                try {
+                    pollSlaves(1, slaves, 10.0);
+                } catch (Exception ex) {
+                    logger.log(Level.SEVERE, null, ex);
+                    issueCommandToSlaves(CommandCode.DIE, null, 1, numClients - 1);
+                    return;
+                }
+                
+                // Take measurements.
+                List<Double> latencyTimesUs = new ArrayList<Double>(numSamples);
+                for (int i = 0; i < numSamples; ++i) {
+                    long opStartTime = System.nanoTime();
+                    graph.addVertex(T.label, "Person", "name", "Raggles");
+                    long latency = System.nanoTime() - opStartTime;
+
+                    latencyTimesUs.add(((double) latency)/1000.0);
+                }
+
+                issueCommandToSlaves(CommandCode.STOP, null, 1, slaves);
+                
+                Collections.sort(latencyTimesUs);
+
+                for (int i = 0; i < numSamples; ++i) {
+                    double percentile = (double) i / (double) numSamples;
+                    dataFile.println(String.format("%8.1f\t%.6f", latencyTimesUs.get(i), 1.0 - percentile));
+                }
+
+                dataFile.flush();
+                dataFile.close();
+            }
+
+            // Wait for slaves to be stopped.
+            try {
+                pollSlaves(1, numClients - 1, 10.0);
+            } catch (Exception ex) {
+                logger.log(Level.SEVERE, null, ex);
+            }
             
-            latencyTimes.add((double)latency);
+            // Command slaves to die.
+            issueCommandToSlaves(CommandCode.DIE, null, 1, numClients - 1);
+
+            try {
+                pollSlaves(1, numClients - 1, 10.0);
+            } catch (Exception ex) {
+                logger.log(Level.SEVERE, null, ex);
+            }
+
+            graph.deleteDatabaseAndCloseConnection();
+            return;
+        } else {
+            setStatusAndReturnValue(ReturnStatus.STATUS_OK, null);
             
-            opCount++;
-            if (opCount % 1000 == 0) {
-                if ((System.nanoTime() - startTime) / 1000000000L > testDuration) {
-                    break;
+            while(true) {
+                CommandCode cmd = pollForCommand();
+
+                if (cmd == CommandCode.RUN_CONTINUOUSLY) {
+                    setStatusAndReturnValue(ReturnStatus.STATUS_OK, null);
+                    
+                    long startTime = System.currentTimeMillis();
+                    while (true) {
+                        graph.addVertex(T.label, "Person", "name", "Raggles");
+                        if (System.currentTimeMillis() - startTime > 100l) {
+                            cmd = checkForCommand();
+                            if (cmd == null) {
+                                startTime = System.currentTimeMillis();
+                            } else if (cmd == CommandCode.DIE) {
+                                setStatusAndReturnValue(ReturnStatus.STATUS_OK, null);
+                                graph.close();
+                                return;
+                            } else if (cmd == CommandCode.STOP) {
+                                setStatusAndReturnValue(ReturnStatus.STATUS_OK, null);
+                                break;
+                            } else {
+                                setStatusAndReturnValue(ReturnStatus.INVALID_COMMAND, null);
+                                startTime = System.currentTimeMillis();
+                            }
+                        }
+                    }
+                } else if (cmd == CommandCode.DIE) { 
+                    setStatusAndReturnValue(ReturnStatus.STATUS_OK, null);
+                    graph.close();
+                    return;
+                } else {
+                    // Don't recognize this command."
+                    setStatusAndReturnValue(ReturnStatus.UNRECOGNIZED_COMMAND, null);
+                    graph.close();
+                    return;
                 }
             }
         }
-        endTime = System.nanoTime();
-        elapsedTime = endTime - startTime;
-
-        System.out.println("Test Finished. Stats:");
-        System.out.println("\tTest Duration: " + elapsedTime / 1000000000L + "s");
-        System.out.println("\tVertices added: " + opCount);
-        System.out.println("\tThroughput: " + opCount / (elapsedTime / 1000000000L) + " operations per second");
-        System.out.println("\tAvg. Latency: " + (elapsedTime / 1000L) / opCount + "us");
-        
-        Collections.sort(latencyTimes);
-        int samples = latencyTimes.size();
-        
-        // Full plot.
-        final XYSeries ccdf_full = new XYSeries("First");
-        for(int i = 0; i < samples; ++i) {
-            double percentile = (double)i/(double)samples;
-            ccdf_full.add((double)latencyTimes.get(i)/1000.0, 1.0 - percentile);
-        }
-        final XYSeriesCollection dataset_full = new XYSeriesCollection();
-        dataset_full.addSeries(ccdf_full);
-        final JFreeChart chart_full = ChartFactory.createXYLineChart(
-            "Latency CCDF",      // chart title
-            "Latency (us)",                      // x axis label
-            "Percent > X",                      // y axis label
-            dataset_full,                  // data
-            PlotOrientation.VERTICAL,
-            true,                     // include legend
-            true,                     // tooltips
-            false                     // urls
-        );
-        XYPlot plot_full = (XYPlot) chart_full.getPlot();
-        plot_full.setDomainPannable(true);
-        plot_full.setRangePannable(true);
-        plot_full.setDomainGridlineStroke(new BasicStroke(1.0f));
-        plot_full.setRangeGridlineStroke(new BasicStroke(1.0f));
-        plot_full.setDomainMinorGridlinesVisible(true);
-        plot_full.setRangeMinorGridlinesVisible(true);
-        plot_full.setDomainMinorGridlineStroke(new BasicStroke(0.1f));
-        plot_full.setRangeMinorGridlineStroke(new BasicStroke(0.1f));
-        LogAxis yAxis = new LogAxis("Percent > X");
-        plot_full.setRangeAxis(yAxis);
-
-        ChartUtilities.applyCurrentTheme(chart_full);
-        
-        try {
-            ChartUtilities.saveChartAsJPEG(new File("chart_full.jpg"), chart_full, 640, 480);
-        } catch (IOException ex) {
-            logger.log(Level.SEVERE, null, ex);
-        }
-        
-        // Plot to 99%
-        final XYSeries ccdf_99 = new XYSeries("First");
-        for(int i = 0; i < samples; ++i) {
-            double percentile = (double)i/(double)samples;
-            ccdf_99.add((double)latencyTimes.get(i)/1000.0, 1.0 - percentile);
-            if(percentile > 0.99)
-                break;
-        }
-        final XYSeriesCollection dataset_99 = new XYSeriesCollection();
-        dataset_99.addSeries(ccdf_99);
-        final JFreeChart chart_99 = ChartFactory.createXYLineChart(
-            "Latency CCDF",      // chart title
-            "Latency (us)",                      // x axis label
-            "Percent > X",                      // y axis label
-            dataset_99,                  // data
-            PlotOrientation.VERTICAL,
-            true,                     // include legend
-            true,                     // tooltips
-            false                     // urls
-        );
-        XYPlot plot_99 = (XYPlot) chart_99.getPlot();
-        plot_99.setDomainPannable(true);
-        plot_99.setRangePannable(true);
-        plot_99.setDomainGridlineStroke(new BasicStroke(1.0f));
-        plot_99.setRangeGridlineStroke(new BasicStroke(1.0f));
-        plot_99.setDomainMinorGridlinesVisible(true);
-        plot_99.setRangeMinorGridlinesVisible(true);
-        plot_99.setDomainMinorGridlineStroke(new BasicStroke(0.1f));
-        plot_99.setRangeMinorGridlineStroke(new BasicStroke(0.1f));
-        plot_99.setRangeAxis(yAxis);
-
-        ChartUtilities.applyCurrentTheme(chart_99);
-        
-        try {
-            ChartUtilities.saveChartAsJPEG(new File("chart_99.jpg"), chart_99, 640, 480);
-        } catch (IOException ex) {
-            logger.log(Level.SEVERE, null, ex);
-        }
-        
-        graph.close();
     }
     
     public void executeTest(String testName) {
@@ -472,6 +512,7 @@ public class MeasurementClient {
         String logFileName;
         int numMasters;
         long testDuration;
+        int numSamples;
         int threads;
         String testName;
         
@@ -481,6 +522,7 @@ public class MeasurementClient {
         options.addOption(null, "logFile", true, "File to use as the log.");
         options.addOption(null, "numMasters", true, "Total master servers.");
         options.addOption(null, "testDuration", true, "Duration of each test.");
+        options.addOption(null, "numSamples", true, "Number of samples to take.");
         options.addOption(null, "threads", true, "Number of threads to use.");
         options.addOption(null, "testName", true, "Name of the test to run.");
         options.addOption("h", "help", false, "Print usage.");
@@ -517,6 +559,7 @@ public class MeasurementClient {
         
         // Optional parameters.
         testDuration = Long.decode(cmd.getOptionValue("testDuration", "5"));
+        numSamples = Integer.decode(cmd.getOptionValue("numSamples", "1000000"));
         threads = Integer.decode(cmd.getOptionValue("threads", "1"));
         numClients = Integer.decode(cmd.getOptionValue("numClients", "1"));
         clientIndex = Integer.decode(cmd.getOptionValue("clientIndex", "0"));
@@ -531,12 +574,16 @@ public class MeasurementClient {
             return;
         }
         
+        String logDir = FilenameUtils.getFullPathNoEndSeparator(logFileName);
+        
         MeasurementClient mc = new MeasurementClient(   coordinatorLocator,
                                                         numClients,
                                                         clientIndex,
                                                         logFile,
+                                                        logDir,
                                                         numMasters,
                                                         testDuration,
+                                                        numSamples,
                                                         threads);
         
         mc.executeTest(testName);
