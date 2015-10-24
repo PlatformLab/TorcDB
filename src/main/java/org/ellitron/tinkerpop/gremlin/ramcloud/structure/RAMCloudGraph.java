@@ -135,11 +135,10 @@ public final class RAMCloudGraph implements Graph {
         long id = ramcloud.incrementInt64(idTableId, LARGEST_ID_KEY.getBytes(), 1, null);
         
         // Serialize the key/value pairs, starting with the label.
-        ByteBuffer key = ByteBuffer.allocate(Long.BYTES);
-        key.putLong(id);
+        String key = String.format("%d:%s", id, "properties");
         ByteBuffer value = RAMCloudHelper.serializeProperties(properties);
         
-        ramcloud.write(vertexTableId, key.array(), value.array(), null);
+        ramcloud.write(vertexTableId, key, value.array(), null);
         
         RAMCloudVertex resultVertex = new RAMCloudVertex(this, id, label);
         
@@ -161,18 +160,16 @@ public final class RAMCloudGraph implements Graph {
         ElementHelper.validateMixedElementIds(RAMCloudVertex.class, vertexIds);
         
         List<Vertex> list = new ArrayList<>();
-        ByteBuffer key = ByteBuffer.allocate(Long.BYTES);
         
         for (int i = 0; i < vertexIds.length; ++i) {
             if(!(vertexIds[i] instanceof Long))
                 throw Vertex.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
             
-            key.rewind();
-            key.putLong((Long)vertexIds[i]);
+            String key = String.format("%d:%s", (Long)vertexIds[i], "properties");
             
             RAMCloudObject obj;
             try {
-                obj = ramcloud.read(vertexTableId, key.array());
+                obj = ramcloud.read(vertexTableId, key);
             } catch (ObjectDoesntExistException e) {
                 throw Graph.Exceptions.elementNotFound(RAMCloudVertex.class, (Long)vertexIds[i]);
             }
@@ -261,10 +258,8 @@ public final class RAMCloudGraph implements Graph {
     }
 
     <V> Iterator<VertexProperty<V>> getVertexProperties(final RAMCloudVertex vertex, final String[] propertyKeys) {
-        ByteBuffer key = ByteBuffer.allocate(Long.BYTES);
-        key.putLong((long) vertex.id());
-        
-        RAMCloudObject obj = ramcloud.read(vertexTableId, key.array());
+        String key = String.format("%d:%s", (long) vertex.id(), "properties");
+        RAMCloudObject obj = ramcloud.read(vertexTableId, key);
         
         ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
         value.put(obj.getValueBytes());
@@ -303,15 +298,14 @@ public final class RAMCloudGraph implements Graph {
         if (!(value instanceof String))
             throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(value);
         
-        ByteBuffer rcKey = ByteBuffer.allocate(Long.BYTES);
-        rcKey.putLong((long) vertex.id());
+        String rcKey = String.format("%d:%s", (long) vertex.id(), "properties");
         
         int txRetryCount = 0;
         
         while(txRetryCount < MAX_TX_RETRY_COUNT) {
             RAMCloudTransaction tx = new RAMCloudTransaction(ramcloud);
 
-            RAMCloudObject obj = tx.read(vertexTableId, rcKey.array());
+            RAMCloudObject obj = tx.read(vertexTableId, rcKey);
 
             ByteBuffer rcValue = ByteBuffer.allocate(obj.getValueBytes().length);
             rcValue.put(obj.getValueBytes());
@@ -335,7 +329,7 @@ public final class RAMCloudGraph implements Graph {
 
             ByteBuffer newRcValue = RAMCloudHelper.serializeProperties(properties);
 
-            tx.write(vertexTableId, rcKey.array(), newRcValue.array());
+            tx.write(vertexTableId, rcKey, newRcValue.array());
 
             if (tx.commitAndSync())
                 break;
@@ -348,19 +342,19 @@ public final class RAMCloudGraph implements Graph {
 
     /** Methods called by RAMCloudEdge. */
     
-    void removeEdge(RAMCloudEdge aThis) {
+    void removeEdge(RAMCloudEdge edge) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
-    Iterator<Vertex> edgeVertices(RAMCloudEdge aThis, Direction direction) {
+    Iterator<Vertex> edgeVertices(RAMCloudEdge edge, Direction direction) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
-    <V> Iterator<Property<V>> getEdgeProperties(RAMCloudEdge aThis, String[] propertyKeys) {
+    <V> Iterator<Property<V>> getEdgeProperties(RAMCloudEdge edge, String[] propertyKeys) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
-    <V> Property<V> setEdgeProperty(RAMCloudEdge aThis, String key, V value) {
+    <V> Property<V> setEdgeProperty(RAMCloudEdge edge, String key, V value) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
     
