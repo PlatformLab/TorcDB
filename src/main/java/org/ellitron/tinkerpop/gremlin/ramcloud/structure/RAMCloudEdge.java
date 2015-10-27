@@ -29,7 +29,7 @@ import org.apache.tinkerpop.gremlin.structure.VertexProperty;
  */
 public class RAMCloudEdge extends RAMCloudElement implements Edge {
     
-    public RAMCloudEdge(final RAMCloudGraph graph, final String id, final String label) {
+    public RAMCloudEdge(final RAMCloudGraph graph, final byte[] id, final String label) {
         super(graph, id, label);
     }
 

@@ -24,10 +24,10 @@ import org.apache.tinkerpop.gremlin.structure.Graph;
  */
 public abstract class RAMCloudElement implements Element {
     final RAMCloudGraph graph;
-    String id;
+    byte[] id;
     String label;
     
-    public RAMCloudElement(final RAMCloudGraph graph, final String id, final String label) {
+    public RAMCloudElement(final RAMCloudGraph graph, final byte[] id, final String label) {
         this.graph = graph;
         this.id = id;
         this.label = label;

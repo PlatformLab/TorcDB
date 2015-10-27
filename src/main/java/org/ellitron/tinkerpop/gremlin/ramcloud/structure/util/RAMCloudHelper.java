@@ -15,9 +15,11 @@
  */
 package org.ellitron.tinkerpop.gremlin.ramcloud.structure.util;
 
+import edu.stanford.ramcloud.RAMCloudObject;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.tinkerpop.gremlin.structure.Direction;
 
 /**
  *
@@ -58,7 +60,52 @@ public class RAMCloudHelper {
         return propertyMap;
     }
     
-    public static String makeVertexId(long clientId, long localVertexId) {
-        return String.format("%X-%X", clientId, localVertexId);
+    public static Map<String, String> deserializeProperties(RAMCloudObject obj) {
+        ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
+        value.put(obj.getValueBytes());
+        value.rewind();
+        return deserializeProperties(value);
+    }
+    
+    public static byte[] makeVertexId(long clientId, long localVertexId) {
+        ByteBuffer id = ByteBuffer.allocate(Long.BYTES*2);
+        id.putLong(clientId);
+        id.putLong(localVertexId);
+        return id.array();
+    }
+    
+    public static boolean validateVertexId(Object vertexId) {
+        if (!(vertexId instanceof byte[]))
+            return false;
+        
+        if (((byte[]) vertexId).length != Long.BYTES*2)
+            return false;
+        
+        return true;
+    }
+    
+    public static String stringifyVertexId(byte[] vertexId) {
+        ByteBuffer id = ByteBuffer.allocate(vertexId.length);
+        id.put(vertexId);
+        id.rewind();
+        long creatorId = id.getLong();
+        long creatorAssignedId = id.getLong();
+        return String.format("%X-%X", creatorId, creatorAssignedId);
+    }
+    
+    public static String getVertexLabelKey(byte[] vertexId) {
+        return stringifyVertexId(vertexId) + ":label";
+    }
+    
+    public static String getVertexPropertiesKey(byte[] vertexId) {
+        return stringifyVertexId(vertexId) + ":props";
+    }
+    
+    public static String getVertexEdgeListKey(byte[] vertexId, String label, Direction direction) {
+        return stringifyVertexId(vertexId) + ":edges:" + label + ":" + direction.name();
+    }
+    
+    public static String getVertexLabelListKey(byte[] vertexId) {
+        return stringifyVertexId(vertexId) + ":edgeLabels";
     }
 }
