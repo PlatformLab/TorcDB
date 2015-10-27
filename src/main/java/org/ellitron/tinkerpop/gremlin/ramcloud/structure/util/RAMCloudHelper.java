@@ -57,4 +57,8 @@ public class RAMCloudHelper {
         
         return propertyMap;
     }
+    
+    public static String makeVertexId(long clientId, long localVertexId) {
+        return String.format("%X-%X", clientId, localVertexId);
+    }
 }

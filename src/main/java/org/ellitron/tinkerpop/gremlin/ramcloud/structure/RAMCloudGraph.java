@@ -75,7 +75,7 @@ public final class RAMCloudGraph implements Graph {
     private static final String ID_TABLE_NAME = "idTable";
     private static final String VERTEX_TABLE_NAME = "vertexTable";
     private static final String EDGE_TABLE_NAME = "edgeTable";
-    private static final String LARGEST_ID_KEY = "largestId";
+    private static final String LARGEST_CLIENT_ID_KEY = "largestClientId";
     private static final int MAX_TX_RETRY_COUNT = 100;
     
     // Normal private members.
@@ -85,6 +85,8 @@ public final class RAMCloudGraph implements Graph {
     private final RAMCloud ramcloud;
     private final long idTableId, vertexTableId, edgeTableId;
     private final String graphName;
+    private final long clientId;
+    private long nextLocalVertexId = 1;
 //    private RAMCloudTransaction tx;
     
     private RAMCloudGraph(final Configuration configuration) {
@@ -104,6 +106,8 @@ public final class RAMCloudGraph implements Graph {
         idTableId = ramcloud.createTable(graphName + "_" + ID_TABLE_NAME, totalMasterServers);
         vertexTableId = ramcloud.createTable(graphName + "_" + VERTEX_TABLE_NAME, totalMasterServers);
         edgeTableId = ramcloud.createTable(graphName + "_" + EDGE_TABLE_NAME, totalMasterServers);
+        
+        clientId = ramcloud.incrementInt64(idTableId, LARGEST_CLIENT_ID_KEY.getBytes(), 1, null);
         
 //        tx = new RAMCloudTransaction(ramcloud);
     }
@@ -135,15 +139,14 @@ public final class RAMCloudGraph implements Graph {
                 properties.put((String)keyValues[i], (String)keyValues[i+1]);
         }
         
-        long id = ramcloud.incrementInt64(idTableId, LARGEST_ID_KEY.getBytes(), 1, null);
-        
-        // Serialize the key/value pairs, starting with the label.
-        String key = String.format("%d:%s", id, "properties");
+        String vertexId = RAMCloudHelper.makeVertexId(clientId, nextLocalVertexId);
+        nextLocalVertexId++;
+        String key = String.format("%s:%s", vertexId, "properties");
         ByteBuffer value = RAMCloudHelper.serializeProperties(properties);
         
         ramcloud.write(vertexTableId, key, value.array());
         
-        RAMCloudVertex resultVertex = new RAMCloudVertex(this, id, label);
+        RAMCloudVertex resultVertex = new RAMCloudVertex(this, vertexId, label);
         
         return resultVertex;
     }
@@ -165,16 +168,16 @@ public final class RAMCloudGraph implements Graph {
         List<Vertex> list = new ArrayList<>();
         
         for (int i = 0; i < vertexIds.length; ++i) {
-            if(!(vertexIds[i] instanceof Long))
+            if(!(vertexIds[i] instanceof String))
                 throw Vertex.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
-            
-            String key = String.format("%d:%s", (Long)vertexIds[i], "properties");
+
+            String key = String.format("%s:%s", (String) vertexIds[i], "properties");
             
             RAMCloudObject obj;
             try {
                 obj = ramcloud.read(vertexTableId, key);
             } catch (ObjectDoesntExistException e) {
-                throw Graph.Exceptions.elementNotFound(RAMCloudVertex.class, (Long)vertexIds[i]);
+                throw Graph.Exceptions.elementNotFound(RAMCloudVertex.class, (String) vertexIds[i]);
             }
             
             ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
@@ -188,7 +191,7 @@ public final class RAMCloudGraph implements Graph {
             byte label[] = new byte[strLen];
             value.get(label);
             
-            list.add(new RAMCloudVertex(this, (Long)vertexIds[i], new String(label)));
+            list.add(new RAMCloudVertex(this, (String) vertexIds[i], new String(label)));
         }
         
         return list.iterator();
@@ -248,8 +251,17 @@ public final class RAMCloudGraph implements Graph {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
-    Edge addEdge(RAMCloudVertex vertex, Vertex inVertex, String label, Object[] keyValues) {
+    Edge addEdge(RAMCloudVertex outVertex, Vertex inVertex, String label, Object[] keyValues) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        // Validate that these key/value pairs are all strings
+//        if (keyValues.length % 2 != 0)
+//            throw Element.Exceptions.providedKeyValuesMustBeAMultipleOfTwo();
+//        for (int i = 0; i < keyValues.length; i = i + 2) {
+//            if (!(keyValues[i] instanceof String))
+//                throw Element.Exceptions.providedKeyValuesMustHaveALegalKeyOnEvenIndices();
+//            if (!(keyValues[i+1] instanceof String))
+//                throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(keyValues[i+1]);
+//        }
     }
 
     Iterator<Edge> vertexEdges(RAMCloudVertex vertex, Direction direction, String[] edgeLabels) {
@@ -261,7 +273,7 @@ public final class RAMCloudGraph implements Graph {
     }
 
     <V> Iterator<VertexProperty<V>> getVertexProperties(final RAMCloudVertex vertex, final String[] propertyKeys) {
-        String key = String.format("%d:%s", (long) vertex.id(), "properties");
+        String key = String.format("%s:%s", (String) vertex.id(), "properties");
         RAMCloudObject obj = ramcloud.read(vertexTableId, key);
         
         ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
@@ -301,7 +313,7 @@ public final class RAMCloudGraph implements Graph {
         if (!(value instanceof String))
             throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(value);
         
-        String rcKey = String.format("%d:%s", (long) vertex.id(), "properties");
+        String rcKey = String.format("%s:%s", (String) vertex.id(), "properties");
         
         RAMCloudObject obj = ramcloud.read(vertexTableId, rcKey);
 

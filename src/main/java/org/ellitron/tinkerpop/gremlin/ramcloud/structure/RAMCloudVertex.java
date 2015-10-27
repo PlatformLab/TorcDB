@@ -35,7 +35,7 @@ import org.apache.tinkerpop.gremlin.structure.VertexProperty;
  */
 public class RAMCloudVertex extends RAMCloudElement implements Vertex {
     
-    public RAMCloudVertex(final RAMCloudGraph graph, final long id, final String label) {
+    public RAMCloudVertex(final RAMCloudGraph graph, final String id, final String label) {
         super(graph, id, label);
     }
 
