@@ -85,6 +85,7 @@ public final class RAMCloudGraph implements Graph {
     private final RAMCloud ramcloud;
     private final long idTableId, vertexTableId, edgeTableId;
     private final String graphName;
+//    private RAMCloudTransaction tx;
     
     private RAMCloudGraph(final Configuration configuration) {
         this.configuration = configuration;
@@ -103,6 +104,8 @@ public final class RAMCloudGraph implements Graph {
         idTableId = ramcloud.createTable(graphName + "_" + ID_TABLE_NAME, totalMasterServers);
         vertexTableId = ramcloud.createTable(graphName + "_" + VERTEX_TABLE_NAME, totalMasterServers);
         edgeTableId = ramcloud.createTable(graphName + "_" + EDGE_TABLE_NAME, totalMasterServers);
+        
+//        tx = new RAMCloudTransaction(ramcloud);
     }
     
     public static RAMCloudGraph open(final Configuration configuration) {
@@ -138,7 +141,7 @@ public final class RAMCloudGraph implements Graph {
         String key = String.format("%d:%s", id, "properties");
         ByteBuffer value = RAMCloudHelper.serializeProperties(properties);
         
-        ramcloud.write(vertexTableId, key, value.array(), null);
+        ramcloud.write(vertexTableId, key, value.array());
         
         RAMCloudVertex resultVertex = new RAMCloudVertex(this, id, label);
         
@@ -300,43 +303,32 @@ public final class RAMCloudGraph implements Graph {
         
         String rcKey = String.format("%d:%s", (long) vertex.id(), "properties");
         
-        int txRetryCount = 0;
-        
-        while(txRetryCount < MAX_TX_RETRY_COUNT) {
-            RAMCloudTransaction tx = new RAMCloudTransaction(ramcloud);
+        RAMCloudObject obj = ramcloud.read(vertexTableId, rcKey);
 
-            RAMCloudObject obj = tx.read(vertexTableId, rcKey);
+        ByteBuffer rcValue = ByteBuffer.allocate(obj.getValueBytes().length);
+        rcValue.put(obj.getValueBytes());
+        rcValue.rewind();
 
-            ByteBuffer rcValue = ByteBuffer.allocate(obj.getValueBytes().length);
-            rcValue.put(obj.getValueBytes());
-            rcValue.rewind();
+        Map<String, String> properties = RAMCloudHelper.deserializeProperties(rcValue);
 
-            Map<String, String> properties = RAMCloudHelper.deserializeProperties(rcValue);
-
-            if (properties.containsKey(key)) {
-                if (cardinality == VertexProperty.Cardinality.single) {
-                    properties.put(key, (String) value);
-                } else if (cardinality == VertexProperty.Cardinality.list) {
-                    throw VertexProperty.Exceptions.multiPropertiesNotSupported();
-                } else if (cardinality == VertexProperty.Cardinality.set) {
-                    throw VertexProperty.Exceptions.multiPropertiesNotSupported();
-                } else {
-                    throw new UnsupportedOperationException("Do not recognize Cardinality of this type: " + cardinality.toString());
-                }
-            } else {
+        if (properties.containsKey(key)) {
+            if (cardinality == VertexProperty.Cardinality.single) {
                 properties.put(key, (String) value);
+            } else if (cardinality == VertexProperty.Cardinality.list) {
+                throw VertexProperty.Exceptions.multiPropertiesNotSupported();
+            } else if (cardinality == VertexProperty.Cardinality.set) {
+                throw VertexProperty.Exceptions.multiPropertiesNotSupported();
+            } else {
+                throw new UnsupportedOperationException("Do not recognize Cardinality of this type: " + cardinality.toString());
             }
-
-            ByteBuffer newRcValue = RAMCloudHelper.serializeProperties(properties);
-
-            tx.write(vertexTableId, rcKey, newRcValue.array());
-
-            if (tx.commitAndSync())
-                break;
-            else
-                txRetryCount++;
+        } else {
+            properties.put(key, (String) value);
         }
-        
+
+        ByteBuffer newRcValue = RAMCloudHelper.serializeProperties(properties);
+
+        ramcloud.write(vertexTableId, rcKey, newRcValue.array());
+
         return new RAMCloudVertexProperty(vertex, key, value);
     }
 
