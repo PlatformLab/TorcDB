@@ -46,7 +46,7 @@ public class RAMCloudVertex extends RAMCloudElement implements Vertex {
 
     @Override
     public Edge addEdge(String label, Vertex inVertex, Object... keyValues) {
-        return graph.addEdge(this, inVertex, label, keyValues);
+        return graph.addEdge(this, (RAMCloudVertex) inVertex, label, keyValues);
     }
     
     @Override

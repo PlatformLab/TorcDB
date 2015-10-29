@@ -17,6 +17,8 @@ package org.ellitron.tinkerpop.gremlin.ramcloud.structure;
 
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
+import org.ellitron.tinkerpop.gremlin.ramcloud.structure.util.RAMCloudHelper;
 
 /**
  *
@@ -34,7 +36,7 @@ public abstract class RAMCloudElement implements Element {
     }
     
     @Override
-    public Object id() {
+    public byte[] id() {
         return id;
     }
 
@@ -46,5 +48,15 @@ public abstract class RAMCloudElement implements Element {
     @Override
     public Graph graph() {
         return graph;
+    }
+    
+    @Override
+    public boolean equals(final Object object) {
+        return RAMCloudHelper.areEqual(this, object);
+    }
+    
+    @Override
+    public int hashCode() {
+        return ElementHelper.hashCode(this);
     }
 }
