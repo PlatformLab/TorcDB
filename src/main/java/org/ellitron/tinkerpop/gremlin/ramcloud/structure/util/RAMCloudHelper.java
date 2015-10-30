@@ -195,6 +195,18 @@ public class RAMCloudHelper {
         return stringifyVertexId(vertexId) + ":edgeLabels";
     }
     
+    public static boolean isVertexLabelKey(String key) {
+        String[] parts = key.split(":");
+        if (parts.length > 1) {
+            if (parts[1].equals("label"))
+                return true;
+            
+            return false;
+        }
+        
+        return false;
+    }
+    
     public static boolean isVertexPropertiesKey(String key) {
         String[] parts = key.split(":");
         if (parts.length > 1) {
