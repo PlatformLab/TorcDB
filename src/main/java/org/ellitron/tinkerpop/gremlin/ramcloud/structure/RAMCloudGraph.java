@@ -693,12 +693,12 @@ public final class RAMCloudGraph implements Graph {
         
         @Override
         public boolean supportsAddProperty() {
-            return false;
+            return true;
         }
         
         @Override
         public boolean supportsRemoveProperty() {
-            return false;
+            return true;
         }
                 
         @Override
