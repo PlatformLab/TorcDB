@@ -48,6 +48,7 @@ import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.T;
+import org.apache.tinkerpop.gremlin.structure.util.AbstractTransaction;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.util.RAMCloudHelper;
 
 /**
@@ -87,7 +88,7 @@ public final class RAMCloudGraph implements Graph {
     private final String graphName;
     private final long clientId;
     private long nextLocalVertexId = 1;
-//    private RAMCloudTransaction tx;
+    private RAMCloudGraphTransaction ramcloudGraphTransaction = new RAMCloudGraphTransaction();
     
     private RAMCloudGraph(final Configuration configuration) {
         this.configuration = configuration;
@@ -108,8 +109,6 @@ public final class RAMCloudGraph implements Graph {
         edgeTableId = ramcloud.createTable(graphName + "_" + EDGE_TABLE_NAME, totalMasterServers);
         
         clientId = ramcloud.incrementInt64(idTableId, LARGEST_CLIENT_ID_KEY.getBytes(), 1, null);
-        
-//        tx = new RAMCloudTransaction(ramcloud);
     }
     
     public static RAMCloudGraph open(final Configuration configuration) {
@@ -122,6 +121,9 @@ public final class RAMCloudGraph implements Graph {
     
     @Override
     public Vertex addVertex(final Object... keyValues) {
+        ramcloudGraphTransaction.readWrite();
+        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        
         // Validate key/value pairs
         if (keyValues.length % 2 != 0)
             throw Element.Exceptions.providedKeyValuesMustBeAMultipleOfTwo();
@@ -145,8 +147,8 @@ public final class RAMCloudGraph implements Graph {
                 properties.put((String)keyValues[i], (String)keyValues[i+1]);
         }
         
-        ramcloud.write(vertexTableId, RAMCloudHelper.getVertexLabelKey(vertexId), label);
-        ramcloud.write(vertexTableId, RAMCloudHelper.getVertexPropertiesKey(vertexId), RAMCloudHelper.serializeProperties(properties).array());
+        tx.write(vertexTableId, RAMCloudHelper.getVertexLabelKey(vertexId), label);
+        tx.write(vertexTableId, RAMCloudHelper.getVertexPropertiesKey(vertexId), RAMCloudHelper.serializeProperties(properties).array());
         
         return new RAMCloudVertex(this, vertexId, label);
     }
@@ -163,6 +165,9 @@ public final class RAMCloudGraph implements Graph {
 
     @Override
     public Iterator<Vertex> vertices(final Object... vertexIds) {
+        ramcloudGraphTransaction.readWrite();
+        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        
         ElementHelper.validateMixedElementIds(RAMCloudVertex.class, vertexIds);
         
         List<Vertex> list = new ArrayList<>();
@@ -178,7 +183,7 @@ public final class RAMCloudGraph implements Graph {
                 
                 RAMCloudObject obj;
                 try {
-                    obj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexLabelKey((byte[]) vertexIds[i]));
+                    obj = tx.read(vertexTableId, RAMCloudHelper.getVertexLabelKey((byte[]) vertexIds[i]));
                 } catch (ObjectDoesntExistException e) {
                     throw Graph.Exceptions.elementNotFound(RAMCloudVertex.class, vertexIds[i]);
                 }
@@ -194,8 +199,13 @@ public final class RAMCloudGraph implements Graph {
             TableIterator iterator = ramcloud.getTableIterator(vertexTableId);
             iterator.forEachRemaining((obj) -> {
                 if (RAMCloudHelper.isVertexLabelKey(obj.getKey())) {
-                    byte[] vertexId = RAMCloudHelper.parseVertexIdFromKey(obj.getKey());
-                    list.add(new RAMCloudVertex(this, vertexId, obj.getValue()));
+                    try {
+                        obj = tx.read(vertexTableId, obj.getKey());
+                        byte[] vertexId = RAMCloudHelper.parseVertexIdFromKey(obj.getKey());
+                        list.add(new RAMCloudVertex(this, vertexId, obj.getValue()));
+                    } catch (ClientException e) {
+                        // Continue
+                    }
                 }
             });
             
@@ -205,6 +215,9 @@ public final class RAMCloudGraph implements Graph {
 
     @Override
     public Iterator<Edge> edges(final Object... edgeIds) {
+        ramcloudGraphTransaction.readWrite();
+        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        
         ElementHelper.validateMixedElementIds(RAMCloudEdge.class, edgeIds);
         
         if (edgeIds.length > 0) {
@@ -230,16 +243,19 @@ public final class RAMCloudGraph implements Graph {
             TableIterator iterator = ramcloud.getTableIterator(vertexTableId);
             iterator.forEachRemaining((obj) -> {
                 if (RAMCloudHelper.isVertexEdgeListKey(obj.getKey())) {
-                    byte[] vertexId = RAMCloudHelper.parseVertexIdFromKey(obj.getKey());
-                    String label = RAMCloudHelper.parseEdgeLabelFromKey(obj.getKey());
                     Direction dir = RAMCloudHelper.parseEdgeDirectionFromKey(obj.getKey());
-                    List<byte[]> neighborIds = RAMCloudHelper.parseNeighborIdsFromEdgeList(obj);
-                    for (byte[] neighborId : neighborIds) {
-                        // Only count in one direction, since each edge appears 
-                        // in both an outgoing edge list and a corresponding 
-                        // incoming edge list.
-                        if (dir.equals(Direction.OUT))
-                            list.add(new RAMCloudEdge(this, RAMCloudHelper.makeEdgeId(vertexId, neighborId, label), label));
+                    if (dir.equals(Direction.OUT)) {
+                        try {
+                            obj = tx.read(vertexTableId, obj.getKey());
+                            byte[] vertexId = RAMCloudHelper.parseVertexIdFromKey(obj.getKey());
+                            String label = RAMCloudHelper.parseEdgeLabelFromKey(obj.getKey());
+                            List<byte[]> neighborIds = RAMCloudHelper.parseNeighborIdsFromEdgeList(obj);
+                            for (byte[] neighborId : neighborIds) {
+                                list.add(new RAMCloudEdge(this, RAMCloudHelper.makeEdgeId(vertexId, neighborId, label), label));
+                            }
+                        } catch (ClientException e) {
+                            // continue
+                        }
                     }
                 }
             });
@@ -250,7 +266,7 @@ public final class RAMCloudGraph implements Graph {
 
     @Override
     public Transaction tx() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return ramcloudGraphTransaction;
     }
 
     @Override
@@ -265,16 +281,19 @@ public final class RAMCloudGraph implements Graph {
 
     @Override
     public void close() {
+        ramcloudGraphTransaction.close();
         ramcloud.disconnect();
     }
     
     public void deleteDatabase() {
+        ramcloudGraphTransaction.close();
         ramcloud.dropTable(graphName + "_" + ID_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + EDGE_TABLE_NAME);
     }
     
     public void deleteDatabaseAndCloseConnection() {
+        ramcloudGraphTransaction.close();
         ramcloud.dropTable(graphName + "_" + ID_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + EDGE_TABLE_NAME);
@@ -298,6 +317,9 @@ public final class RAMCloudGraph implements Graph {
     }
 
     Edge addEdge(final RAMCloudVertex outVertex, final RAMCloudVertex inVertex, final String label, final Object[] keyValues) {
+        ramcloudGraphTransaction.readWrite();
+        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        
         // Validate that these key/value pairs are all strings
         if (keyValues.length % 2 != 0) {
             throw Element.Exceptions.providedKeyValuesMustBeAMultipleOfTwo();
@@ -328,7 +350,7 @@ public final class RAMCloudGraph implements Graph {
         int serializedEdgeLength = Long.BYTES * 2 + Short.BYTES + serializedProperties.array().length;
 
         try {
-            RAMCloudObject outVertEdgeListRCObj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(outVertex.id(), label, Direction.OUT));
+            RAMCloudObject outVertEdgeListRCObj = tx.read(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(outVertex.id(), label, Direction.OUT));
 
             ByteBuffer newOutVertEdgeList = ByteBuffer.allocate(serializedEdgeLength + outVertEdgeListRCObj.getValueBytes().length);
 
@@ -337,7 +359,7 @@ public final class RAMCloudGraph implements Graph {
             newOutVertEdgeList.put(serializedProperties.array());
             newOutVertEdgeList.put(outVertEdgeListRCObj.getValueBytes());
 
-            ramcloud.write(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(outVertex.id(), label, Direction.OUT), newOutVertEdgeList.array());
+            tx.write(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(outVertex.id(), label, Direction.OUT), newOutVertEdgeList.array());
         } catch (ObjectDoesntExistException e) {
             ByteBuffer newOutVertEdgeList = ByteBuffer.allocate(serializedEdgeLength);
             
@@ -345,24 +367,24 @@ public final class RAMCloudGraph implements Graph {
             newOutVertEdgeList.putShort((short) serializedProperties.array().length);
             newOutVertEdgeList.put(serializedProperties.array());
             
-            ramcloud.write(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(outVertex.id(), label, Direction.OUT), newOutVertEdgeList.array());
+            tx.write(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(outVertex.id(), label, Direction.OUT), newOutVertEdgeList.array());
             
             try {
-                RAMCloudObject outVertEdgeLabelListRCObj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(outVertex.id()));
+                RAMCloudObject outVertEdgeLabelListRCObj = tx.read(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(outVertex.id()));
                 List<String> edgeLabelList = RAMCloudHelper.deserializeEdgeLabelList(outVertEdgeLabelListRCObj);
                 if (!edgeLabelList.contains(label)) {
                     edgeLabelList.add(label);
-                    ramcloud.write(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(outVertex.id()), RAMCloudHelper.serializeEdgeLabelList(edgeLabelList).array());
+                    tx.write(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(outVertex.id()), RAMCloudHelper.serializeEdgeLabelList(edgeLabelList).array());
                 }
             } catch (ObjectDoesntExistException e2) {
                 List<String> edgeLabelList = new ArrayList<>();
                 edgeLabelList.add(label);
-                ramcloud.write(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(outVertex.id()), RAMCloudHelper.serializeEdgeLabelList(edgeLabelList).array());
+                tx.write(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(outVertex.id()), RAMCloudHelper.serializeEdgeLabelList(edgeLabelList).array());
             }
         }
         
         try {
-            RAMCloudObject inVertEdgeListRCObj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(inVertex.id(), label, Direction.IN));
+            RAMCloudObject inVertEdgeListRCObj = tx.read(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(inVertex.id(), label, Direction.IN));
 
             ByteBuffer newInVertEdgeList = ByteBuffer.allocate(serializedEdgeLength + inVertEdgeListRCObj.getValueBytes().length);
 
@@ -371,7 +393,7 @@ public final class RAMCloudGraph implements Graph {
             newInVertEdgeList.put(serializedProperties.array());
             newInVertEdgeList.put(inVertEdgeListRCObj.getValueBytes());
 
-            ramcloud.write(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(inVertex.id(), label, Direction.IN), newInVertEdgeList.array());
+            tx.write(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(inVertex.id(), label, Direction.IN), newInVertEdgeList.array());
         } catch (ObjectDoesntExistException e) {
             ByteBuffer newInVertEdgeList = ByteBuffer.allocate(serializedEdgeLength);
 
@@ -379,19 +401,19 @@ public final class RAMCloudGraph implements Graph {
             newInVertEdgeList.putShort((short) serializedProperties.array().length);
             newInVertEdgeList.put(serializedProperties.array());
 
-            ramcloud.write(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(inVertex.id(), label, Direction.IN), newInVertEdgeList.array());
+            tx.write(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(inVertex.id(), label, Direction.IN), newInVertEdgeList.array());
             
             try {
-                RAMCloudObject inVertEdgeLabelListRCObj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(inVertex.id()));
+                RAMCloudObject inVertEdgeLabelListRCObj = tx.read(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(inVertex.id()));
                 List<String> edgeLabelList = RAMCloudHelper.deserializeEdgeLabelList(inVertEdgeLabelListRCObj);
                 if (!edgeLabelList.contains(label)) {
                     edgeLabelList.add(label);
-                    ramcloud.write(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(inVertex.id()), RAMCloudHelper.serializeEdgeLabelList(edgeLabelList).array());
+                    tx.write(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(inVertex.id()), RAMCloudHelper.serializeEdgeLabelList(edgeLabelList).array());
                 }
             } catch (ObjectDoesntExistException e2) {
                 List<String> edgeLabelList = new ArrayList<>();
                 edgeLabelList.add(label);
-                ramcloud.write(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(inVertex.id()), RAMCloudHelper.serializeEdgeLabelList(edgeLabelList).array());
+                tx.write(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(inVertex.id()), RAMCloudHelper.serializeEdgeLabelList(edgeLabelList).array());
             }
         }
         
@@ -399,12 +421,15 @@ public final class RAMCloudGraph implements Graph {
     }
 
     Iterator<Edge> vertexEdges(final RAMCloudVertex vertex, final Direction direction, final String[] edgeLabels) {
+        ramcloudGraphTransaction.readWrite();
+        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        
         List<Edge> edges = new ArrayList<>();
         List<String> labels = Arrays.asList(edgeLabels);
         
         if (labels.isEmpty()) {
             try {
-                RAMCloudObject vertEdgeLabelListRCObj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(vertex.id()));
+                RAMCloudObject vertEdgeLabelListRCObj = tx.read(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(vertex.id()));
                 labels = RAMCloudHelper.deserializeEdgeLabelList(vertEdgeLabelListRCObj);
                 if (labels.isEmpty())
                     return edges.iterator();
@@ -416,7 +441,7 @@ public final class RAMCloudGraph implements Graph {
         for (String label : labels) {
             if (direction.equals(Direction.OUT) || direction.equals(Direction.BOTH)) {
                 try {
-                    RAMCloudObject edgeListRCObj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(vertex.id(), label, Direction.OUT));
+                    RAMCloudObject edgeListRCObj = tx.read(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(vertex.id(), label, Direction.OUT));
                     List<byte[]> inVertexIds = RAMCloudHelper.parseNeighborIdsFromEdgeList(edgeListRCObj);
                     for (byte[] inVertexId : inVertexIds) {
                         edges.add(new RAMCloudEdge(this, RAMCloudHelper.makeEdgeId(vertex.id(), inVertexId, label), label));
@@ -428,7 +453,7 @@ public final class RAMCloudGraph implements Graph {
             
             if (direction.equals(Direction.IN) || direction.equals(Direction.BOTH)) {
                 try {
-                    RAMCloudObject edgeListRCObj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(vertex.id(), label, Direction.IN));
+                    RAMCloudObject edgeListRCObj = tx.read(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(vertex.id(), label, Direction.IN));
                     List<byte[]> outVertexIds = RAMCloudHelper.parseNeighborIdsFromEdgeList(edgeListRCObj);
                     for (byte[] outVertexId : outVertexIds) {
                         edges.add(new RAMCloudEdge(this, RAMCloudHelper.makeEdgeId(outVertexId, vertex.id(), label), label));
@@ -443,12 +468,15 @@ public final class RAMCloudGraph implements Graph {
     }
 
     Iterator<Vertex> vertexNeighbors(final RAMCloudVertex vertex, final Direction direction, final String[] edgeLabels) {
+        ramcloudGraphTransaction.readWrite();
+        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        
         List<Vertex> vertices = new ArrayList<>();
         List<String> labels = Arrays.asList(edgeLabels);
         
         if (labels.isEmpty()) {
             try {
-                RAMCloudObject vertEdgeLabelListRCObj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(vertex.id()));
+                RAMCloudObject vertEdgeLabelListRCObj = tx.read(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(vertex.id()));
                 labels = RAMCloudHelper.deserializeEdgeLabelList(vertEdgeLabelListRCObj);
                 if (labels.isEmpty())
                     return vertices.iterator();
@@ -460,10 +488,10 @@ public final class RAMCloudGraph implements Graph {
         for (String label : labels) {
             if (direction.equals(Direction.OUT) || direction.equals(Direction.BOTH)) {
                 try {
-                    RAMCloudObject edgeListRCObj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(vertex.id(), label, Direction.OUT));
+                    RAMCloudObject edgeListRCObj = tx.read(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(vertex.id(), label, Direction.OUT));
                     List<byte[]> neighborIds = RAMCloudHelper.parseNeighborIdsFromEdgeList(edgeListRCObj);
                     for (byte[] neighborId : neighborIds) {
-                        RAMCloudObject neighborLabelRCObj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexLabelKey(neighborId));
+                        RAMCloudObject neighborLabelRCObj = tx.read(vertexTableId, RAMCloudHelper.getVertexLabelKey(neighborId));
                         vertices.add(new RAMCloudVertex(this, neighborId, neighborLabelRCObj.getValue()));
                     }
                 } catch (ObjectDoesntExistException e) {
@@ -473,10 +501,10 @@ public final class RAMCloudGraph implements Graph {
             
             if (direction.equals(Direction.IN) || direction.equals(Direction.BOTH)) {
                 try {
-                    RAMCloudObject edgeListRCObj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(vertex.id(), label, Direction.IN));
+                    RAMCloudObject edgeListRCObj = tx.read(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(vertex.id(), label, Direction.IN));
                     List<byte[]> neighborIds = RAMCloudHelper.parseNeighborIdsFromEdgeList(edgeListRCObj);
                     for (byte[] neighborId : neighborIds) {
-                        RAMCloudObject neighborLabelRCObj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexLabelKey(neighborId));
+                        RAMCloudObject neighborLabelRCObj = tx.read(vertexTableId, RAMCloudHelper.getVertexLabelKey(neighborId));
                         vertices.add(new RAMCloudVertex(this, neighborId, neighborLabelRCObj.getValue()));
                     }
                 } catch (ObjectDoesntExistException e) {
@@ -489,7 +517,10 @@ public final class RAMCloudGraph implements Graph {
     }
 
     <V> Iterator<VertexProperty<V>> getVertexProperties(final RAMCloudVertex vertex, final String[] propertyKeys) {
-        RAMCloudObject obj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexPropertiesKey(vertex.id()));
+        ramcloudGraphTransaction.readWrite();
+        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        
+        RAMCloudObject obj = tx.read(vertexTableId, RAMCloudHelper.getVertexPropertiesKey(vertex.id()));
         
         Map<String, String> properties = RAMCloudHelper.deserializeProperties(obj);
         
@@ -506,13 +537,16 @@ public final class RAMCloudGraph implements Graph {
     }
 
     <V> VertexProperty<V> setVertexProperty(final RAMCloudVertex vertex, final VertexProperty.Cardinality cardinality, final String key, final V value, final Object[] keyValues) {
+        ramcloudGraphTransaction.readWrite();
+        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        
         if (keyValues != null) 
             throw VertexProperty.Exceptions.metaPropertiesNotSupported();
         
         if (!(value instanceof String))
             throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(value);
         
-        RAMCloudObject obj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexPropertiesKey(vertex.id()));
+        RAMCloudObject obj = tx.read(vertexTableId, RAMCloudHelper.getVertexPropertiesKey(vertex.id()));
 
         Map<String, String> properties = RAMCloudHelper.deserializeProperties(obj);
 
@@ -530,7 +564,7 @@ public final class RAMCloudGraph implements Graph {
             properties.put(key, (String) value);
         }
 
-        ramcloud.write(vertexTableId, RAMCloudHelper.getVertexPropertiesKey(vertex.id()), RAMCloudHelper.serializeProperties(properties).array());
+        tx.write(vertexTableId, RAMCloudHelper.getVertexPropertiesKey(vertex.id()), RAMCloudHelper.serializeProperties(properties).array());
 
         return new RAMCloudVertexProperty(vertex, key, value);
     }
@@ -542,17 +576,20 @@ public final class RAMCloudGraph implements Graph {
     }
 
     Iterator<Vertex> edgeVertices(final RAMCloudEdge edge, final Direction direction) {
+        ramcloudGraphTransaction.readWrite();
+        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        
         List<Vertex> list = new ArrayList<>();
         
         if (direction.equals(Direction.OUT) || direction.equals(Direction.BOTH)) {
             byte[] outVertexId = RAMCloudHelper.parseOutVertexIdFromEdgeId(edge.id());
-            RAMCloudObject obj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexLabelKey(outVertexId));
+            RAMCloudObject obj = tx.read(vertexTableId, RAMCloudHelper.getVertexLabelKey(outVertexId));
             list.add(new RAMCloudVertex(this, outVertexId, obj.getValue()));
         }
         
         if (direction.equals(Direction.IN) || direction.equals(Direction.BOTH)) {
             byte[] inVertexId = RAMCloudHelper.parseInVertexIdFromEdgeId(edge.id());
-            RAMCloudObject obj = ramcloud.read(vertexTableId, RAMCloudHelper.getVertexLabelKey(inVertexId));
+            RAMCloudObject obj = tx.read(vertexTableId, RAMCloudHelper.getVertexLabelKey(inVertexId));
             list.add(new RAMCloudVertex(this, inVertexId, obj.getValue()));
         }
         
@@ -565,6 +602,48 @@ public final class RAMCloudGraph implements Graph {
 
     <V> Property<V> setEdgeProperty(final RAMCloudEdge edge, final String key, final V value) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+    
+    class RAMCloudGraphTransaction extends AbstractTransaction {
+
+        protected final ThreadLocal<RAMCloudTransaction> threadLocalTx = ThreadLocal.withInitial(() -> null);
+
+        public RAMCloudGraphTransaction() {
+            super(RAMCloudGraph.this);
+        }
+
+        @Override
+        public void doOpen() {
+            threadLocalTx.set(new RAMCloudTransaction(RAMCloudGraph.this.ramcloud));
+        }
+
+        @Override
+        public void doCommit() throws AbstractTransaction.TransactionException {
+            try {
+                threadLocalTx.get().commitAndSync();
+            } catch (ClientException ex) {
+                throw new AbstractTransaction.TransactionException(ex);
+            } finally {
+                threadLocalTx.get().close();
+                threadLocalTx.remove();
+            }
+        }
+
+        @Override
+        public void doRollback() throws AbstractTransaction.TransactionException {
+            try {
+                threadLocalTx.get().close();
+            } catch (Exception e) {
+                throw new AbstractTransaction.TransactionException(e);
+            } finally {
+                threadLocalTx.remove();
+            }
+        }
+
+        @Override
+        public boolean isOpen() {
+            return (threadLocalTx.get() != null);
+        }
     }
     
     public class RAMCloudGraphFeatures implements Features {
