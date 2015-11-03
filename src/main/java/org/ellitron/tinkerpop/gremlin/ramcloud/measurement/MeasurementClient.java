@@ -379,17 +379,18 @@ public class MeasurementClient {
         RAMCloudGraph graph = RAMCloudGraph.open(ramCloudGraphConfig);
         
         if (clientIndex == 0) {
-            for (int slaves = 1; slaves < numClients; ++slaves) {
-                System.out.println("testAddVertexLatency(): numSamples=" + numSamples + ", numMasters=" + numMasters + ", clients=" + slaves);
+            for (int slaves = 0; slaves < numClients; ++slaves) {
+                int clients = slaves + 1;
+                System.out.println("testAddVertexLatency(): numSamples=" + numSamples + ", numMasters=" + numMasters + ", clients=" + clients);
                 PrintWriter dataFile;
                 try {
-                    dataFile = new PrintWriter(logDir + "/testAddVertexLatency" + slaves + ".data", "UTF-8");
+                    dataFile = new PrintWriter(logDir + "/testAddVertexLatency" + clients + ".data", "UTF-8");
                 } catch (FileNotFoundException | UnsupportedEncodingException ex) {
                     logger.log(Level.SEVERE, null, ex);
                     return;
                 }
 
-                dataFile.println("## testAddVertexLatency(): numSamples=" + numSamples + ", numMasters=" + numMasters + ", clients=" + slaves);
+                dataFile.println("## testAddVertexLatency(): numSamples=" + numSamples + ", numMasters=" + numMasters + ", clients=" + clients);
                 dataFile.println("## latency (us)      % Samples > X");
                 dataFile.println("## ----------------------------------");
 
