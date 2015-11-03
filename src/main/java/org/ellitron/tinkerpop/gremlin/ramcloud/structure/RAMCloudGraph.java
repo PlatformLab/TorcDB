@@ -526,11 +526,18 @@ public final class RAMCloudGraph implements Graph {
         
         List<VertexProperty<V>> propList = new ArrayList<>();
         
-        for (String key: propertyKeys) {
-            if (properties.containsKey(key))
-                propList.add(new RAMCloudVertexProperty(vertex, key, properties.get(key)));
-            else
-                throw Property.Exceptions.propertyDoesNotExist(vertex, key);
+        if (propertyKeys.length > 0) {
+            for (String key : propertyKeys) {
+                if (properties.containsKey(key)) {
+                    propList.add(new RAMCloudVertexProperty(vertex, key, properties.get(key)));
+                } else {
+                    throw Property.Exceptions.propertyDoesNotExist(vertex, key);
+                }
+            }
+        } else {
+            for (Map.Entry<String, String> property : properties.entrySet()) {
+                propList.add(new RAMCloudVertexProperty(vertex, property.getKey(), property.getValue()));
+            }
         }
         
         return propList.iterator();
