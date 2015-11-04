@@ -64,7 +64,8 @@ public class RAMCloudGraphProvider extends AbstractGraphProvider {
     @Override
     public void clear(Graph graph, Configuration configuration) throws Exception {
         if (graph != null)
-            ((RAMCloudGraph)graph).deleteDatabaseAndCloseConnection();
+            if (((RAMCloudGraph) graph).isInitialized())
+                ((RAMCloudGraph)graph).deleteDatabaseAndCloseConnection();
     }
 
     @Override

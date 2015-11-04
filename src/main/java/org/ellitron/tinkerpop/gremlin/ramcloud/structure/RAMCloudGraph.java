@@ -82,14 +82,16 @@ public final class RAMCloudGraph implements Graph {
     
     // Normal private members.
     private final Configuration configuration;
-    private final String coordinatorLocator;
-    private final int totalMasterServers;
-    private final RAMCloud ramcloud;
-    private final long idTableId, vertexTableId, edgeTableId;
-    private final String graphName;
-    private final long clientId;
+    private String coordinatorLocator;
+    private int totalMasterServers;
+    private RAMCloud ramcloud;
+    private long idTableId, vertexTableId, edgeTableId;
+    private String graphName;
+    private long clientId;
     private long nextLocalVertexId = 1;
     private RAMCloudGraphTransaction ramcloudGraphTransaction = new RAMCloudGraphTransaction();
+    
+    boolean initialized = false;
     
     private RAMCloudGraph(final Configuration configuration) {
         this.configuration = configuration;
@@ -97,7 +99,13 @@ public final class RAMCloudGraph implements Graph {
         graphName = configuration.getString(CONFIG_GRAPH_NAME);
         coordinatorLocator = configuration.getString(CONFIG_COORD_LOC);
         totalMasterServers = configuration.getInt(CONFIG_NUM_MASTER_SERVERS);
-        
+    }
+    
+    public boolean isInitialized() {
+        return initialized;
+    }
+    
+    private void initialize() {
         try {
             ramcloud = new RAMCloud(coordinatorLocator);
         } catch(ClientException e) {
@@ -110,6 +118,9 @@ public final class RAMCloudGraph implements Graph {
         edgeTableId = ramcloud.createTable(graphName + "_" + EDGE_TABLE_NAME, totalMasterServers);
         
         clientId = ramcloud.incrementInt64(idTableId, LARGEST_CLIENT_ID_KEY.getBytes(), 1, null);
+        
+        initialized = true;
+        System.out.println("Initialized!");
     }
     
     public static RAMCloudGraph open(final Configuration configuration) {
@@ -122,6 +133,9 @@ public final class RAMCloudGraph implements Graph {
     
     @Override
     public Vertex addVertex(final Object... keyValues) {
+        if (!initialized)
+            initialize();
+        
         ramcloudGraphTransaction.readWrite();
         RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
         
@@ -170,6 +184,9 @@ public final class RAMCloudGraph implements Graph {
 
     @Override
     public Iterator<Vertex> vertices(final Object... vertexIds) {
+        if (!initialized)
+            initialize();
+        
         ramcloudGraphTransaction.readWrite();
         RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
         
@@ -220,6 +237,9 @@ public final class RAMCloudGraph implements Graph {
 
     @Override
     public Iterator<Edge> edges(final Object... edgeIds) {
+        if (!initialized)
+            initialize();
+        
         ramcloudGraphTransaction.readWrite();
         RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
         
@@ -271,6 +291,9 @@ public final class RAMCloudGraph implements Graph {
 
     @Override
     public Transaction tx() {
+        if (!initialized)
+            initialize();
+        
         return ramcloudGraphTransaction;
     }
 
@@ -286,11 +309,16 @@ public final class RAMCloudGraph implements Graph {
 
     @Override
     public void close() {
-        ramcloudGraphTransaction.close();
-        ramcloud.disconnect();
+        if (initialized) {
+            ramcloudGraphTransaction.close();
+            ramcloud.disconnect();
+        }
     }
     
     public void deleteDatabase() {
+        if (!initialized)
+            initialize();
+        
         ramcloudGraphTransaction.close();
         ramcloud.dropTable(graphName + "_" + ID_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
@@ -298,6 +326,9 @@ public final class RAMCloudGraph implements Graph {
     }
     
     public void deleteDatabaseAndCloseConnection() {
+        if (!initialized)
+            initialize();
+        
         ramcloudGraphTransaction.close();
         ramcloud.dropTable(graphName + "_" + ID_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
@@ -694,6 +725,7 @@ public final class RAMCloudGraph implements Graph {
             return false;
         }
 
+        //TODO show the world that I am super awesome with my graph skillz.
         @Override
         public boolean supportsPersistence() {
             return false;
