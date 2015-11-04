@@ -23,7 +23,10 @@ import org.apache.commons.configuration.Configuration;
 
 import org.apache.tinkerpop.gremlin.AbstractGraphProvider;
 import org.apache.tinkerpop.gremlin.LoadGraphWith;
+import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudEdge;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudElement;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudGraph;
@@ -53,7 +56,7 @@ public class RAMCloudGraphProvider extends AbstractGraphProvider {
         Map<String, Object> config = new HashMap<>();
         config.put(Graph.GRAPH, RAMCloudGraph.class.getName());
         config.put(RAMCloudGraph.CONFIG_GRAPH_NAME, graphName);
-        config.put(RAMCloudGraph.CONFIG_COORD_LOC, "infrc:host=192.168.1.130\\,port=12246");
+        config.put(RAMCloudGraph.CONFIG_COORD_LOC, "infrc:host=192.168.1.129\\,port=12246");
         config.put(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, 1);
         return config;
     }
@@ -68,5 +71,13 @@ public class RAMCloudGraphProvider extends AbstractGraphProvider {
     public Set<Class> getImplementations() {
         return IMPLEMENTATIONS;
     }
-    
+
+    @Override
+    public Object convertId(final Object id, final Class<? extends Element> c) {
+        if (id instanceof String) {
+            return Long.decode((String) id);
+        }
+
+        return id;
+    }
 }

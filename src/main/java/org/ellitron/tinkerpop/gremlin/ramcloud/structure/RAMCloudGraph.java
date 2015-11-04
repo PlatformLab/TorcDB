@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.PropertyConfigurator;
 import org.apache.tinkerpop.gremlin.structure.Direction;
@@ -130,15 +131,19 @@ public final class RAMCloudGraph implements Graph {
         for (int i = 0; i < keyValues.length; i = i + 2) {
             if (!(keyValues[i] instanceof String) && !(keyValues[i] instanceof T))
                 throw Element.Exceptions.providedKeyValuesMustHaveALegalKeyOnEvenIndices();
-            if (keyValues[i].equals(T.id))
-                throw Vertex.Exceptions.userSuppliedIdsNotSupported();
             if (!(keyValues[i+1] instanceof String))
                 throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(keyValues[i+1]);
         }
         
         final String label = ElementHelper.getLabelValue(keyValues).orElse(Vertex.DEFAULT_LABEL);
         
-        byte[] vertexId = getNextVertexId();
+        Optional opVertId = ElementHelper.getIdValue(keyValues);
+        byte[] vertexId;
+        if (opVertId.isPresent()) {
+            vertexId = RAMCloudHelper.makeVertexId(0, (Long) opVertId.get());
+        } else {
+            vertexId = getNextVertexId();
+        }
         
         // Create property map.
         Map<String, String> properties = new HashMap<>();
@@ -764,7 +769,7 @@ public final class RAMCloudGraph implements Graph {
                 
         @Override
         public boolean supportsUserSuppliedIds() {
-            return false;
+            return true;
         }
         
         @Override
