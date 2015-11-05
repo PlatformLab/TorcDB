@@ -55,6 +55,29 @@ import org.ellitron.tinkerpop.gremlin.ramcloud.structure.util.RAMCloudHelper;
 /**
  *
  * @author ellitron
+ * 
+ * TODO:
+ *
+ * - Although RAMCloudGraphTransaction is implemented in a ThreadLocal fashion,
+ * the underlying RAMCloudTransaction objects used to support this are all using
+ * the same RAMCloud client object reference, which itself is not thread safe.
+ * Altogether this means that RAMCloudGraph is not thread safe. To make it
+ * thread safe, each new RAMCloudTransaction needs a new RAMCloud client.
+ *
+ * - Implementing a truly transactional get-all-vertices or get-all-edges
+ * operation using transactional reads and writes to RAMCloud tables turns out 
+ * to be not that straight forward. Either you need to read every *possible* 
+ * vertex in a transaction in order to cover both the existence and 
+ * non-existence of vertices in the graph, or you need a simpler data structure
+ * that is consistent with the vertices in the graph and reflects the existence 
+ * and non-existence of vertices. A simple example would be a list of all the 
+ * vertices in the graph. A more performant solution would be a hash table of 
+ * all the vertices in the graph. Then a consistent read of all the buckets in 
+ * the hash table is all that's needed to read a consistent list of all the 
+ * vertices in the graph. Unfortunately this is all for reading a consistent set
+ * of all the vertices in the graph, which is a very very rare operation in 
+ * practice. 
+ *
  */
 @Graph.OptIn(Graph.OptIn.SUITE_STRUCTURE_STANDARD)
 public final class RAMCloudGraph implements Graph {
@@ -120,7 +143,6 @@ public final class RAMCloudGraph implements Graph {
         clientId = ramcloud.incrementInt64(idTableId, LARGEST_CLIENT_ID_KEY.getBytes(), 1, null);
         
         initialized = true;
-        System.out.println("Initialized!");
     }
     
     public static RAMCloudGraph open(final Configuration configuration) {
@@ -146,7 +168,8 @@ public final class RAMCloudGraph implements Graph {
             if (!(keyValues[i] instanceof String) && !(keyValues[i] instanceof T))
                 throw Element.Exceptions.providedKeyValuesMustHaveALegalKeyOnEvenIndices();
             if (!(keyValues[i+1] instanceof String))
-                throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(keyValues[i+1]);
+                if (!keyValues[i].equals(T.id))
+                    throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(keyValues[i+1]);
         }
         
         final String label = ElementHelper.getLabelValue(keyValues).orElse(Vertex.DEFAULT_LABEL);
@@ -155,6 +178,13 @@ public final class RAMCloudGraph implements Graph {
         byte[] vertexId;
         if (opVertId.isPresent()) {
             vertexId = RAMCloudHelper.makeVertexId(0, (Long) opVertId.get());
+            
+            try {
+                tx.read(vertexTableId, RAMCloudHelper.getVertexLabelKey(vertexId));
+                throw Graph.Exceptions.vertexWithIdAlreadyExists(vertexId);
+            } catch (ObjectDoesntExistException e) {
+                // Good!
+            }
         } else {
             vertexId = getNextVertexId();
         }
