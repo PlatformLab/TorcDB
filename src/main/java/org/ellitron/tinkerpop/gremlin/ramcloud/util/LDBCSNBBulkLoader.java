@@ -38,7 +38,7 @@ import org.ellitron.tinkerpop.gremlin.ramcloud.structure.util.RAMCloudHelper;
 
 /**
  *
- * @author ellitron
+ * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
 public class LDBCSNBBulkLoader {
 

@@ -21,7 +21,7 @@ import org.apache.tinkerpop.gremlin.structure.Graph;
 
 /**
  *
- * @author ellitron
+ * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
 public class RAMCloudGraphVariables implements Graph.Variables {
 

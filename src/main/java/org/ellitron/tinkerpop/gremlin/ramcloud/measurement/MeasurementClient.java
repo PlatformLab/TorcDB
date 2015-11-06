@@ -63,7 +63,7 @@ import org.jfree.data.xy.XYSeriesCollection;
 
 /**
  *
- * @author ellitron
+ * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
 public class MeasurementClient {
 

@@ -29,12 +29,17 @@ import org.ellitron.tinkerpop.gremlin.ramcloud.structure.util.RAMCloudHelper;
 
 /**
  *
- * @author ellitron
+ * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
 public class RAMCloudEdge implements Edge, Element {
     private final RAMCloudGraph graph;
     byte[] id;
     private String label;
+    
+    public enum Directionality {
+        DIRECTED,
+        UNDIRECTED;
+    }
     
     public RAMCloudEdge(final RAMCloudGraph graph, final byte[] id, final String label) {
         this.graph = graph;

@@ -29,12 +29,13 @@ import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import static org.apache.tinkerpop.gremlin.structure.util.ElementHelper.haveEqualIds;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudEdge;
+import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudEdgeDirection;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudVertex;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudVertexProperty;
 
 /**
  *
- * @author ellitron
+ * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
 public class RAMCloudHelper {
     public static ByteBuffer serializeProperties(Map<String, String> propertyMap) {
@@ -169,6 +170,7 @@ public class RAMCloudHelper {
         return true;
     }
     
+    // TODO: make more compact
     public static String stringifyVertexId(byte[] vertexId) {
         ByteBuffer id = ByteBuffer.allocate(vertexId.length);
         id.put(vertexId);
@@ -186,8 +188,9 @@ public class RAMCloudHelper {
         return stringifyVertexId(vertexId) + ":props";
     }
     
-    public static String getVertexEdgeListKey(byte[] vertexId, String label, Direction direction) {
-        return stringifyVertexId(vertexId) + ":edges:" + label + ":" + direction.name();
+    public static String getVertexEdgeListKey(byte[] vertexId, String label, RAMCloudEdgeDirection dir) {
+        // TODO: change dir.name() to dir.ordinal() to make more compact
+        return stringifyVertexId(vertexId) + ":edges:" + label + ":" + dir.name();
     }
     
     public static String getVertexEdgeLabelListKey(byte[] vertexId) {
@@ -230,10 +233,11 @@ public class RAMCloudHelper {
         return false;
     }
     
-    public static byte[] makeEdgeId(byte[] outVertexId, byte[] inVertexId, String label) {
-        ByteBuffer id = ByteBuffer.allocate(Long.BYTES*4 + label.length());
+    public static byte[] makeEdgeId(byte[] outVertexId, byte[] inVertexId, String label, RAMCloudEdge.Directionality directionality) {
+        ByteBuffer id = ByteBuffer.allocate(Long.BYTES*4 + Byte.BYTES + label.length());
         id.put(outVertexId);
         id.put(inVertexId);
+        id.put((byte) directionality.ordinal());
         id.put(label.getBytes());
         return id.array();
     }
@@ -242,14 +246,14 @@ public class RAMCloudHelper {
         if (!(edgeId instanceof byte[]))
             return false;
         
-        if (!(((byte[]) edgeId).length > Long.BYTES*4))
+        if (!(((byte[]) edgeId).length > Long.BYTES*4 + Byte.BYTES))
             return false;
         
         return true;
     }
     
     public static String parseLabelFromEdgeId(byte[] edgeId) {
-        byte[] label = Arrays.copyOfRange(edgeId, Long.BYTES*4, edgeId.length);
+        byte[] label = Arrays.copyOfRange(edgeId, Long.BYTES*4 + Byte.BYTES, edgeId.length);
         return new String(label);
     }
     
@@ -259,5 +263,9 @@ public class RAMCloudHelper {
     
     public static byte[] parseInVertexIdFromEdgeId(byte[] edgeId) {
         return Arrays.copyOfRange(edgeId, Long.BYTES*2, Long.BYTES*4);
+    }
+    
+    public static RAMCloudEdge.Directionality parseDirectionalityFromEdgeId(byte[] edgeId) {
+        return RAMCloudEdge.Directionality.values()[edgeId[Long.BYTES*4]];
     }
 }

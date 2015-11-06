@@ -25,7 +25,7 @@ import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 
 /**
  *
- * @author ellitron
+ * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  * @param <V>
  */
 public class RAMCloudVertexProperty<V> implements VertexProperty<V>, Element {

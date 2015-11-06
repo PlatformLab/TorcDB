@@ -21,7 +21,7 @@ import org.apache.tinkerpop.gremlin.structure.Property;
 
 /**
  *
- * @author ellitron
+ * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
 public class RAMCloudProperty<V> implements Property<V> {
 
