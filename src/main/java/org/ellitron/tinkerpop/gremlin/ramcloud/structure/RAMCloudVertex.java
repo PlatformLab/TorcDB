@@ -17,6 +17,7 @@ package org.ellitron.tinkerpop.gremlin.ramcloud.structure;
 
 import edu.stanford.ramcloud.RAMCloud;
 import edu.stanford.ramcloud.RAMCloudObject;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -24,21 +25,44 @@ import java.util.List;
 import java.util.Map;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
+import org.ellitron.tinkerpop.gremlin.ramcloud.structure.util.RAMCloudHelper;
 
 /**
  *
  * @author ellitron
  */
-public class RAMCloudVertex extends RAMCloudElement implements Vertex {
+public class RAMCloudVertex implements Vertex, Element {
+    private final RAMCloudGraph graph;
+    byte[] id;
+    private String label;
     
     public RAMCloudVertex(final RAMCloudGraph graph, final byte[] id, final String label) {
-        super(graph, id, label);
+        this.graph = graph;
+        this.id = id;
+        this.label = label;
     }
 
+    @Override
+    public BigInteger id() {
+        return new BigInteger(id);
+    }
+
+    @Override
+    public String label() {
+        return label;
+    }
+
+    @Override
+    public Graph graph() {
+        return graph;
+    }
+    
     @Override
     public void remove() {
         graph.removeVertex(this);
@@ -73,4 +97,19 @@ public class RAMCloudVertex extends RAMCloudElement implements Vertex {
     public <V> VertexProperty<V> property(VertexProperty.Cardinality cardinality, String key, V value, Object... keyValues) {
         return graph.setVertexProperty(this, cardinality, key, value, keyValues);
     }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (object instanceof RAMCloudVertex) {
+            return this.id().equals(((RAMCloudVertex) object).id());
+        }
+        
+        return false;
+    }
+    
+    @Override
+    public int hashCode() {
+        return ElementHelper.hashCode(this);
+    }
+    
 }

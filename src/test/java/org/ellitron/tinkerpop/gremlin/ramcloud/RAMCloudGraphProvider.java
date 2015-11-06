@@ -15,6 +15,7 @@
  */
 package org.ellitron.tinkerpop.gremlin.ramcloud;
 
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -28,12 +29,12 @@ import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudEdge;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudElement;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudGraph;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudGraphVariables;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudProperty;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudVertex;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudVertexProperty;
+import org.ellitron.tinkerpop.gremlin.ramcloud.structure.util.RAMCloudHelper;
 
 /**
  *
@@ -43,7 +44,6 @@ public class RAMCloudGraphProvider extends AbstractGraphProvider {
 
     private static final Set<Class> IMPLEMENTATIONS = new HashSet<Class>() {{
         add(RAMCloudEdge.class);
-        add(RAMCloudElement.class);
         add(RAMCloudGraph.class);
         add(RAMCloudGraphVariables.class);
         add(RAMCloudProperty.class);
@@ -57,7 +57,7 @@ public class RAMCloudGraphProvider extends AbstractGraphProvider {
         config.put(Graph.GRAPH, RAMCloudGraph.class.getName());
         config.put(RAMCloudGraph.CONFIG_GRAPH_NAME, graphName);
         config.put(RAMCloudGraph.CONFIG_COORD_LOC, "infrc:host=192.168.1.129\\,port=12246");
-        config.put(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, 1);
+        config.put(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, 3);
         return config;
     }
 
@@ -75,8 +75,11 @@ public class RAMCloudGraphProvider extends AbstractGraphProvider {
 
     @Override
     public Object convertId(final Object id, final Class<? extends Element> c) {
-        if (id instanceof String) {
-            return Long.decode((String) id);
+        if (c.equals(Vertex.class)) {
+            if (id instanceof String) {
+                byte[] vertexId = RAMCloudHelper.makeVertexId(0, Long.decode((String) id));
+                return new BigInteger(vertexId);
+            }
         }
 
         return id;

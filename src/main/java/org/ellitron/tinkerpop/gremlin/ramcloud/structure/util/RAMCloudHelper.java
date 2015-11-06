@@ -29,7 +29,6 @@ import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import static org.apache.tinkerpop.gremlin.structure.util.ElementHelper.haveEqualIds;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudEdge;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudElement;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudVertex;
 import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudVertexProperty;
 
@@ -153,10 +152,10 @@ public class RAMCloudHelper {
         return Direction.valueOf(parts[3]);
     }
     
-    public static byte[] makeVertexId(long clientId, long localVertexId) {
+    public static byte[] makeVertexId(long counterId, long counterValue) {
         ByteBuffer id = ByteBuffer.allocate(Long.BYTES*2);
-        id.putLong(clientId);
-        id.putLong(localVertexId);
+        id.putLong(counterId);
+        id.putLong(counterValue);
         return id.array();
     }
     
@@ -260,34 +259,5 @@ public class RAMCloudHelper {
     
     public static byte[] parseInVertexIdFromEdgeId(byte[] edgeId) {
         return Arrays.copyOfRange(edgeId, Long.BYTES*2, Long.BYTES*4);
-    }
-    
-    public static boolean areEqual(final RAMCloudElement a, final Object b) {
-        if (null == b || null == a)
-            return false;
-
-        if (a == b)
-            return true;
-        if (!((a instanceof RAMCloudVertex && b instanceof RAMCloudVertex) ||
-                (a instanceof RAMCloudEdge && b instanceof RAMCloudEdge) ||
-                (a instanceof RAMCloudVertexProperty && b instanceof RAMCloudVertexProperty))) {
-            return false;
-        }
-        return haveEqualIds(a, (RAMCloudElement) b);
-    }
-
-    public static boolean haveEqualIds(final RAMCloudElement a, final RAMCloudElement b) {
-        byte[] aId = a.id();
-        byte[] bId = b.id();
-        
-        if (aId.length != bId.length)
-            return false;
-        
-        for (int i = 0; i < aId.length; ++i) {
-            if (aId[i] != bId[i])
-                return false;
-        }
-        
-        return true;
     }
 }

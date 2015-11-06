@@ -15,24 +15,48 @@
  */
 package org.ellitron.tinkerpop.gremlin.ramcloud.structure;
 
+import java.math.BigInteger;
 import java.util.Iterator;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
+import org.ellitron.tinkerpop.gremlin.ramcloud.structure.util.RAMCloudHelper;
 
 /**
  *
  * @author ellitron
  */
-public class RAMCloudEdge extends RAMCloudElement implements Edge {
+public class RAMCloudEdge implements Edge, Element {
+    private final RAMCloudGraph graph;
+    byte[] id;
+    private String label;
     
     public RAMCloudEdge(final RAMCloudGraph graph, final byte[] id, final String label) {
-        super(graph, id, label);
+        this.graph = graph;
+        this.id = id;
+        this.label = label;
     }
 
+    @Override
+    public Object id() {
+        return id;
+    }
+
+    @Override
+    public String label() {
+        return label;
+    }
+
+    @Override
+    public Graph graph() {
+        return graph;
+    }
+    
     @Override
     public void remove() {
         graph.removeEdge(this);
@@ -51,6 +75,30 @@ public class RAMCloudEdge extends RAMCloudElement implements Edge {
     @Override
     public <V> Property<V> property(String key, V value) {
         return graph.setEdgeProperty(this, key, value);
+    }
+    
+    @Override
+    public boolean equals(final Object object) {
+        if (object instanceof RAMCloudEdge) {
+            byte[] otherId = ((RAMCloudEdge) object).id;
+            
+            if (otherId.length != id.length)
+                return false;
+            
+            for (int i = 0; i < id.length; ++i) {
+                if (otherId[i] != id[i])
+                    return false;
+            }
+            
+            return true;
+        }
+        
+        return false;
+    }
+    
+    @Override
+    public int hashCode() {
+        return ElementHelper.hashCode(this);
     }
     
 }

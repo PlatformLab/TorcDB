@@ -17,6 +17,7 @@ package org.ellitron.tinkerpop.gremlin.ramcloud.structure;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
@@ -27,18 +28,32 @@ import org.apache.tinkerpop.gremlin.structure.VertexProperty;
  * @author ellitron
  * @param <V>
  */
-public class RAMCloudVertexProperty<V> extends RAMCloudElement implements VertexProperty<V> {
+public class RAMCloudVertexProperty<V> implements VertexProperty<V>, Element {
     private final RAMCloudVertex vertex;
     private final String key;
     private final V value;
     
+    
     public RAMCloudVertexProperty(final RAMCloudVertex vertex, final String key, V value) {
-        super(vertex.graph, vertex.id, vertex.label);
         this.vertex = vertex;
         this.key = key;
         this.value = value;
     }
+    
+    @Override
+    public Object id() {
+        return vertex.id();
+    }
 
+    @Override
+    public String label() {
+        return vertex.label();
+    }
+
+    @Override
+    public Graph graph() {
+        return vertex.graph();
+    }
     @Override
     public void remove() {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
