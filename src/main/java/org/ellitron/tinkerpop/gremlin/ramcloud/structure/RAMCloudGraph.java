@@ -176,6 +176,8 @@ public final class RAMCloudGraph implements Graph {
             long userSuppliedId;
             if (opVertId.get() instanceof Long) {
                 userSuppliedId = (Long) opVertId.get();
+            } else if (opVertId.get() instanceof String) {
+                userSuppliedId = Long.decode((String) opVertId.get());
             } else if (opVertId.get() instanceof BigInteger) {
                 try {
                     userSuppliedId = ((BigInteger) opVertId.get()).longValueExact();
@@ -807,7 +809,8 @@ public final class RAMCloudGraph implements Graph {
         @Override
         public void doCommit() throws AbstractTransaction.TransactionException {
             try {
-                threadLocalTx.get().commitAndSync();
+                if (!threadLocalTx.get().commitAndSync())
+                    throw new AbstractTransaction.TransactionException("RAMCloud commitAndSync failed.");
             } catch (ClientException ex) {
                 throw new AbstractTransaction.TransactionException(ex);
             } finally {
