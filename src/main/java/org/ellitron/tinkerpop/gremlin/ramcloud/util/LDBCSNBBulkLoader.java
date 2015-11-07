@@ -18,8 +18,12 @@ package org.ellitron.tinkerpop.gremlin.ramcloud.util;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.commons.cli.CommandLine;
@@ -98,55 +102,63 @@ public class LDBCSNBBulkLoader {
 
         RAMCloudGraph graph = RAMCloudGraph.open(config);
 
-        System.out.println("Loading vertices...");
-
-        boolean firstLine = true;
-        String[] columnNames = null;
-        Object[] keyValues = null;
-        long vertexCount = 0;
-        for (String line : Files.readAllLines(Paths.get(inputBaseDir + "/person_0_0.csv"))) {
-            if (firstLine) {
-                columnNames = line.split("\\|");
-                keyValues = new Object[columnNames.length * 2];
-                for (int i = 1; i < columnNames.length; ++i) {
-                    keyValues[i * 2] = columnNames[i];
+        try {
+            System.out.println("Loading vertices...");
+            
+            long count = 0;
+            String[] colNames = null;
+            boolean firstLine = true;
+            for (String line : Files.readAllLines(Paths.get(inputBaseDir + "/person_0_0.csv"))) {
+                if (firstLine) {
+                    colNames = line.split("\\|");
+                    firstLine = false;
+                    continue;
                 }
-                keyValues[0] = T.label;
-                keyValues[1] = "person";
-                firstLine = false;
-                continue;
+
+                String[] colVals = line.split("\\|");
+                Map<Object, String> propertiesMap = new HashMap<>();
+
+                for (int i = 0; i < colNames.length; ++i) {
+                    if (colNames[i].equals("id")) {
+                        propertiesMap.put(T.id, colVals[i]);
+                    } else {
+                        propertiesMap.put(colNames[i], colVals[i]);
+                    }
+                }
+
+                propertiesMap.put(T.label, "person");
+
+                List<Object> keyValues = new ArrayList<>();
+                propertiesMap.forEach((key, val) -> {
+                    keyValues.add(key);
+                    keyValues.add(val);
+                });
+
+                graph.addVertex(keyValues.toArray());
+
+                count++;
+                if (count % 100 == 0) {
+                    graph.tx().commit();
+                }
             }
 
-            String[] parts = line.split("\\|");
+            graph.tx().commit();
 
-            for (int i = 1; i < columnNames.length; ++i) {
-                keyValues[i * 2 + 1] = parts[i];
+            System.out.println("Finished loading vertices");
+
+            Vertex vertex = graph.vertices(16492674426550l).next();
+
+            Iterator<VertexProperty<String>> properties = vertex.properties();
+
+            while (properties.hasNext()) {
+                VertexProperty<String> prop = properties.next();
+                System.out.println(prop.key() + "=" + prop.value());
             }
-
-            graph.addVertex(keyValues);
-
-            vertexCount++;
-
-            if (vertexCount % 100 == 0) {
-                graph.tx().commit();
-                System.out.println("Loaded " + vertexCount + " vertices...");
-            }
+        } catch (Exception e) {
+            System.out.println("Exception: " + e);
+            e.printStackTrace();
+        } finally {
+            graph.deleteDatabaseAndCloseConnection();
         }
-        graph.tx().commit();
-
-        System.out.println("Finished loading vertices");
-        
-        byte[] vertexId = RAMCloudHelper.makeVertexId(1, 1);
-        
-        Vertex vertex = graph.vertices(vertexId).next();
-
-        Iterator<VertexProperty<String>> properties = vertex.properties();
-        
-        while (properties.hasNext()) {
-            VertexProperty<String> prop = properties.next();
-            System.out.println(prop.key() + "=" + prop.value());
-        }
-        
-        graph.deleteDatabaseAndCloseConnection();
     }
 }
