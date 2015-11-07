@@ -44,12 +44,12 @@ public class RAMCloudHelper {
             serializedLength += Short.BYTES + property.getKey().getBytes().length;
             serializedLength += Short.BYTES + property.getValue().getBytes().length;
         }
-
+        
         ByteBuffer buffer = ByteBuffer.allocate(serializedLength);
         for (Map.Entry<String, String> property : propertyMap.entrySet()) {
-            buffer.putShort((short) property.getKey().length());
+            buffer.putShort((short) property.getKey().getBytes().length);
             buffer.put(property.getKey().getBytes());
-            buffer.putShort((short) property.getValue().length());
+            buffer.putShort((short) property.getValue().getBytes().length);
             buffer.put(property.getValue().getBytes());
         }
         
