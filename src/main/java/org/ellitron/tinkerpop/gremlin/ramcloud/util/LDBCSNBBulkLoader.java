@@ -95,6 +95,10 @@ public class LDBCSNBBulkLoader {
             return;
         }
 
+        /**
+         * TODO: Use environment variables for the source of configuration
+         * information.
+         */
         BaseConfiguration config = new BaseConfiguration();
         config.setDelimiterParsingDisabled(true);
         config.setProperty(RAMCloudGraph.CONFIG_COORD_LOC, coordinatorLocator);
@@ -103,7 +107,7 @@ public class LDBCSNBBulkLoader {
         RAMCloudGraph graph = RAMCloudGraph.open(config);
 
         try {
-            System.out.println("Loading vertices...");
+            System.out.print("Loading person_0_0.csv ");
             
             long count = 0;
             String[] colNames = null;
@@ -139,21 +143,101 @@ public class LDBCSNBBulkLoader {
                 count++;
                 if (count % 100 == 0) {
                     graph.tx().commit();
+                    if (count % 100000 == 0)
+                        System.out.print(". ");
                 }
             }
-
             graph.tx().commit();
 
-            System.out.println("Finished loading vertices");
+            System.out.println("Finished loading person_0_0.csv");
 
-            Vertex vertex = graph.vertices(16492674426550l).next();
+            System.out.print("Loading comment_0_0.csv ");
+            
+            count = 0;
+            colNames = null;
+            firstLine = true;
+            for (String line : Files.readAllLines(Paths.get(inputBaseDir + "/comment_0_0.csv"))) {
+                if (firstLine) {
+                    colNames = line.split("\\|");
+                    firstLine = false;
+                    continue;
+                }
 
-            Iterator<VertexProperty<String>> properties = vertex.properties();
+                String[] colVals = line.split("\\|");
+                Map<Object, String> propertiesMap = new HashMap<>();
 
-            while (properties.hasNext()) {
-                VertexProperty<String> prop = properties.next();
-                System.out.println(prop.key() + "=" + prop.value());
+                for (int i = 0; i < colNames.length; ++i) {
+                    if (colNames[i].equals("id")) {
+                        propertiesMap.put(T.id, colVals[i]);
+                    } else {
+                        propertiesMap.put(colNames[i], colVals[i]);
+                    }
+                }
+
+                propertiesMap.put(T.label, "comment");
+
+                List<Object> keyValues = new ArrayList<>();
+                propertiesMap.forEach((key, val) -> {
+                    keyValues.add(key);
+                    keyValues.add(val);
+                });
+
+                graph.addVertex(keyValues.toArray());
+
+                count++;
+                if (count % 100 == 0) {
+                    graph.tx().commit();
+                    if (count % 100000 == 0)
+                        System.out.print(". ");
+                }
             }
+            graph.tx().commit();
+
+            System.out.println("Finished loading comment_0_0.csv");
+            
+            System.out.print("Loading forum_0_0.csv ");
+            
+            count = 0;
+            colNames = null;
+            firstLine = true;
+            for (String line : Files.readAllLines(Paths.get(inputBaseDir + "/forum_0_0.csv"))) {
+                if (firstLine) {
+                    colNames = line.split("\\|");
+                    firstLine = false;
+                    continue;
+                }
+
+                String[] colVals = line.split("\\|");
+                Map<Object, String> propertiesMap = new HashMap<>();
+
+                for (int i = 0; i < colNames.length; ++i) {
+                    if (colNames[i].equals("id")) {
+                        propertiesMap.put(T.id, colVals[i]);
+                    } else {
+                        propertiesMap.put(colNames[i], colVals[i]);
+                    }
+                }
+
+                propertiesMap.put(T.label, "comment");
+
+                List<Object> keyValues = new ArrayList<>();
+                propertiesMap.forEach((key, val) -> {
+                    keyValues.add(key);
+                    keyValues.add(val);
+                });
+
+                graph.addVertex(keyValues.toArray());
+
+                count++;
+                if (count % 100 == 0) {
+                    graph.tx().commit();
+                    if (count % 100000 == 0)
+                        System.out.print(". ");
+                }
+            }
+            graph.tx().commit();
+
+            System.out.println("Finished loading forum_0_0.csv");
         } catch (Exception e) {
             System.out.println("Exception: " + e);
             e.printStackTrace();

@@ -58,29 +58,15 @@ import org.ellitron.tinkerpop.gremlin.ramcloud.structure.util.RAMCloudHelper;
 /**
  *
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
- * 
- * TODO:
  *
- * - Although RAMCloudGraphTransaction is implemented in a ThreadLocal fashion,
- * the underlying RAMCloudTransaction objects used to support this are all using
- * the same RAMCloud client object reference, which itself is not thread safe.
- * Altogether this means that RAMCloudGraph is not thread safe. To make it
- * thread safe, each new RAMCloudTransaction needs a new RAMCloud client.
- *
- * - Implementing a truly transactional get-all-vertices or get-all-edges
- * operation using transactional reads and writes to RAMCloud tables turns out 
- * to be not that straight forward. Either you need to read every *possible* 
- * vertex in a transaction in order to cover both the existence and 
- * non-existence of vertices in the graph, or you need a simpler data structure
- * that is consistent with the vertices in the graph and reflects the existence 
- * and non-existence of vertices. A simple example would be a list of all the 
- * vertices in the graph. A more performant solution would be a hash table of 
- * all the vertices in the graph. Then a consistent read of all the buckets in 
- * the hash table is all that's needed to read a consistent list of all the 
- * vertices in the graph. Unfortunately this is all for reading a consistent set
- * of all the vertices in the graph, which is a very very rare operation in 
- * practice. 
- *
+ * TODO: Make RAMCloudGraph thread safe. Currently every RAMCloudGraph method that 
+ * performs reads or writes to the database uses a ThreadLocal RAMCloudTransaction 
+ * to isolate transactions from different threads. Each ThreadLocal RAMCloudTransaction 
+ * object, however, is constructed with a reference to the same RAMCloud client 
+ * object, which itself is not thread safe. Therefore, RAMCloudGraph, although 
+ * using separate RAMCloudTransaction objects for each thread, it not actually 
+ * thread safe. To fix this problem, each ThreadLocal RAMCloudTransaction object 
+ * needs to be constructed with its own RAMCloud client object.
  */
 @Graph.OptIn(Graph.OptIn.SUITE_STRUCTURE_STANDARD)
 public final class RAMCloudGraph implements Graph {
@@ -95,9 +81,6 @@ public final class RAMCloudGraph implements Graph {
     public static final String CONFIG_COORD_LOC = "gremlin.ramcloud.coordinatorLocator";
     public static final String CONFIG_NUM_MASTER_SERVERS = "gremlin.ramcloud.numMasterServers";
     public static final String CONFIG_LOG_LEVEL = "gremlin.ramcloud.logLevel";
-    
-    // TODO: Make graph name a configuration parameter to enable separate graphs
-    // to co-exist in the same ramcloud cluster.
     
     // Constants.
     private static final String ID_TABLE_NAME = "idTable";
@@ -192,7 +175,7 @@ public final class RAMCloudGraph implements Graph {
             
             try {
                 tx.read(vertexTableId, RAMCloudHelper.getVertexLabelKey(vertexId));
-                throw Graph.Exceptions.vertexWithIdAlreadyExists(vertexId);
+                throw Graph.Exceptions.vertexWithIdAlreadyExists(RAMCloudHelper.stringifyVertexId(vertexId));
             } catch (ObjectDoesntExistException e) {
                 // Good!
             }
@@ -266,7 +249,7 @@ public final class RAMCloudGraph implements Graph {
                     if (RAMCloudHelper.validateVertexId(vertexIds[i])) {
                         vertexId = (byte[]) vertexIds[i];
                     } else {
-                        throw Graph.Exceptions.elementNotFound(RAMCloudVertex.class, vertexIds[i]);
+                        throw Graph.Exceptions.elementNotFound(RAMCloudVertex.class, RAMCloudHelper.stringifyVertexId((byte[]) vertexIds[i]));
                     }
                 } else {
                     throw Graph.Exceptions.elementNotFound(RAMCloudVertex.class, vertexIds[i]);
@@ -276,7 +259,7 @@ public final class RAMCloudGraph implements Graph {
                 try {
                     obj = tx.read(vertexTableId, RAMCloudHelper.getVertexLabelKey(vertexId));
                 } catch (ObjectDoesntExistException e) {
-                    throw Graph.Exceptions.elementNotFound(RAMCloudVertex.class, vertexIds[i]);
+                    throw Graph.Exceptions.elementNotFound(RAMCloudVertex.class, RAMCloudHelper.stringifyVertexId((byte[]) vertexIds[i]));
                 }
 
                 list.add(new RAMCloudVertex(this, vertexId, obj.getValue()));
@@ -284,22 +267,6 @@ public final class RAMCloudGraph implements Graph {
 
             return list.iterator();
         } else {
-            // TODO: The following is a fixed version of a transactional vertex
-            // scan which leverages the new ID system to make this operation an 
-            // actual transaction, and therefore return a list of vertices that 
-            // represents what one would see if the containing transaction were 
-            // executing in a serial order with every other transaction in the 
-            // system. For a long-lived graph this could potentially be an 
-            // extremely expensive transactional operation, even if the total 
-            // number of vertices in the graph is small, due to the particulars 
-            // of this way of doing things. Solutions that scale up / down with 
-            // the number of vertices in the graph are possible, but also 
-            // incur more cost at vertex creation and deletion time. This 
-            // solution costs nothing for vertex deletions, and a single atomic 
-            // incremement for vertex creations. For graphs with a large number 
-            // of vertices, however, this transaction scan operation will be
-            // invariably expensive, and we expect it not to be used at all in
-            // such cases.
             long max_id[] = new long[NUM_ID_COUNTERS+1];
             
             try {
@@ -356,10 +323,12 @@ public final class RAMCloudGraph implements Graph {
                 if (RAMCloudHelper.validateEdgeId(edgeIds[i]))
                     list.add(new RAMCloudEdge(this, (byte[]) edgeIds[i], RAMCloudHelper.parseLabelFromEdgeId((byte[]) edgeIds[i])));
                 else 
-//                    throw Edge.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
-                    // TODO: Work out what's the right thing to do here. Must 
-                    // throw this for now to support
-                    // shouldHaveExceptionConsistencyWhenFindEdgeByIdThatIsNonExistentViaIterator
+                    // throw Edge.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
+                    /**
+                     * TODO: Work out what's the right thing to do here. Must
+                     * throw this for now to support
+                     * shouldHaveExceptionConsistencyWhenFindEdgeByIdThatIsNonExistentViaIterator
+                     */
                     throw Graph.Exceptions.elementNotFound(RAMCloudEdge.class, edgeIds[i]);
             }
 
@@ -403,7 +372,13 @@ public final class RAMCloudGraph implements Graph {
                                 // Continue...
                             }
                             
-                            // TODO: Is it breaking the API to include bidirectional edges in this list?
+                            /**
+                             * TODO: Decide whether or not to include the new
+                             * bi-directional edges in this list. Not sure
+                             * whether or not including these RAMCloudGraph
+                             * specific bi-directional edges is considered a
+                             * violation of the API.
+                             */
 //                            try {
 //                                obj = tx.read(vertexTableId, RAMCloudHelper.getVertexEdgeListKey(vertexId, label, RAMCloudEdgeDirection.UNDIRECTED));
 //                                List<byte[]> neighborIds = RAMCloudHelper.parseNeighborIdsFromEdgeList(obj);
@@ -660,7 +635,6 @@ public final class RAMCloudGraph implements Graph {
         return edges.iterator();
     }
 
-    // TODO: start here tomorrow
     Iterator<Vertex> vertexNeighbors(final RAMCloudVertex vertex, final EnumSet<RAMCloudEdgeDirection> edgeDirections, final String[] edgeLabels) {
         ramcloudGraphTransaction.readWrite();
         RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
@@ -792,7 +766,7 @@ public final class RAMCloudGraph implements Graph {
     <V> Property<V> setEdgeProperty(final RAMCloudEdge edge, final String key, final V value) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
-    
+
     class RAMCloudGraphTransaction extends AbstractTransaction {
 
         protected final ThreadLocal<RAMCloudTransaction> threadLocalTx = ThreadLocal.withInitial(() -> null);
@@ -862,6 +836,9 @@ public final class RAMCloudGraph implements Graph {
         }
     }
 
+    /**
+     * TODO: Turn on supportsPersistence and supportsTransactions, and test.
+     */
     public class RAMCloudGraphGraphFeatures implements Features.GraphFeatures {
 
         private RAMCloudGraphGraphFeatures() {
@@ -872,7 +849,6 @@ public final class RAMCloudGraph implements Graph {
             return false;
         }
 
-        //TODO show the world that I am super awesome with my graph skillz.
         @Override
         public boolean supportsPersistence() {
             return false;

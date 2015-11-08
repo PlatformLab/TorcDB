@@ -170,7 +170,9 @@ public class RAMCloudHelper {
         return true;
     }
     
-    // TODO: make more compact
+    /**
+     * TODO: Use a more compact key representation to save space in RAMCloud. 
+     */
     public static String stringifyVertexId(byte[] vertexId) {
         ByteBuffer id = ByteBuffer.allocate(vertexId.length);
         id.put(vertexId);
@@ -189,7 +191,6 @@ public class RAMCloudHelper {
     }
     
     public static String getVertexEdgeListKey(byte[] vertexId, String label, RAMCloudEdgeDirection dir) {
-        // TODO: change dir.name() to dir.ordinal() to make more compact
         return stringifyVertexId(vertexId) + ":edges:" + label + ":" + dir.name();
     }
     

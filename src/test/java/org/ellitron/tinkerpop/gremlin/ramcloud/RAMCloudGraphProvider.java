@@ -51,6 +51,10 @@ public class RAMCloudGraphProvider extends AbstractGraphProvider {
         add(RAMCloudVertexProperty.class);
     }};
     
+    /**
+     * TODO: Use environment variables for the source of configuration
+     * information.
+     */
     @Override
     public Map<String, Object> getBaseConfiguration(String graphName, Class<?> test, String testMethodName, LoadGraphWith.GraphData loadGraphWith) {
         Map<String, Object> config = new HashMap<>();
