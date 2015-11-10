@@ -156,45 +156,31 @@ public final class RAMCloudGraph implements Graph {
         Optional opVertId = ElementHelper.getIdValue(keyValues);
         byte[] vertexId;
         if (opVertId.isPresent()) {
-            long userSuppliedId;
             if (opVertId.get() instanceof Long) {
-                userSuppliedId = (Long) opVertId.get();
+                vertexId = RAMCloudHelper.makeVertexId(0, (Long) opVertId.get());
             } else if (opVertId.get() instanceof String) {
-                userSuppliedId = Long.decode((String) opVertId.get());
-            } else if (opVertId.get() instanceof BigInteger) {
-                try {
-                    userSuppliedId = ((BigInteger) opVertId.get()).longValueExact();
-                } catch (ArithmeticException e) {
+                vertexId = RAMCloudHelper.makeVertexId(0, Long.decode((String) opVertId.get()));
+            } else if (opVertId.get() instanceof byte[]) {
+                vertexId = (byte[]) opVertId.get();
+                
+                if (vertexId[0] < 0)
                     throw Vertex.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
-                }
             } else {
                 throw Vertex.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
             }
             
-            vertexId = RAMCloudHelper.makeVertexId(0, userSuppliedId);
-            
             try {
                 tx.read(vertexTableId, RAMCloudHelper.getVertexLabelKey(vertexId));
-                throw Graph.Exceptions.vertexWithIdAlreadyExists(RAMCloudHelper.stringifyVertexId(vertexId));
+                System.out.println("Vertex with id already exists: " + RAMCloudHelper.stringifyVertexId(vertexId));
+                //throw Graph.Exceptions.vertexWithIdAlreadyExists(RAMCloudHelper.stringifyVertexId(vertexId));
             } catch (ObjectDoesntExistException e) {
                 // Good!
             }
-            
-            long largestUserSuppliedId;
-            try {
-                largestUserSuppliedId = Long.decode(tx.read(idTableId, Integer.toString(0)).getValue());
-            } catch (ObjectDoesntExistException e) {
-                largestUserSuppliedId = userSuppliedId;
-                tx.write(idTableId, Integer.toString(0), Long.toString(userSuppliedId));
-            }
-            
-            if (userSuppliedId > largestUserSuppliedId)
-                tx.write(idTableId, Integer.toString(0), Long.toString(userSuppliedId));
         } else {
-            int id_counter = (int) (Math.random()*NUM_ID_COUNTERS) + 1;
-            long id = ramcloud.incrementInt64(idTableId, Integer.toString(id_counter).getBytes(), 1, null);
+            long id_counter = (long) (Math.random()*NUM_ID_COUNTERS);
+            long id = ramcloud.incrementInt64(idTableId, Long.toString(id_counter).getBytes(), 1, null);
             
-            vertexId = RAMCloudHelper.makeVertexId(id_counter, id);
+            vertexId = RAMCloudHelper.makeVertexId(id_counter + (1<<63), id);
         }
         
         // Create property map.
@@ -259,7 +245,7 @@ public final class RAMCloudGraph implements Graph {
                 try {
                     obj = tx.read(vertexTableId, RAMCloudHelper.getVertexLabelKey(vertexId));
                 } catch (ObjectDoesntExistException e) {
-                    throw Graph.Exceptions.elementNotFound(RAMCloudVertex.class, RAMCloudHelper.stringifyVertexId((byte[]) vertexIds[i]));
+                    throw Graph.Exceptions.elementNotFound(RAMCloudVertex.class, vertexIds[i]);
                 }
 
                 list.add(new RAMCloudVertex(this, vertexId, obj.getValue()));
@@ -267,19 +253,13 @@ public final class RAMCloudGraph implements Graph {
 
             return list.iterator();
         } else {
-            long max_id[] = new long[NUM_ID_COUNTERS+1];
+            long max_id[] = new long[NUM_ID_COUNTERS];
             
-            try {
-                max_id[0] = Long.decode(tx.read(idTableId, Integer.toString(0)).getValue());
-            } catch (ObjectDoesntExistException e) {
-                max_id[0] = 0;
-            }
-            
-            for (int i = 1; i <= NUM_ID_COUNTERS; ++i) {
+            for (int i = 0; i < NUM_ID_COUNTERS; ++i) {
                 try {
                     ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
                     buffer.order(ByteOrder.LITTLE_ENDIAN);
-                    buffer.put(tx.read(idTableId, Integer.toString(i)).getValueBytes());
+                    buffer.put(tx.read(idTableId, Long.toString(i)).getValueBytes());
                     buffer.flip();
                     max_id[i] = buffer.getLong();
                 } catch (ObjectDoesntExistException e) {
@@ -287,9 +267,9 @@ public final class RAMCloudGraph implements Graph {
                 }
             }
             
-            for (int i = 0; i <= NUM_ID_COUNTERS; ++i) {
+            for (int i = 0; i < NUM_ID_COUNTERS; ++i) {
                 for (long j = 1; j <= max_id[i]; ++j) {
-                    byte[] vertexId = RAMCloudHelper.makeVertexId(i, j);
+                    byte[] vertexId = RAMCloudHelper.makeVertexId(i + (1<<63), j);
                     try {
                         RAMCloudObject obj = tx.read(vertexTableId, RAMCloudHelper.getVertexLabelKey(vertexId));
                         list.add(new RAMCloudVertex(this, vertexId, obj.getValue()));
@@ -334,15 +314,9 @@ public final class RAMCloudGraph implements Graph {
 
             return list.iterator();
         } else {
-            long max_id[] = new long[NUM_ID_COUNTERS+1];
+            long max_id[] = new long[NUM_ID_COUNTERS];
             
-            try {
-                max_id[0] = Long.decode(tx.read(idTableId, Integer.toString(0)).getValue());
-            } catch (ObjectDoesntExistException e) {
-                max_id[0] = 0;
-            }
-            
-            for (int i = 1; i <= NUM_ID_COUNTERS; ++i) {
+            for (int i = 0; i < NUM_ID_COUNTERS; ++i) {
                 try {
                     ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
                     buffer.order(ByteOrder.LITTLE_ENDIAN);
@@ -354,9 +328,9 @@ public final class RAMCloudGraph implements Graph {
                 }
             }
             
-            for (int i = 0; i <= NUM_ID_COUNTERS; ++i) {
+            for (int i = 0; i < NUM_ID_COUNTERS; ++i) {
                 for (long j = 1; j <= max_id[i]; ++j) {
-                    byte[] vertexId = RAMCloudHelper.makeVertexId(i, j);
+                    byte[] vertexId = RAMCloudHelper.makeVertexId(i + (1<<63), j);
                     try {
                         RAMCloudObject obj = tx.read(vertexTableId, RAMCloudHelper.getVertexEdgeLabelListKey(vertexId));
                         List<String> edgeLabels = RAMCloudHelper.deserializeEdgeLabelList(obj);
@@ -924,7 +898,7 @@ public final class RAMCloudGraph implements Graph {
                 
         @Override
         public boolean supportsUserSuppliedIds() {
-            return true;
+            return false;
         }
         
         @Override
