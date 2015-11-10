@@ -17,6 +17,7 @@ package org.ellitron.tinkerpop.gremlin.ramcloud.util;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -48,6 +49,52 @@ public class LDBCSNBBulkLoader {
 
     private static final Logger logger = Logger.getLogger(LDBCSNBBulkLoader.class.getName());
 
+    public static void loadVertices(RAMCloudGraph graph, Path filePath, Long idPrefix, boolean printLoadingDots) throws IOException {
+        long count = 0;
+        String[] colNames = null;
+        boolean firstLine = true;
+        Map<Object, Object> propertiesMap;
+        String fileName = filePath.getFileName().toString();
+        String label = fileName.substring(0, fileName.indexOf("_"));
+        for (String line : Files.readAllLines(filePath)) {
+            if (firstLine) {
+                colNames = line.split("\\|");
+                firstLine = false;
+                continue;
+            }
+
+            String[] colVals = line.split("\\|");
+            propertiesMap = new HashMap<>();
+
+            for (int i = 0; i < colNames.length; ++i) {
+                if (colNames[i].equals("id")) {
+                    propertiesMap.put(T.id, RAMCloudHelper.makeVertexId(idPrefix, Long.decode(colVals[i])));
+                } else {
+                    propertiesMap.put(colNames[i], colVals[i]);
+                }
+            }
+
+            propertiesMap.put(T.label, label);
+
+            List<Object> keyValues = new ArrayList<>();
+            propertiesMap.forEach((key, val) -> {
+                keyValues.add(key);
+                keyValues.add(val);
+            });
+
+            graph.addVertex(keyValues.toArray());
+
+            count++;
+            if (count % 100 == 0) {
+                graph.tx().commit();
+                if (printLoadingDots && (count % 100000 == 0)) {
+                    System.out.print(". ");
+                }
+            }
+        }
+        graph.tx().commit();
+    }
+    
     public static void main(String[] args) throws IOException {
         Options options = new Options();
         options.addOption("C", "coordinator", true, "Service locator where the coordinator can be contacted.");
@@ -106,15 +153,7 @@ public class LDBCSNBBulkLoader {
 
         RAMCloudGraph graph = RAMCloudGraph.open(config);
 
-        
-        try {
-            System.out.print("Loading comment_0_0.csv ");
-            
-            long count = 0;
-            String[] colNames = null;
-            boolean firstLine = true;
-            Map<Object, Object> propertiesMap;
-            Map<String, Long> idPrefixMap = new HashMap<String, Long>() {{
+        Map<String, Long> idPrefixMap = new HashMap<String, Long>() {{
                 this.put("comment", 1l);
                 this.put("forum", 2l);
                 this.put("organisation", 3l);
@@ -124,352 +163,16 @@ public class LDBCSNBBulkLoader {
                 this.put("tag", 7l);
                 this.put("tagclass", 8l);
             }};
-            for (String line : Files.readAllLines(Paths.get(inputBaseDir + "/comment_0_0.csv"))) {
-                if (firstLine) {
-                    colNames = line.split("\\|");
-                    firstLine = false;
-                    continue;
-                }
-
-                String[] colVals = line.split("\\|");
-                propertiesMap = new HashMap<>();
-
-                for (int i = 0; i < colNames.length; ++i) {
-                    if (colNames[i].equals("id")) {
-                        propertiesMap.put(T.id, RAMCloudHelper.makeVertexId(idPrefixMap.get("comment"), Long.decode(colVals[i])));
-                    } else {
-                        propertiesMap.put(colNames[i], colVals[i]);
-                    }
-                }
-
-                propertiesMap.put(T.label, "comment");
-
-                List<Object> keyValues = new ArrayList<>();
-                propertiesMap.forEach((key, val) -> {
-                    keyValues.add(key);
-                    keyValues.add(val);
-                });
-
-                graph.addVertex(keyValues.toArray());
-
-                count++;
-                if (count % 100 == 0) {
-                    graph.tx().commit();
-                    if (count % 100000 == 0)
-                        System.out.print(". ");
-                }
+        
+        try {
+            for (Map.Entry<String, Long> entry : idPrefixMap.entrySet()) {
+                String vertexType = entry.getKey();
+                Long idPrefix = entry.getValue();
+                String fileName = vertexType + "_0_0.csv";
+                System.out.print("Loading " + fileName + " ");
+                loadVertices(graph, Paths.get(inputBaseDir + "/" + fileName), idPrefix, true);
+                System.out.println("Finished");
             }
-            graph.tx().commit();
-
-            System.out.println("Finished loading comment_0_0.csv");
-            
-            System.out.print("Loading forum_0_0.csv ");
-            
-            count = 0;
-            colNames = null;
-            firstLine = true;
-            for (String line : Files.readAllLines(Paths.get(inputBaseDir + "/forum_0_0.csv"))) {
-                if (firstLine) {
-                    colNames = line.split("\\|");
-                    firstLine = false;
-                    continue;
-                }
-
-                String[] colVals = line.split("\\|");
-                propertiesMap = new HashMap<>();
-
-                for (int i = 0; i < colNames.length; ++i) {
-                    if (colNames[i].equals("id")) {
-                        propertiesMap.put(T.id, RAMCloudHelper.makeVertexId(idPrefixMap.get("forum"), Long.decode(colVals[i])));
-                    } else {
-                        propertiesMap.put(colNames[i], colVals[i]);
-                    }
-                }
-
-                propertiesMap.put(T.label, "comment");
-
-                List<Object> keyValues = new ArrayList<>();
-                propertiesMap.forEach((key, val) -> {
-                    keyValues.add(key);
-                    keyValues.add(val);
-                });
-
-                graph.addVertex(keyValues.toArray());
-
-                count++;
-                if (count % 100 == 0) {
-                    graph.tx().commit();
-                    if (count % 100000 == 0)
-                        System.out.print(". ");
-                }
-            }
-            graph.tx().commit();
-
-            System.out.println("Finished loading forum_0_0.csv");
-            
-            System.out.print("Loading organisation_0_0.csv ");
-            
-            count = 0;
-            colNames = null;
-            firstLine = true;
-            for (String line : Files.readAllLines(Paths.get(inputBaseDir + "/organisation_0_0.csv"))) {
-                if (firstLine) {
-                    colNames = line.split("\\|");
-                    firstLine = false;
-                    continue;
-                }
-
-                String[] colVals = line.split("\\|");
-                propertiesMap = new HashMap<>();
-
-                for (int i = 0; i < colNames.length; ++i) {
-                    if (colNames[i].equals("id")) {
-                        propertiesMap.put(T.id, RAMCloudHelper.makeVertexId(idPrefixMap.get("organisation"), Long.decode(colVals[i])));
-                    } else {
-                        propertiesMap.put(colNames[i], colVals[i]);
-                    }
-                }
-
-                propertiesMap.put(T.label, "comment");
-
-                List<Object> keyValues = new ArrayList<>();
-                propertiesMap.forEach((key, val) -> {
-                    keyValues.add(key);
-                    keyValues.add(val);
-                });
-
-                graph.addVertex(keyValues.toArray());
-
-                count++;
-                if (count % 100 == 0) {
-                    graph.tx().commit();
-                    if (count % 100000 == 0)
-                        System.out.print(". ");
-                }
-            }
-            graph.tx().commit();
-
-            System.out.println("Finished loading organisation_0_0.csv");
-            
-            System.out.print("Loading person_0_0.csv ");
-            
-            count = 0;
-            colNames = null;
-            firstLine = true;
-            for (String line : Files.readAllLines(Paths.get(inputBaseDir + "/person_0_0.csv"))) {
-                if (firstLine) {
-                    colNames = line.split("\\|");
-                    firstLine = false;
-                    continue;
-                }
-
-                String[] colVals = line.split("\\|");
-                propertiesMap = new HashMap<>();
-
-                for (int i = 0; i < colNames.length; ++i) {
-                    if (colNames[i].equals("id")) {
-                        propertiesMap.put(T.id, RAMCloudHelper.makeVertexId(idPrefixMap.get("person"), Long.decode(colVals[i])));
-                    } else {
-                        propertiesMap.put(colNames[i], colVals[i]);
-                    }
-                }
-
-                propertiesMap.put(T.label, "person");
-
-                List<Object> keyValues = new ArrayList<>();
-                propertiesMap.forEach((key, val) -> {
-                    keyValues.add(key);
-                    keyValues.add(val);
-                });
-
-                graph.addVertex(keyValues.toArray());
-
-                count++;
-                if (count % 100 == 0) {
-                    graph.tx().commit();
-                    if (count % 100000 == 0)
-                        System.out.print(". ");
-                }
-            }
-            graph.tx().commit();
-
-            System.out.println("Finished loading person_0_0.csv");
-            
-            System.out.print("Loading place_0_0.csv ");
-            
-            count = 0;
-            colNames = null;
-            firstLine = true;
-            for (String line : Files.readAllLines(Paths.get(inputBaseDir + "/place_0_0.csv"))) {
-                if (firstLine) {
-                    colNames = line.split("\\|");
-                    firstLine = false;
-                    continue;
-                }
-
-                String[] colVals = line.split("\\|");
-                propertiesMap = new HashMap<>();
-
-                for (int i = 0; i < colNames.length; ++i) {
-                    if (colNames[i].equals("id")) {
-                        propertiesMap.put(T.id, RAMCloudHelper.makeVertexId(idPrefixMap.get("place"), Long.decode(colVals[i])));
-                    } else {
-                        propertiesMap.put(colNames[i], colVals[i]);
-                    }
-                }
-
-                propertiesMap.put(T.label, "comment");
-
-                List<Object> keyValues = new ArrayList<>();
-                propertiesMap.forEach((key, val) -> {
-                    keyValues.add(key);
-                    keyValues.add(val);
-                });
-
-                graph.addVertex(keyValues.toArray());
-
-                count++;
-                if (count % 100 == 0) {
-                    graph.tx().commit();
-                    if (count % 100000 == 0)
-                        System.out.print(". ");
-                }
-            }
-            graph.tx().commit();
-
-            System.out.println("Finished loading place_0_0.csv");
-            
-            System.out.print("Loading post_0_0.csv ");
-            
-            count = 0;
-            colNames = null;
-            firstLine = true;
-            for (String line : Files.readAllLines(Paths.get(inputBaseDir + "/post_0_0.csv"))) {
-                if (firstLine) {
-                    colNames = line.split("\\|");
-                    firstLine = false;
-                    continue;
-                }
-
-                String[] colVals = line.split("\\|");
-                propertiesMap = new HashMap<>();
-
-                for (int i = 0; i < colNames.length; ++i) {
-                    if (colNames[i].equals("id")) {
-                        propertiesMap.put(T.id, RAMCloudHelper.makeVertexId(idPrefixMap.get("post"), Long.decode(colVals[i])));
-                    } else {
-                        propertiesMap.put(colNames[i], colVals[i]);
-                    }
-                }
-
-                propertiesMap.put(T.label, "comment");
-
-                List<Object> keyValues = new ArrayList<>();
-                propertiesMap.forEach((key, val) -> {
-                    keyValues.add(key);
-                    keyValues.add(val);
-                });
-
-                graph.addVertex(keyValues.toArray());
-
-                count++;
-                if (count % 100 == 0) {
-                    graph.tx().commit();
-                    if (count % 100000 == 0)
-                        System.out.print(". ");
-                }
-            }
-            graph.tx().commit();
-
-            System.out.println("Finished loading post_0_0.csv");
-            
-            System.out.print("Loading tag_0_0.csv ");
-            
-            count = 0;
-            colNames = null;
-            firstLine = true;
-            for (String line : Files.readAllLines(Paths.get(inputBaseDir + "/tag_0_0.csv"))) {
-                if (firstLine) {
-                    colNames = line.split("\\|");
-                    firstLine = false;
-                    continue;
-                }
-
-                String[] colVals = line.split("\\|");
-                propertiesMap = new HashMap<>();
-
-                for (int i = 0; i < colNames.length; ++i) {
-                    if (colNames[i].equals("id")) {
-                        propertiesMap.put(T.id, RAMCloudHelper.makeVertexId(idPrefixMap.get("tag"), Long.decode(colVals[i])));
-                    } else {
-                        propertiesMap.put(colNames[i], colVals[i]);
-                    }
-                }
-
-                propertiesMap.put(T.label, "comment");
-
-                List<Object> keyValues = new ArrayList<>();
-                propertiesMap.forEach((key, val) -> {
-                    keyValues.add(key);
-                    keyValues.add(val);
-                });
-
-                graph.addVertex(keyValues.toArray());
-
-                count++;
-                if (count % 100 == 0) {
-                    graph.tx().commit();
-                    if (count % 100000 == 0)
-                        System.out.print(". ");
-                }
-            }
-            graph.tx().commit();
-
-            System.out.println("Finished loading tag_0_0.csv");
-            
-            System.out.print("Loading tagclass_0_0.csv ");
-            
-            count = 0;
-            colNames = null;
-            firstLine = true;
-            for (String line : Files.readAllLines(Paths.get(inputBaseDir + "/tagclass_0_0.csv"))) {
-                if (firstLine) {
-                    colNames = line.split("\\|");
-                    firstLine = false;
-                    continue;
-                }
-
-                String[] colVals = line.split("\\|");
-                propertiesMap = new HashMap<>();
-
-                for (int i = 0; i < colNames.length; ++i) {
-                    if (colNames[i].equals("id")) {
-                        propertiesMap.put(T.id, RAMCloudHelper.makeVertexId(idPrefixMap.get("tagclass"), Long.decode(colVals[i])));
-                    } else {
-                        propertiesMap.put(colNames[i], colVals[i]);
-                    }
-                }
-
-                propertiesMap.put(T.label, "comment");
-
-                List<Object> keyValues = new ArrayList<>();
-                propertiesMap.forEach((key, val) -> {
-                    keyValues.add(key);
-                    keyValues.add(val);
-                });
-
-                graph.addVertex(keyValues.toArray());
-
-                count++;
-                if (count % 100 == 0) {
-                    graph.tx().commit();
-                    if (count % 100000 == 0)
-                        System.out.print(". ");
-                }
-            }
-            graph.tx().commit();
-
-            System.out.println("Finished loading tagclass_0_0.csv");
         } catch (Exception e) {
             System.out.println("Exception: " + e);
             e.printStackTrace();
