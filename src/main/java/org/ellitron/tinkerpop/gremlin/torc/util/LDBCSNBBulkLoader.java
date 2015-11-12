@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.ramcloud.util;
+package org.ellitron.tinkerpop.gremlin.torc.util;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,9 +37,9 @@ import org.apache.commons.configuration.BaseConfiguration;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
-import org.ellitron.tinkerpop.gremlin.ramcloud.measurement.MeasurementClient;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudGraph;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.util.RAMCloudHelper;
+import org.ellitron.tinkerpop.gremlin.torc.measurement.MeasurementClient;
+import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraph;
+import org.ellitron.tinkerpop.gremlin.torc.structure.util.TorcHelper;
 
 /**
  *
@@ -49,7 +49,7 @@ public class LDBCSNBBulkLoader {
 
     private static final Logger logger = Logger.getLogger(LDBCSNBBulkLoader.class.getName());
 
-    public static void loadVertices(RAMCloudGraph graph, Path filePath, Long idPrefix, boolean printLoadingDots) throws IOException {
+    public static void loadVertices(TorcGraph graph, Path filePath, Long idPrefix, boolean printLoadingDots) throws IOException {
         long count = 0;
         String[] colNames = null;
         boolean firstLine = true;
@@ -68,7 +68,7 @@ public class LDBCSNBBulkLoader {
 
             for (int i = 0; i < colNames.length; ++i) {
                 if (colNames[i].equals("id")) {
-                    propertiesMap.put(T.id, RAMCloudHelper.makeVertexId(idPrefix, Long.decode(colVals[i])));
+                    propertiesMap.put(T.id, TorcHelper.makeVertexId(idPrefix, Long.decode(colVals[i])));
                 } else {
                     propertiesMap.put(colNames[i], colVals[i]);
                 }
@@ -148,10 +148,10 @@ public class LDBCSNBBulkLoader {
          */
         BaseConfiguration config = new BaseConfiguration();
         config.setDelimiterParsingDisabled(true);
-        config.setProperty(RAMCloudGraph.CONFIG_COORD_LOC, coordinatorLocator);
-        config.setProperty(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, numMasters);
+        config.setProperty(TorcGraph.CONFIG_COORD_LOC, coordinatorLocator);
+        config.setProperty(TorcGraph.CONFIG_NUM_MASTER_SERVERS, numMasters);
 
-        RAMCloudGraph graph = RAMCloudGraph.open(config);
+        TorcGraph graph = TorcGraph.open(config);
 
         Map<String, Long> idPrefixMap = new HashMap<String, Long>() {{
                 this.put("comment", 1l);

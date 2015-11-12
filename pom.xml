@@ -7,7 +7,7 @@
         <version>3.0.1-incubating</version>
     </parent>
     <groupId>org.ellitron</groupId>
-    <artifactId>ramcloud-gremlin</artifactId>
+    <artifactId>torc-gremlin</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <dependencies>
@@ -116,4 +116,5 @@
         <maven.compiler.source>1.7</maven.compiler.source>
         <maven.compiler.target>1.7</maven.compiler.target>
     </properties>
+    <name>torc-gremlin</name>
 </project>

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.ramcloud.util;
+package org.ellitron.tinkerpop.gremlin.torc.util;
 
 import org.junit.runner.Description;
 import org.junit.runner.notification.Failure;

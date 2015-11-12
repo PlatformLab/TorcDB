@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.ramcloud.structure;
+package org.ellitron.tinkerpop.gremlin.torc.structure;
 
 import edu.stanford.ramcloud.RAMCloud;
 import edu.stanford.ramcloud.RAMCloudObject;
@@ -32,18 +32,18 @@ import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.util.RAMCloudHelper;
+import org.ellitron.tinkerpop.gremlin.torc.structure.util.TorcHelper;
 
 /**
  *
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
-public class RAMCloudVertex implements Vertex, Element {
-    private final RAMCloudGraph graph;
+public class TorcVertex implements Vertex, Element {
+    private final TorcGraph graph;
     byte[] id;
     private String label;
     
-    public RAMCloudVertex(final RAMCloudGraph graph, final byte[] id, final String label) {
+    public TorcVertex(final TorcGraph graph, final byte[] id, final String label) {
         this.graph = graph;
         this.id = id;
         this.label = label;
@@ -71,28 +71,28 @@ public class RAMCloudVertex implements Vertex, Element {
 
     @Override
     public Edge addEdge(String label, Vertex inVertex, Object... keyValues) {
-        return graph.addEdge(this, (RAMCloudVertex) inVertex, label, RAMCloudEdge.Directionality.DIRECTED, keyValues);
+        return graph.addEdge(this, (TorcVertex) inVertex, label, TorcEdge.Directionality.DIRECTED, keyValues);
     }
     
     public Edge addBidirectionalEdge(String label, Vertex otherVertex, Object... keyValues) {
-        return graph.addEdge(this, (RAMCloudVertex) otherVertex, label, RAMCloudEdge.Directionality.UNDIRECTED, keyValues);
+        return graph.addEdge(this, (TorcVertex) otherVertex, label, TorcEdge.Directionality.UNDIRECTED, keyValues);
     }
     
     @Override
     public Iterator<Edge> edges(Direction direction, String... edgeLabels) {
         switch(direction) {
             case OUT:
-                return graph.vertexEdges(this, EnumSet.of(RAMCloudEdgeDirection.DIRECTED_OUT), edgeLabels);
+                return graph.vertexEdges(this, EnumSet.of(TorcEdgeDirection.DIRECTED_OUT), edgeLabels);
             case IN:
-                return graph.vertexEdges(this, EnumSet.of(RAMCloudEdgeDirection.DIRECTED_IN), edgeLabels);
+                return graph.vertexEdges(this, EnumSet.of(TorcEdgeDirection.DIRECTED_IN), edgeLabels);
             case BOTH:
-                return graph.vertexEdges(this, EnumSet.of(RAMCloudEdgeDirection.DIRECTED_OUT, RAMCloudEdgeDirection.DIRECTED_IN), edgeLabels);
+                return graph.vertexEdges(this, EnumSet.of(TorcEdgeDirection.DIRECTED_OUT, TorcEdgeDirection.DIRECTED_IN), edgeLabels);
             default:
                 throw new UnsupportedOperationException("Unrecognized direction value: " + direction);
         }
     }
     
-    public Iterator<Edge> edges(EnumSet<RAMCloudEdgeDirection> edgeDirections, String... edgeLabels) {
+    public Iterator<Edge> edges(EnumSet<TorcEdgeDirection> edgeDirections, String... edgeLabels) {
         return graph.vertexEdges(this, edgeDirections, edgeLabels);
     }
 
@@ -100,17 +100,17 @@ public class RAMCloudVertex implements Vertex, Element {
     public Iterator<Vertex> vertices(Direction direction, String... edgeLabels) {
         switch(direction) {
             case OUT:
-                return graph.vertexNeighbors(this, EnumSet.of(RAMCloudEdgeDirection.DIRECTED_OUT), edgeLabels);
+                return graph.vertexNeighbors(this, EnumSet.of(TorcEdgeDirection.DIRECTED_OUT), edgeLabels);
             case IN:
-                return graph.vertexNeighbors(this, EnumSet.of(RAMCloudEdgeDirection.DIRECTED_IN), edgeLabels);
+                return graph.vertexNeighbors(this, EnumSet.of(TorcEdgeDirection.DIRECTED_IN), edgeLabels);
             case BOTH:
-                return graph.vertexNeighbors(this, EnumSet.of(RAMCloudEdgeDirection.DIRECTED_OUT, RAMCloudEdgeDirection.DIRECTED_IN), edgeLabels);
+                return graph.vertexNeighbors(this, EnumSet.of(TorcEdgeDirection.DIRECTED_OUT, TorcEdgeDirection.DIRECTED_IN), edgeLabels);
             default:
                 throw new UnsupportedOperationException("Unrecognized direction value: " + direction);
         }
     }
         
-    public Iterator<Vertex> vertices(EnumSet<RAMCloudEdgeDirection> edgeDirections, String... edgeLabels) {
+    public Iterator<Vertex> vertices(EnumSet<TorcEdgeDirection> edgeDirections, String... edgeLabels) {
         return graph.vertexNeighbors(this, edgeDirections, edgeLabels);
     }
 
@@ -131,8 +131,8 @@ public class RAMCloudVertex implements Vertex, Element {
 
     @Override
     public boolean equals(final Object object) {
-        if (object instanceof RAMCloudVertex) {
-            return this.id().equals(((RAMCloudVertex) object).id());
+        if (object instanceof TorcVertex) {
+            return this.id().equals(((TorcVertex) object).id());
         }
         
         return false;

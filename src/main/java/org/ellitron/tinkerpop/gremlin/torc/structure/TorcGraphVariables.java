@@ -13,40 +13,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.ramcloud.structure;
+package org.ellitron.tinkerpop.gremlin.torc.structure;
 
-import java.util.NoSuchElementException;
-import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.structure.Property;
+import java.util.Optional;
+import java.util.Set;
+import org.apache.tinkerpop.gremlin.structure.Graph;
 
 /**
  *
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
-public class RAMCloudProperty<V> implements Property<V> {
+public class TorcGraphVariables implements Graph.Variables {
 
     @Override
-    public String key() {
+    public Set<String> keys() {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public V value() throws NoSuchElementException {
+    public <R> Optional<R> get(String key) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public boolean isPresent() {
+    public void set(String key, Object value) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public Element element() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
-    @Override
-    public void remove() {
+    public void remove(String key) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
     

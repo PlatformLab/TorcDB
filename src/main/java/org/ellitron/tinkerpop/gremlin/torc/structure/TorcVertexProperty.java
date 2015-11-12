@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.ramcloud.structure;
+package org.ellitron.tinkerpop.gremlin.torc.structure;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -28,13 +28,13 @@ import org.apache.tinkerpop.gremlin.structure.VertexProperty;
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  * @param <V>
  */
-public class RAMCloudVertexProperty<V> implements VertexProperty<V>, Element {
-    private final RAMCloudVertex vertex;
+public class TorcVertexProperty<V> implements VertexProperty<V>, Element {
+    private final TorcVertex vertex;
     private final String key;
     private final V value;
     
     
-    public RAMCloudVertexProperty(final RAMCloudVertex vertex, final String key, V value) {
+    public TorcVertexProperty(final TorcVertex vertex, final String key, V value) {
         this.vertex = vertex;
         this.key = key;
         this.value = value;

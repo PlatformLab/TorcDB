@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.ramcloud;
+package org.ellitron.tinkerpop.gremlin.torc;
 
 import java.math.BigInteger;
 import java.util.HashMap;
@@ -28,27 +28,27 @@ import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudEdge;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudGraph;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudGraphVariables;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudProperty;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudVertex;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudVertexProperty;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.util.RAMCloudHelper;
+import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdge;
+import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraph;
+import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraphVariables;
+import org.ellitron.tinkerpop.gremlin.torc.structure.TorcProperty;
+import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertex;
+import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertexProperty;
+import org.ellitron.tinkerpop.gremlin.torc.structure.util.TorcHelper;
 
 /**
  *
  * @author ellitron
  */
-public class RAMCloudGraphProvider extends AbstractGraphProvider {
+public class TorcGraphProvider extends AbstractGraphProvider {
 
     private static final Set<Class> IMPLEMENTATIONS = new HashSet<Class>() {{
-        add(RAMCloudEdge.class);
-        add(RAMCloudGraph.class);
-        add(RAMCloudGraphVariables.class);
-        add(RAMCloudProperty.class);
-        add(RAMCloudVertex.class);
-        add(RAMCloudVertexProperty.class);
+        add(TorcEdge.class);
+        add(TorcGraph.class);
+        add(TorcGraphVariables.class);
+        add(TorcProperty.class);
+        add(TorcVertex.class);
+        add(TorcVertexProperty.class);
     }};
     
     /**
@@ -58,18 +58,18 @@ public class RAMCloudGraphProvider extends AbstractGraphProvider {
     @Override
     public Map<String, Object> getBaseConfiguration(String graphName, Class<?> test, String testMethodName, LoadGraphWith.GraphData loadGraphWith) {
         Map<String, Object> config = new HashMap<>();
-        config.put(Graph.GRAPH, RAMCloudGraph.class.getName());
-        config.put(RAMCloudGraph.CONFIG_GRAPH_NAME, graphName);
-        config.put(RAMCloudGraph.CONFIG_COORD_LOC, "infrc:host=192.168.1.129\\,port=12246");
-        config.put(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, 3);
+        config.put(Graph.GRAPH, TorcGraph.class.getName());
+        config.put(TorcGraph.CONFIG_GRAPH_NAME, graphName);
+        config.put(TorcGraph.CONFIG_COORD_LOC, "infrc:host=192.168.1.129\\,port=12246");
+        config.put(TorcGraph.CONFIG_NUM_MASTER_SERVERS, 3);
         return config;
     }
 
     @Override
     public void clear(Graph graph, Configuration configuration) throws Exception {
         if (graph != null)
-            if (((RAMCloudGraph) graph).isInitialized())
-                ((RAMCloudGraph)graph).deleteDatabaseAndCloseConnection();
+            if (((TorcGraph) graph).isInitialized())
+                ((TorcGraph)graph).deleteDatabaseAndCloseConnection();
     }
 
     @Override
@@ -81,7 +81,7 @@ public class RAMCloudGraphProvider extends AbstractGraphProvider {
     public Object convertId(final Object id, final Class<? extends Element> c) {
         if (c.equals(Vertex.class)) {
             if (id instanceof String) {
-                byte[] vertexId = RAMCloudHelper.makeVertexId(0, Long.decode((String) id));
+                byte[] vertexId = TorcHelper.makeVertexId(0, Long.decode((String) id));
                 return new BigInteger(vertexId);
             }
         }

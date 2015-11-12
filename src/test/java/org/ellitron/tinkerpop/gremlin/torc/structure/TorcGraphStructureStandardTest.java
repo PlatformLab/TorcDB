@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.ramcloud.structure;
+package org.ellitron.tinkerpop.gremlin.torc.structure;
 
 import org.apache.tinkerpop.gremlin.GraphProviderClass;
 import org.apache.tinkerpop.gremlin.structure.StructureStandardSuite;
-import org.ellitron.tinkerpop.gremlin.ramcloud.RAMCloudGraphProvider;
+import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraph;
+import org.ellitron.tinkerpop.gremlin.torc.TorcGraphProvider;
 import org.junit.runner.RunWith;
 
 /**
@@ -25,6 +26,6 @@ import org.junit.runner.RunWith;
  * @author ellitron
  */
 @RunWith(StructureStandardSuite.class)
-@GraphProviderClass(provider = RAMCloudGraphProvider.class, graph = RAMCloudGraph.class)
-public class RAMCloudGraphStructureStandardTest {
+@GraphProviderClass(provider = TorcGraphProvider.class, graph = TorcGraph.class)
+public class TorcGraphStructureStandardTest {
 }

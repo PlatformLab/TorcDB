@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.ramcloud.structure;
+package org.ellitron.tinkerpop.gremlin.torc.structure;
 
 import java.math.BigInteger;
 import java.util.Iterator;
@@ -25,14 +25,14 @@ import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.util.RAMCloudHelper;
+import org.ellitron.tinkerpop.gremlin.torc.structure.util.TorcHelper;
 
 /**
  *
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
-public class RAMCloudEdge implements Edge, Element {
-    private final RAMCloudGraph graph;
+public class TorcEdge implements Edge, Element {
+    private final TorcGraph graph;
     byte[] id;
     private String label;
     
@@ -41,7 +41,7 @@ public class RAMCloudEdge implements Edge, Element {
         UNDIRECTED;
     }
     
-    public RAMCloudEdge(final RAMCloudGraph graph, final byte[] id, final String label) {
+    public TorcEdge(final TorcGraph graph, final byte[] id, final String label) {
         this.graph = graph;
         this.id = id;
         this.label = label;
@@ -84,8 +84,8 @@ public class RAMCloudEdge implements Edge, Element {
     
     @Override
     public boolean equals(final Object object) {
-        if (object instanceof RAMCloudEdge) {
-            byte[] otherId = ((RAMCloudEdge) object).id;
+        if (object instanceof TorcEdge) {
+            byte[] otherId = ((TorcEdge) object).id;
             
             if (otherId.length != id.length)
                 return false;

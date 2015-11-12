@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.ramcloud.measurement;
+package org.ellitron.tinkerpop.gremlin.torc.measurement;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -47,7 +47,7 @@ import org.apache.commons.configuration.BaseConfiguration;
 import org.apache.commons.configuration.Configuration;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.tinkerpop.gremlin.structure.T;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudGraph;
+import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraph;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.ChartUtilities;
@@ -273,10 +273,10 @@ public class MeasurementClient {
     public void testAddVertexThroughput() {
         BaseConfiguration ramCloudGraphConfig = new BaseConfiguration();
         ramCloudGraphConfig.setDelimiterParsingDisabled(true);
-        ramCloudGraphConfig.setProperty(RAMCloudGraph.CONFIG_COORD_LOC, coordinatorLocator);
-        ramCloudGraphConfig.setProperty(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, numMasters);
+        ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_COORD_LOC, coordinatorLocator);
+        ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_NUM_MASTER_SERVERS, numMasters);
         
-        RAMCloudGraph graph = RAMCloudGraph.open(ramCloudGraphConfig);
+        TorcGraph graph = TorcGraph.open(ramCloudGraphConfig);
         
         if(clientIndex == 0) {
             PrintWriter dataFile;
@@ -373,10 +373,10 @@ public class MeasurementClient {
     public void testAddVertexLatency() {
         BaseConfiguration ramCloudGraphConfig = new BaseConfiguration();
         ramCloudGraphConfig.setDelimiterParsingDisabled(true);
-        ramCloudGraphConfig.setProperty(RAMCloudGraph.CONFIG_COORD_LOC, coordinatorLocator);
-        ramCloudGraphConfig.setProperty(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, numMasters);
+        ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_COORD_LOC, coordinatorLocator);
+        ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_NUM_MASTER_SERVERS, numMasters);
         
-        RAMCloudGraph graph = RAMCloudGraph.open(ramCloudGraphConfig);
+        TorcGraph graph = TorcGraph.open(ramCloudGraphConfig);
         
         if (clientIndex == 0) {
             for (int slaves = 0; slaves < numClients; ++slaves) {

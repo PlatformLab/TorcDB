@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.ramcloud.structure;
+package org.ellitron.tinkerpop.gremlin.torc.structure;
 
 import java.util.Iterator;
 import org.apache.commons.configuration.BaseConfiguration;
@@ -24,6 +24,7 @@ import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Transaction;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraph;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -37,12 +38,12 @@ import org.junit.Ignore;
  * @author ellitron
  */
 @Ignore
-public class RAMCloudGraphTest {
+public class TorcGraphTest {
     
     private String coordinatorLocator;
     private int totalMasterServers;
     
-    public RAMCloudGraphTest() {
+    public TorcGraphTest() {
     }
     
     @BeforeClass
@@ -65,7 +66,7 @@ public class RAMCloudGraphTest {
     }
 
     /**
-     * Test of open method, of class RAMCloudGraph.
+     * Test of open method, of class TorcGraph.
      */
     @Test
     public 
@@ -74,16 +75,16 @@ public class RAMCloudGraphTest {
         
         BaseConfiguration configuration = new BaseConfiguration();
         configuration.setDelimiterParsingDisabled(true);
-        configuration.setProperty(RAMCloudGraph.CONFIG_COORD_LOC, coordinatorLocator);
-        configuration.setProperty(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, totalMasterServers);
+        configuration.setProperty(TorcGraph.CONFIG_COORD_LOC, coordinatorLocator);
+        configuration.setProperty(TorcGraph.CONFIG_NUM_MASTER_SERVERS, totalMasterServers);
         
-        RAMCloudGraph graph = RAMCloudGraph.open(configuration);
+        TorcGraph graph = TorcGraph.open(configuration);
         
         graph.close();
     }
 
     /**
-     * Test of addVertex method, of class RAMCloudGraph.
+     * Test of addVertex method, of class TorcGraph.
      */
     @Test
     @Ignore
@@ -91,10 +92,10 @@ public class RAMCloudGraphTest {
         System.out.println("addVertex");
         
         Configuration configuration = new BaseConfiguration();
-        configuration.setProperty(RAMCloudGraph.CONFIG_COORD_LOC, coordinatorLocator);
-        configuration.setProperty(RAMCloudGraph.CONFIG_NUM_MASTER_SERVERS, totalMasterServers);
+        configuration.setProperty(TorcGraph.CONFIG_COORD_LOC, coordinatorLocator);
+        configuration.setProperty(TorcGraph.CONFIG_NUM_MASTER_SERVERS, totalMasterServers);
         
-        RAMCloudGraph graph = RAMCloudGraph.open(configuration);
+        TorcGraph graph = TorcGraph.open(configuration);
         
         Vertex v1 = graph.addVertex(T.label, "Person", "name", "bob");
         Vertex v2 = graph.addVertex(T.label, "Person", "name", "alice");
@@ -119,13 +120,13 @@ public class RAMCloudGraphTest {
     }
 
     /**
-     * Test of compute method, of class RAMCloudGraph.
+     * Test of compute method, of class TorcGraph.
      */
     @Test
     @Ignore
     public void testCompute_Class() {
         System.out.println("compute");
-        RAMCloudGraph instance = null;
+        TorcGraph instance = null;
         Object expResult = null;
         Object result = instance.compute(null);
         assertEquals(expResult, result);
@@ -134,13 +135,13 @@ public class RAMCloudGraphTest {
     }
 
     /**
-     * Test of compute method, of class RAMCloudGraph.
+     * Test of compute method, of class TorcGraph.
      */
     @Test
     @Ignore
     public void testCompute_0args() {
         System.out.println("compute");
-        RAMCloudGraph instance = null;
+        TorcGraph instance = null;
         GraphComputer expResult = null;
         GraphComputer result = instance.compute();
         assertEquals(expResult, result);
@@ -149,14 +150,14 @@ public class RAMCloudGraphTest {
     }
 
     /**
-     * Test of vertices method, of class RAMCloudGraph.
+     * Test of vertices method, of class TorcGraph.
      */
     @Test
     @Ignore
     public void testVertices() {
         System.out.println("vertices");
         Object[] os = null;
-        RAMCloudGraph instance = null;
+        TorcGraph instance = null;
         Iterator<Vertex> expResult = null;
         Iterator<Vertex> result = instance.vertices(os);
         assertEquals(expResult, result);
@@ -165,14 +166,14 @@ public class RAMCloudGraphTest {
     }
 
     /**
-     * Test of edges method, of class RAMCloudGraph.
+     * Test of edges method, of class TorcGraph.
      */
     @Test
     @Ignore
     public void testEdges() {
         System.out.println("edges");
         Object[] os = null;
-        RAMCloudGraph instance = null;
+        TorcGraph instance = null;
         Iterator<Edge> expResult = null;
         Iterator<Edge> result = instance.edges(os);
         assertEquals(expResult, result);
@@ -181,13 +182,13 @@ public class RAMCloudGraphTest {
     }
 
     /**
-     * Test of tx method, of class RAMCloudGraph.
+     * Test of tx method, of class TorcGraph.
      */
     @Test
     @Ignore
     public void testTx() {
         System.out.println("tx");
-        RAMCloudGraph instance = null;
+        TorcGraph instance = null;
         Transaction expResult = null;
         Transaction result = instance.tx();
         assertEquals(expResult, result);
@@ -196,13 +197,13 @@ public class RAMCloudGraphTest {
     }
 
     /**
-     * Test of variables method, of class RAMCloudGraph.
+     * Test of variables method, of class TorcGraph.
      */
     @Test
     @Ignore
     public void testVariables() {
         System.out.println("variables");
-        RAMCloudGraph instance = null;
+        TorcGraph instance = null;
         Graph.Variables expResult = null;
         Graph.Variables result = instance.variables();
         assertEquals(expResult, result);
@@ -211,13 +212,13 @@ public class RAMCloudGraphTest {
     }
 
     /**
-     * Test of configuration method, of class RAMCloudGraph.
+     * Test of configuration method, of class TorcGraph.
      */
     @Test
     @Ignore
     public void testConfiguration() {
         System.out.println("configuration");
-        RAMCloudGraph instance = null;
+        TorcGraph instance = null;
         Configuration expResult = null;
         Configuration result = instance.configuration();
         assertEquals(expResult, result);
@@ -226,13 +227,13 @@ public class RAMCloudGraphTest {
     }
 
     /**
-     * Test of close method, of class RAMCloudGraph.
+     * Test of close method, of class TorcGraph.
      */
     @Test
     @Ignore
     public void testClose() throws Exception {
         System.out.println("close");
-        RAMCloudGraph instance = null;
+        TorcGraph instance = null;
         instance.close();
         // TODO review the generated test code and remove the default call to fail.
         fail("The test case is a prototype.");

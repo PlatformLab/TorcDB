@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.ramcloud.structure.util;
+package org.ellitron.tinkerpop.gremlin.torc.structure.util;
 
 import edu.stanford.ramcloud.RAMCloudObject;
 import java.nio.ByteBuffer;
@@ -28,16 +28,16 @@ import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import static org.apache.tinkerpop.gremlin.structure.util.ElementHelper.haveEqualIds;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudEdge;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudEdgeDirection;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudVertex;
-import org.ellitron.tinkerpop.gremlin.ramcloud.structure.RAMCloudVertexProperty;
+import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdge;
+import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdgeDirection;
+import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertex;
+import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertexProperty;
 
 /**
  *
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
-public class RAMCloudHelper {
+public class TorcHelper {
     public static ByteBuffer serializeProperties(Map<String, String> propertyMap) {
         int serializedLength = 0;
         for (Map.Entry<String, String> property : propertyMap.entrySet()) {
@@ -190,7 +190,7 @@ public class RAMCloudHelper {
         return stringifyVertexId(vertexId) + ":props";
     }
     
-    public static String getVertexEdgeListKey(byte[] vertexId, String label, RAMCloudEdgeDirection dir) {
+    public static String getVertexEdgeListKey(byte[] vertexId, String label, TorcEdgeDirection dir) {
         return stringifyVertexId(vertexId) + ":edges:" + label + ":" + dir.name();
     }
     
@@ -234,7 +234,7 @@ public class RAMCloudHelper {
         return false;
     }
     
-    public static byte[] makeEdgeId(byte[] outVertexId, byte[] inVertexId, String label, RAMCloudEdge.Directionality directionality) {
+    public static byte[] makeEdgeId(byte[] outVertexId, byte[] inVertexId, String label, TorcEdge.Directionality directionality) {
         ByteBuffer id = ByteBuffer.allocate(Long.BYTES*4 + Byte.BYTES + label.length());
         id.put(outVertexId);
         id.put(inVertexId);
@@ -266,7 +266,7 @@ public class RAMCloudHelper {
         return Arrays.copyOfRange(edgeId, Long.BYTES*2, Long.BYTES*4);
     }
     
-    public static RAMCloudEdge.Directionality parseDirectionalityFromEdgeId(byte[] edgeId) {
-        return RAMCloudEdge.Directionality.values()[edgeId[Long.BYTES*4]];
+    public static TorcEdge.Directionality parseDirectionalityFromEdgeId(byte[] edgeId) {
+        return TorcEdge.Directionality.values()[edgeId[Long.BYTES*4]];
     }
 }
