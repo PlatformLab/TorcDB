@@ -78,10 +78,10 @@ public final class TorcGraph implements Graph {
     }
     
     // Configuration keys.
-    public static final String CONFIG_GRAPH_NAME = "gremlin.ramcloud.graphName";
-    public static final String CONFIG_COORD_LOC = "gremlin.ramcloud.coordinatorLocator";
-    public static final String CONFIG_NUM_MASTER_SERVERS = "gremlin.ramcloud.numMasterServers";
-    public static final String CONFIG_LOG_LEVEL = "gremlin.ramcloud.logLevel";
+    public static final String CONFIG_GRAPH_NAME = "gremlin.torc.graphName";
+    public static final String CONFIG_COORD_LOC = "gremlin.torc.coordinatorLocator";
+    public static final String CONFIG_NUM_MASTER_SERVERS = "gremlin.torc.numMasterServers";
+    public static final String CONFIG_LOG_LEVEL = "gremlin.torc.logLevel";
     
     // Constants.
     private static final String ID_TABLE_NAME = "idTable";
