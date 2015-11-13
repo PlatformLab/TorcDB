@@ -99,6 +99,7 @@ public class LDBCSNBBulkLoader {
         Options options = new Options();
         options.addOption("C", "coordinator", true, "Service locator where the coordinator can be contacted.");
         options.addOption(null, "numMasters", true, "Total master servers.");
+        options.addOption(null, "graphName", true, "Name for this graph.");
         options.addOption(null, "input", true, "Input file directory.");
         options.addOption("h", "help", false, "Print usage.");
 
@@ -134,6 +135,14 @@ public class LDBCSNBBulkLoader {
             return;
         }
 
+        String graphName;
+        if (cmd.hasOption("graphName")) {
+            graphName = cmd.getOptionValue("graphName");
+        } else {
+            logger.log(Level.SEVERE, "Missing required argument: graphName");
+            return;
+        }
+        
         String inputBaseDir;
         if (cmd.hasOption("input")) {
             inputBaseDir = cmd.getOptionValue("input");
@@ -148,6 +157,7 @@ public class LDBCSNBBulkLoader {
          */
         BaseConfiguration config = new BaseConfiguration();
         config.setDelimiterParsingDisabled(true);
+        config.setProperty(TorcGraph.CONFIG_GRAPH_NAME, graphName);
         config.setProperty(TorcGraph.CONFIG_COORD_LOC, coordinatorLocator);
         config.setProperty(TorcGraph.CONFIG_NUM_MASTER_SERVERS, numMasters);
 
@@ -177,7 +187,8 @@ public class LDBCSNBBulkLoader {
             System.out.println("Exception: " + e);
             e.printStackTrace();
         } finally {
-            graph.deleteDatabaseAndCloseConnection();
+            //graph.deleteDatabaseAndCloseConnection();
+            graph.close();
         }
     }
 }
