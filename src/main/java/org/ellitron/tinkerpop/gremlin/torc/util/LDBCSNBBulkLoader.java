@@ -66,7 +66,7 @@ public class LDBCSNBBulkLoader {
             String[] colVals = line.split("\\|");
             propertiesMap = new HashMap<>();
 
-            for (int i = 0; i < colNames.length; ++i) {
+            for (int i = 0; i < colVals.length; ++i) {
                 if (colNames[i].equals("id")) {
                     propertiesMap.put(T.id, TorcHelper.makeVertexId(idPrefix, Long.decode(colVals[i])));
                 } else {
