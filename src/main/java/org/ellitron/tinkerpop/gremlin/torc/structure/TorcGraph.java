@@ -667,6 +667,9 @@ public final class TorcGraph implements Graph {
             }
         } else {
             for (Map.Entry<String, String> property : properties.entrySet()) {
+                // TODO: Here I am implicitly assuming that V is of type String, 
+                // since property.getValue() returns a string, making the new 
+                // elemennt to propList TorcVertexProperty<String>
                 propList.add(new TorcVertexProperty(vertex, property.getKey(), property.getValue()));
             }
         }
