@@ -59,37 +59,41 @@ import org.ellitron.tinkerpop.gremlin.torc.structure.util.TorcHelper;
 /**
  *
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
-
- TODO: Make TorcGraph thread safe. Currently every TorcGraph method that 
- performs reads or writes to the database uses a ThreadLocal RAMCloudTransaction 
- to isolate transactions from different threads. Each ThreadLocal RAMCloudTransaction 
- object, however, is constructed with a reference to the same RAMCloud client 
- object, which itself is not thread safe. Therefore, TorcGraph, although 
- using separate RAMCloudTransaction objects for each thread, it not actually 
- thread safe. To fix this problem, each ThreadLocal RAMCloudTransaction object 
- needs to be constructed with its own RAMCloud client object.
+ *
+ * TODO: Make TorcGraph thread safe. Currently every TorcGraph method that
+ * performs reads or writes to the database uses a ThreadLocal
+ * RAMCloudTransaction to isolate transactions from different threads. Each
+ * ThreadLocal RAMCloudTransaction object, however, is constructed with a
+ * reference to the same RAMCloud client object, which itself is not thread
+ * safe. Therefore, TorcGraph, although using separate RAMCloudTransaction
+ * objects for each thread, it not actually thread safe. To fix this problem,
+ * each ThreadLocal RAMCloudTransaction object needs to be constructed with its
+ * own RAMCloud client object.
+ *
+ * TODO: Implement way of handling objects that are larger than 1MB.
  */
 @Graph.OptIn(Graph.OptIn.SUITE_STRUCTURE_STANDARD)
 public final class TorcGraph implements Graph {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(TorcGraph.class);
-    
+
     static {
         BasicConfigurator.configure();
     }
-    
+
     // Configuration keys.
     public static final String CONFIG_GRAPH_NAME = "gremlin.torc.graphName";
     public static final String CONFIG_COORD_LOC = "gremlin.torc.coordinatorLocator";
     public static final String CONFIG_NUM_MASTER_SERVERS = "gremlin.torc.numMasterServers";
     public static final String CONFIG_LOG_LEVEL = "gremlin.torc.logLevel";
-    
+
     // Constants.
     private static final String ID_TABLE_NAME = "idTable";
     private static final String VERTEX_TABLE_NAME = "vertexTable";
     private static final String EDGE_TABLE_NAME = "edgeTable";
     private static final int MAX_TX_RETRY_COUNT = 100;
     private static final int NUM_ID_COUNTERS = 16;
-    
+
     // Normal private members.
     private final Configuration configuration;
     private String coordinatorLocator;
@@ -99,61 +103,66 @@ public final class TorcGraph implements Graph {
     private String graphName;
     private long nextLocalVertexId = 1;
     private RAMCloudGraphTransaction ramcloudGraphTransaction = new RAMCloudGraphTransaction();
-    
+
     boolean initialized = false;
-    
+
     private TorcGraph(final Configuration configuration) {
         this.configuration = configuration;
-        
+
         graphName = configuration.getString(CONFIG_GRAPH_NAME);
         coordinatorLocator = configuration.getString(CONFIG_COORD_LOC);
         totalMasterServers = configuration.getInt(CONFIG_NUM_MASTER_SERVERS);
     }
-    
+
     public boolean isInitialized() {
         return initialized;
     }
-    
+
     private void initialize() {
         try {
             ramcloud = new RAMCloud(coordinatorLocator);
-        } catch(ClientException e) {
+        } catch (ClientException e) {
             System.out.println(e.toString());
             throw e;
         }
-        
+
         idTableId = ramcloud.createTable(graphName + "_" + ID_TABLE_NAME, totalMasterServers);
         vertexTableId = ramcloud.createTable(graphName + "_" + VERTEX_TABLE_NAME, totalMasterServers);
         edgeTableId = ramcloud.createTable(graphName + "_" + EDGE_TABLE_NAME, totalMasterServers);
-        
+
         initialized = true;
     }
-    
+
     public static TorcGraph open(final Configuration configuration) {
         return new TorcGraph(configuration);
     }
-    
+
     @Override
     public Vertex addVertex(final Object... keyValues) {
-        if (!initialized)
+        if (!initialized) {
             initialize();
-        
+        }
+
         ramcloudGraphTransaction.readWrite();
         RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
-        
+
         // Validate key/value pairs
-        if (keyValues.length % 2 != 0)
+        if (keyValues.length % 2 != 0) {
             throw Element.Exceptions.providedKeyValuesMustBeAMultipleOfTwo();
-        for (int i = 0; i < keyValues.length; i = i + 2) {
-            if (!(keyValues[i] instanceof String) && !(keyValues[i] instanceof T))
-                throw Element.Exceptions.providedKeyValuesMustHaveALegalKeyOnEvenIndices();
-            if (!(keyValues[i+1] instanceof String))
-                if (!keyValues[i].equals(T.id))
-                    throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(keyValues[i+1]);
         }
-        
+        for (int i = 0; i < keyValues.length; i = i + 2) {
+            if (!(keyValues[i] instanceof String) && !(keyValues[i] instanceof T)) {
+                throw Element.Exceptions.providedKeyValuesMustHaveALegalKeyOnEvenIndices();
+            }
+            if (!(keyValues[i + 1] instanceof String)) {
+                if (!keyValues[i].equals(T.id)) {
+                    throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(keyValues[i + 1]);
+                }
+            }
+        }
+
         final String label = ElementHelper.getLabelValue(keyValues).orElse(Vertex.DEFAULT_LABEL);
-        
+
         Optional opVertId = ElementHelper.getIdValue(keyValues);
         byte[] vertexId;
         if (opVertId.isPresent()) {
@@ -163,13 +172,14 @@ public final class TorcGraph implements Graph {
                 vertexId = TorcHelper.makeVertexId(0, Long.decode((String) opVertId.get()));
             } else if (opVertId.get() instanceof byte[]) {
                 vertexId = (byte[]) opVertId.get();
-                
-                if (vertexId[0] < 0)
+
+                if (vertexId[0] < 0) {
                     throw Vertex.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
+                }
             } else {
                 throw Vertex.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
             }
-            
+
             try {
                 tx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
                 System.out.println("Vertex with id already exists: " + TorcHelper.stringifyVertexId(vertexId));
@@ -178,25 +188,26 @@ public final class TorcGraph implements Graph {
                 // Good!
             }
         } else {
-            long id_counter = (long) (Math.random()*NUM_ID_COUNTERS);
+            long id_counter = (long) (Math.random() * NUM_ID_COUNTERS);
             long id = ramcloud.incrementInt64(idTableId, Long.toString(id_counter).getBytes(), 1, null);
-            
-            vertexId = TorcHelper.makeVertexId(id_counter + (1<<63), id);
+
+            vertexId = TorcHelper.makeVertexId(id_counter + (1 << 63), id);
         }
-        
+
         // Create property map.
         Map<String, String> properties = new HashMap<>();
         for (int i = 0; i < keyValues.length; i = i + 2) {
-            if (keyValues[i] instanceof String)
-                properties.put((String)keyValues[i], (String)keyValues[i+1]);
+            if (keyValues[i] instanceof String) {
+                properties.put((String) keyValues[i], (String) keyValues[i + 1]);
+            }
         }
-        
+
         tx.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId), label);
         tx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertexId), TorcHelper.serializeProperties(properties).array());
-        
+
         return new TorcVertex(this, vertexId, label);
     }
-    
+
     @Override
     public <C extends GraphComputer> C compute(final Class<C> type) throws IllegalArgumentException {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
@@ -209,23 +220,24 @@ public final class TorcGraph implements Graph {
 
     @Override
     public Iterator<Vertex> vertices(final Object... vertexIds) {
-        if (!initialized)
+        if (!initialized) {
             initialize();
-        
+        }
+
         ramcloudGraphTransaction.readWrite();
         RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
-        
+
         ElementHelper.validateMixedElementIds(TorcVertex.class, vertexIds);
-        
+
         List<Vertex> list = new ArrayList<>();
         if (vertexIds.length > 0) {
             if (vertexIds[0] instanceof TorcVertex) {
                 return Arrays.asList((Vertex[]) vertexIds).iterator();
             }
-            
+
             for (int i = 0; i < vertexIds.length; ++i) {
                 byte[] vertexId;
-                
+
                 if (vertexIds[i] instanceof Long) {
                     vertexId = TorcHelper.makeVertexId(0, (Long) vertexIds[i]);
                 } else if (vertexIds[i] instanceof BigInteger) {
@@ -241,7 +253,7 @@ public final class TorcGraph implements Graph {
                 } else {
                     throw Graph.Exceptions.elementNotFound(TorcVertex.class, vertexIds[i]);
                 }
-                
+
                 RAMCloudObject obj;
                 try {
                     obj = tx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
@@ -255,7 +267,7 @@ public final class TorcGraph implements Graph {
             return list.iterator();
         } else {
             long max_id[] = new long[NUM_ID_COUNTERS];
-            
+
             for (int i = 0; i < NUM_ID_COUNTERS; ++i) {
                 try {
                     ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
@@ -267,10 +279,10 @@ public final class TorcGraph implements Graph {
                     max_id[i] = 0;
                 }
             }
-            
+
             for (int i = 0; i < NUM_ID_COUNTERS; ++i) {
                 for (long j = 1; j <= max_id[i]; ++j) {
-                    byte[] vertexId = TorcHelper.makeVertexId(i + (1<<63), j);
+                    byte[] vertexId = TorcHelper.makeVertexId(i + (1 << 63), j);
                     try {
                         RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
                         list.add(new TorcVertex(this, vertexId, obj.getValue()));
@@ -279,44 +291,46 @@ public final class TorcGraph implements Graph {
                     }
                 }
             }
-            
+
             return list.iterator();
         }
     }
 
     @Override
     public Iterator<Edge> edges(final Object... edgeIds) {
-        if (!initialized)
+        if (!initialized) {
             initialize();
-        
+        }
+
         ramcloudGraphTransaction.readWrite();
         RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
-        
+
         ElementHelper.validateMixedElementIds(TorcEdge.class, edgeIds);
-        
+
         List<Edge> list = new ArrayList<>();
         if (edgeIds.length > 0) {
             if (edgeIds[0] instanceof TorcEdge) {
                 return Arrays.asList((Edge[]) edgeIds).iterator();
             }
-            
+
             for (int i = 0; i < edgeIds.length; ++i) {
-                if (TorcHelper.validateEdgeId(edgeIds[i]))
+                if (TorcHelper.validateEdgeId(edgeIds[i])) {
                     list.add(new TorcEdge(this, (byte[]) edgeIds[i], TorcHelper.parseLabelFromEdgeId((byte[]) edgeIds[i])));
-                else 
-                    // throw Edge.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
-                    /**
-                     * TODO: Work out what's the right thing to do here. Must
-                     * throw this for now to support
-                     * shouldHaveExceptionConsistencyWhenFindEdgeByIdThatIsNonExistentViaIterator
-                     */
+                } else // throw Edge.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
+                /**
+                 * TODO: Work out what's the right thing to do here. Must throw
+                 * this for now to support
+                 * shouldHaveExceptionConsistencyWhenFindEdgeByIdThatIsNonExistentViaIterator
+                 */
+                {
                     throw Graph.Exceptions.elementNotFound(TorcEdge.class, edgeIds[i]);
+                }
             }
 
             return list.iterator();
         } else {
             long max_id[] = new long[NUM_ID_COUNTERS];
-            
+
             for (int i = 0; i < NUM_ID_COUNTERS; ++i) {
                 try {
                     ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
@@ -328,14 +342,14 @@ public final class TorcGraph implements Graph {
                     max_id[i] = 0;
                 }
             }
-            
+
             for (int i = 0; i < NUM_ID_COUNTERS; ++i) {
                 for (long j = 1; j <= max_id[i]; ++j) {
-                    byte[] vertexId = TorcHelper.makeVertexId(i + (1<<63), j);
+                    byte[] vertexId = TorcHelper.makeVertexId(i + (1 << 63), j);
                     try {
                         RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexEdgeLabelListKey(vertexId));
                         List<String> edgeLabels = TorcHelper.deserializeEdgeLabelList(obj);
-                        
+
                         for (String label : edgeLabels) {
                             try {
                                 obj = tx.read(vertexTableId, TorcHelper.getVertexEdgeListKey(vertexId, label, TorcEdgeDirection.DIRECTED_OUT));
@@ -346,7 +360,7 @@ public final class TorcGraph implements Graph {
                             } catch (ObjectDoesntExistException e) {
                                 // Continue...
                             }
-                            
+
                             /**
                              * TODO: Decide whether or not to include the new
                              * bi-directional edges in this list. Not sure
@@ -373,16 +387,17 @@ public final class TorcGraph implements Graph {
                     }
                 }
             }
-            
+
             return list.iterator();
         }
     }
 
     @Override
     public Transaction tx() {
-        if (!initialized)
+        if (!initialized) {
             initialize();
-        
+        }
+
         return ramcloudGraphTransaction;
     }
 
@@ -403,48 +418,51 @@ public final class TorcGraph implements Graph {
             ramcloud.disconnect();
         }
     }
-    
+
     public void deleteDatabase() {
-        if (!initialized)
+        if (!initialized) {
             initialize();
-        
+        }
+
         ramcloudGraphTransaction.close();
         ramcloud.dropTable(graphName + "_" + ID_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + EDGE_TABLE_NAME);
     }
-    
+
     public void deleteDatabaseAndCloseConnection() {
-        if (!initialized)
+        if (!initialized) {
             initialize();
-        
+        }
+
         ramcloudGraphTransaction.close();
         ramcloud.dropTable(graphName + "_" + ID_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + EDGE_TABLE_NAME);
         ramcloud.disconnect();
     }
-    
+
     @Override
     public String toString() {
         return StringFactory.graphString(this, "coordLoc:" + this.coordinatorLocator + " graphName:" + this.graphName);
     }
-    
+
     @Override
     public Features features() {
         return new RAMCloudGraphFeatures();
     }
 
-    /** Methods called by TorcVertex. */
-    
+    /**
+     * Methods called by TorcVertex.
+     */
     void removeVertex(final TorcVertex vertex) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
-    
+
     Edge addEdge(final TorcVertex vertex1, final TorcVertex vertex2, final String label, final TorcEdge.Directionality directionality, final Object[] keyValues) {
         ramcloudGraphTransaction.readWrite();
         RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
-        
+
         // Validate that these key/value pairs are all strings
         if (keyValues.length % 2 != 0) {
             throw Element.Exceptions.providedKeyValuesMustBeAMultipleOfTwo();
@@ -474,6 +492,9 @@ public final class TorcGraph implements Graph {
         ByteBuffer serializedProperties = TorcHelper.serializeProperties(properties);
         int serializedEdgeLength = Long.BYTES * 2 + Short.BYTES + serializedProperties.array().length;
 
+        // TODO: Figure out a way to work this logic into a function so it's not
+        // repeated twice as it is below. 
+        
         // Update vertex1's edge list
         String edgeListKey;
         if (directionality == TorcEdge.Directionality.UNDIRECTED) {
@@ -494,13 +515,13 @@ public final class TorcGraph implements Graph {
             tx.write(vertexTableId, edgeListKey, newEdgeList.array());
         } catch (ObjectDoesntExistException e) {
             ByteBuffer newEdgeList = ByteBuffer.allocate(serializedEdgeLength);
-            
+
             newEdgeList.put(vertex2.id);
             newEdgeList.putShort((short) serializedProperties.array().length);
             newEdgeList.put(serializedProperties.array());
-            
+
             tx.write(vertexTableId, edgeListKey, newEdgeList.array());
-            
+
             String edgeLabelListKey = TorcHelper.getVertexEdgeLabelListKey(vertex1.id);
             try {
                 RAMCloudObject edgeLabelListRCObj = tx.read(vertexTableId, edgeLabelListKey);
@@ -515,7 +536,7 @@ public final class TorcGraph implements Graph {
                 tx.write(vertexTableId, edgeLabelListKey, TorcHelper.serializeEdgeLabelList(edgeLabelList).array());
             }
         }
-        
+
         // Update vertex2's edge list
         if (directionality == TorcEdge.Directionality.UNDIRECTED) {
             edgeListKey = TorcHelper.getVertexEdgeListKey(vertex2.id, label, TorcEdgeDirection.UNDIRECTED);
@@ -535,13 +556,13 @@ public final class TorcGraph implements Graph {
             tx.write(vertexTableId, edgeListKey, newEdgeList.array());
         } catch (ObjectDoesntExistException e) {
             ByteBuffer newEdgeList = ByteBuffer.allocate(serializedEdgeLength);
-            
+
             newEdgeList.put(vertex1.id);
             newEdgeList.putShort((short) serializedProperties.array().length);
             newEdgeList.put(serializedProperties.array());
-            
+
             tx.write(vertexTableId, edgeListKey, newEdgeList.array());
-            
+
             String edgeLabelListKey = TorcHelper.getVertexEdgeLabelListKey(vertex2.id);
             try {
                 RAMCloudObject edgeLabelListRCObj = tx.read(vertexTableId, edgeLabelListKey);
@@ -556,28 +577,29 @@ public final class TorcGraph implements Graph {
                 tx.write(vertexTableId, edgeLabelListKey, TorcHelper.serializeEdgeLabelList(edgeLabelList).array());
             }
         }
-        
+
         return new TorcEdge(this, TorcHelper.makeEdgeId(vertex1.id, vertex2.id, label, directionality), label);
     }
-    
+
     Iterator<Edge> vertexEdges(final TorcVertex vertex, final EnumSet<TorcEdgeDirection> edgeDirections, final String[] edgeLabels) {
         ramcloudGraphTransaction.readWrite();
         RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
-        
+
         List<Edge> edges = new ArrayList<>();
         List<String> labels = Arrays.asList(edgeLabels);
-        
+
         if (labels.isEmpty()) {
             try {
                 RAMCloudObject vertEdgeLabelListRCObj = tx.read(vertexTableId, TorcHelper.getVertexEdgeLabelListKey(vertex.id));
                 labels = TorcHelper.deserializeEdgeLabelList(vertEdgeLabelListRCObj);
-                if (labels.isEmpty())
+                if (labels.isEmpty()) {
                     return edges.iterator();
+                }
             } catch (ObjectDoesntExistException e) {
                 return edges.iterator();
             }
         }
-        
+
         for (String label : labels) {
             for (TorcEdgeDirection dir : edgeDirections) {
                 try {
@@ -586,7 +608,7 @@ public final class TorcGraph implements Graph {
                     List<byte[]> neighborIds = TorcHelper.parseNeighborIdsFromEdgeList(edgeListRCObj);
                     for (byte[] neighborId : neighborIds) {
                         byte[] edgeId;
-                        switch(dir) {
+                        switch (dir) {
                             case DIRECTED_OUT:
                                 edgeId = TorcHelper.makeEdgeId(vertex.id, neighborId, label, TorcEdge.Directionality.DIRECTED);
                                 edges.add(new TorcEdge(this, edgeId, label));
@@ -606,28 +628,29 @@ public final class TorcGraph implements Graph {
                 }
             }
         }
-        
+
         return edges.iterator();
     }
 
     Iterator<Vertex> vertexNeighbors(final TorcVertex vertex, final EnumSet<TorcEdgeDirection> edgeDirections, final String[] edgeLabels) {
         ramcloudGraphTransaction.readWrite();
         RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
-        
+
         List<Vertex> vertices = new ArrayList<>();
         List<String> labels = Arrays.asList(edgeLabels);
-        
+
         if (labels.isEmpty()) {
             try {
                 RAMCloudObject vertEdgeLabelListRCObj = tx.read(vertexTableId, TorcHelper.getVertexEdgeLabelListKey(vertex.id));
                 labels = TorcHelper.deserializeEdgeLabelList(vertEdgeLabelListRCObj);
-                if (labels.isEmpty())
+                if (labels.isEmpty()) {
                     return vertices.iterator();
+                }
             } catch (ObjectDoesntExistException e) {
                 return vertices.iterator();
             }
         }
-        
+
         for (String label : labels) {
             for (TorcEdgeDirection dir : edgeDirections) {
                 try {
@@ -643,20 +666,20 @@ public final class TorcGraph implements Graph {
                 }
             }
         }
-        
+
         return vertices.iterator();
     }
 
     <V> Iterator<VertexProperty<V>> getVertexProperties(final TorcVertex vertex, final String[] propertyKeys) {
         ramcloudGraphTransaction.readWrite();
         RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
-        
+
         RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id));
-        
+
         Map<String, String> properties = TorcHelper.deserializeProperties(obj);
-        
+
         List<VertexProperty<V>> propList = new ArrayList<>();
-        
+
         if (propertyKeys.length > 0) {
             for (String key : propertyKeys) {
                 if (properties.containsKey(key)) {
@@ -673,20 +696,22 @@ public final class TorcGraph implements Graph {
                 propList.add(new TorcVertexProperty(vertex, property.getKey(), property.getValue()));
             }
         }
-        
+
         return propList.iterator();
     }
 
     <V> VertexProperty<V> setVertexProperty(final TorcVertex vertex, final VertexProperty.Cardinality cardinality, final String key, final V value, final Object[] keyValues) {
         ramcloudGraphTransaction.readWrite();
         RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
-        
-        if (keyValues != null) 
+
+        if (keyValues != null) {
             throw VertexProperty.Exceptions.metaPropertiesNotSupported();
-        
-        if (!(value instanceof String))
+        }
+
+        if (!(value instanceof String)) {
             throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(value);
-        
+        }
+
         RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id));
 
         Map<String, String> properties = TorcHelper.deserializeProperties(obj);
@@ -710,8 +735,9 @@ public final class TorcGraph implements Graph {
         return new TorcVertexProperty(vertex, key, value);
     }
 
-    /** Methods called by TorcEdge. */
-    
+    /**
+     * Methods called by TorcEdge.
+     */
     void removeEdge(final TorcEdge edge) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
@@ -719,21 +745,21 @@ public final class TorcGraph implements Graph {
     Iterator<Vertex> edgeVertices(final TorcEdge edge, final Direction direction) {
         ramcloudGraphTransaction.readWrite();
         RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
-        
+
         List<Vertex> list = new ArrayList<>();
-        
+
         if (direction.equals(Direction.OUT) || direction.equals(Direction.BOTH)) {
             byte[] outVertexId = TorcHelper.parseOutVertexIdFromEdgeId(edge.id);
             RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexLabelKey(outVertexId));
             list.add(new TorcVertex(this, outVertexId, obj.getValue()));
         }
-        
+
         if (direction.equals(Direction.IN) || direction.equals(Direction.BOTH)) {
             byte[] inVertexId = TorcHelper.parseInVertexIdFromEdgeId(edge.id);
             RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexLabelKey(inVertexId));
             list.add(new TorcVertex(this, inVertexId, obj.getValue()));
         }
-        
+
         return list.iterator();
     }
 
@@ -761,8 +787,9 @@ public final class TorcGraph implements Graph {
         @Override
         public void doCommit() throws AbstractTransaction.TransactionException {
             try {
-                if (!threadLocalTx.get().commitAndSync())
+                if (!threadLocalTx.get().commitAndSync()) {
                     throw new AbstractTransaction.TransactionException("RAMCloud commitAndSync failed.");
+                }
             } catch (ClientException ex) {
                 throw new AbstractTransaction.TransactionException(ex);
             } finally {
@@ -787,7 +814,7 @@ public final class TorcGraph implements Graph {
             return (threadLocalTx.get() != null);
         }
     }
-    
+
     public class RAMCloudGraphFeatures implements Features {
 
         private RAMCloudGraphFeatures() {
@@ -802,7 +829,7 @@ public final class TorcGraph implements Graph {
         public Features.VertexFeatures vertex() {
             return new RAMCloudGraphVertexFeatures();
         }
-        
+
         @Override
         public Features.EdgeFeatures edge() {
             return new RAMCloudGraphEdgeFeatures();
@@ -854,12 +881,12 @@ public final class TorcGraph implements Graph {
         }
 
     }
-    
+
     public class RAMCloudGraphVertexFeatures implements Features.VertexFeatures {
 
         private RAMCloudGraphVertexFeatures() {
         }
-        
+
         @Override
         public VertexProperty.Cardinality getCardinality(final String key) {
             return VertexProperty.Cardinality.single;
@@ -884,47 +911,47 @@ public final class TorcGraph implements Graph {
         public boolean supportsMetaProperties() {
             return false;
         }
-        
+
         @Override
         public Features.VertexPropertyFeatures properties() {
             return new RAMCloudGraphVertexPropertyFeatures();
         }
-        
+
         @Override
         public boolean supportsAddProperty() {
             return true;
         }
-        
+
         @Override
         public boolean supportsRemoveProperty() {
             return true;
         }
-                
+
         @Override
         public boolean supportsUserSuppliedIds() {
             return false;
         }
-        
+
         @Override
         public boolean supportsNumericIds() {
             return false;
         }
-        
+
         @Override
         public boolean supportsStringIds() {
             return false;
         }
-        
+
         @Override
         public boolean supportsUuidIds() {
             return false;
         }
-        
+
         @Override
         public boolean supportsCustomIds() {
             return false;
         }
-        
+
         @Override
         public boolean supportsAnyIds() {
             return false;
@@ -935,7 +962,7 @@ public final class TorcGraph implements Graph {
 
         private RAMCloudGraphEdgeFeatures() {
         }
-        
+
         @Override
         public boolean supportsAddEdges() {
             return true;
@@ -951,42 +978,42 @@ public final class TorcGraph implements Graph {
             return new RAMCloudGraphEdgePropertyFeatures() {
             };
         }
-        
+
         @Override
         public boolean supportsAddProperty() {
             return false;
         }
-        
+
         @Override
         public boolean supportsRemoveProperty() {
             return false;
         }
-                
+
         @Override
         public boolean supportsUserSuppliedIds() {
             return false;
         }
-        
+
         @Override
         public boolean supportsNumericIds() {
             return false;
         }
-        
+
         @Override
         public boolean supportsStringIds() {
             return false;
         }
-        
+
         @Override
         public boolean supportsUuidIds() {
             return false;
         }
-        
+
         @Override
         public boolean supportsCustomIds() {
             return false;
         }
-        
+
         @Override
         public boolean supportsAnyIds() {
             return false;
@@ -997,7 +1024,7 @@ public final class TorcGraph implements Graph {
 
         private RAMCloudGraphVertexPropertyFeatures() {
         }
-        
+
         @Override
         public boolean supportsAddProperty() {
             return false;
@@ -1012,12 +1039,12 @@ public final class TorcGraph implements Graph {
         public boolean supportsUserSuppliedIds() {
             return false;
         }
-        
+
         @Override
         public boolean supportsNumericIds() {
             return false;
         }
-        
+
         @Override
         public boolean supportsStringIds() {
             return false;
@@ -1037,284 +1064,284 @@ public final class TorcGraph implements Graph {
         public boolean supportsAnyIds() {
             return false;
         }
-        
+
         @Override
         public boolean supportsBooleanValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsByteValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsDoubleValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsFloatValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsIntegerValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsLongValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsMapValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsMixedListValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsBooleanArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsByteArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsDoubleArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsFloatArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsIntegerArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsStringArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsLongArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsSerializableValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsStringValues() {
             return true;
         }
-        
+
         @Override
         public boolean supportsUniformListValues() {
             return false;
         }
     }
-    
+
     public class RAMCloudGraphEdgePropertyFeatures implements Features.EdgePropertyFeatures {
 
         private RAMCloudGraphEdgePropertyFeatures() {
         }
-        
+
         @Override
         public boolean supportsBooleanValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsByteValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsDoubleValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsFloatValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsIntegerValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsLongValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsMapValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsMixedListValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsBooleanArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsByteArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsDoubleArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsFloatArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsIntegerArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsStringArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsLongArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsSerializableValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsStringValues() {
             return true;
         }
-        
+
         @Override
         public boolean supportsUniformListValues() {
             return false;
         }
     }
-    
+
     public class RAMCloudGraphVariableFeatures implements Features.VariableFeatures {
 
         private RAMCloudGraphVariableFeatures() {
         }
-        
+
         @Override
         public boolean supportsBooleanValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsByteValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsDoubleValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsFloatValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsIntegerValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsLongValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsMapValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsMixedListValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsBooleanArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsByteArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsDoubleArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsFloatArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsIntegerArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsStringArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsLongArrayValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsSerializableValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsStringValues() {
             return false;
         }
-        
+
         @Override
         public boolean supportsUniformListValues() {
             return false;
