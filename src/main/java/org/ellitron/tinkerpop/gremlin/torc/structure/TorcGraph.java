@@ -856,7 +856,7 @@ public final class TorcGraph implements Graph {
 
         @Override
         public boolean supportsPersistence() {
-            return false;
+            return true;
         }
 
         @Override
@@ -866,7 +866,7 @@ public final class TorcGraph implements Graph {
 
         @Override
         public boolean supportsTransactions() {
-            return false;
+            return true;
         }
 
         @Override
