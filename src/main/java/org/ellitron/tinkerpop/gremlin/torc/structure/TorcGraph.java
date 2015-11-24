@@ -146,44 +146,39 @@ public final class TorcGraph implements Graph {
         ramcloudGraphTransaction.readWrite();
         RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
 
-        // Validate key/value pairs
-        if (keyValues.length % 2 != 0) {
-            throw Element.Exceptions.providedKeyValuesMustBeAMultipleOfTwo();
-        }
+        ElementHelper.legalPropertyKeyValueArray(keyValues);
+        
+        // Only values of type String supported
         for (int i = 0; i < keyValues.length; i = i + 2) {
-            if (!(keyValues[i] instanceof String) && !(keyValues[i] instanceof T)) {
-                throw Element.Exceptions.providedKeyValuesMustHaveALegalKeyOnEvenIndices();
-            }
-            if (!(keyValues[i + 1] instanceof String)) {
-                if (!keyValues[i].equals(T.id)) {
-                    throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(keyValues[i + 1]);
-                }
+            if (!(keyValues[i] instanceof T) && !(keyValues[i + 1] instanceof String)) {
+                throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(keyValues[i + 1]);
             }
         }
 
         final String label = ElementHelper.getLabelValue(keyValues).orElse(Vertex.DEFAULT_LABEL);
 
-        Optional opVertId = ElementHelper.getIdValue(keyValues);
+        Optional<Object> opVertId = ElementHelper.getIdValue(keyValues);
         byte[] vertexId;
         if (opVertId.isPresent()) {
             if (opVertId.get() instanceof Long) {
                 vertexId = TorcHelper.makeVertexId(0, (Long) opVertId.get());
             } else if (opVertId.get() instanceof String) {
-                vertexId = TorcHelper.makeVertexId(0, Long.decode((String) opVertId.get()));
+                try {
+                    vertexId = TorcHelper.makeVertexId(0, Long.decode((String) opVertId.get()));
+                } catch (NumberFormatException e) {
+                    throw TorcGraph.Exceptions.invalidVertexId(e.getMessage());
+                }
             } else if (opVertId.get() instanceof byte[]) {
                 vertexId = (byte[]) opVertId.get();
 
-                if (vertexId[0] < 0) {
-                    throw Vertex.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
-                }
+                TorcHelper.checkUserSuppliedVertexIdByteArray(vertexId);
             } else {
                 throw Vertex.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
             }
 
             try {
                 tx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
-                System.out.println("Vertex with id already exists: " + TorcHelper.stringifyVertexId(vertexId));
-                //throw Graph.Exceptions.vertexWithIdAlreadyExists(TorcHelper.stringifyVertexId(vertexId));
+                throw Graph.Exceptions.vertexWithIdAlreadyExists(TorcHelper.stringifyVertexId(vertexId));
             } catch (ObjectDoesntExistException e) {
                 // Good!
             }
@@ -771,6 +766,12 @@ public final class TorcGraph implements Graph {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
+    public static class Exceptions {
+        public static IllegalArgumentException invalidVertexId(String message) {
+            throw new IllegalArgumentException("Invalid vertex ID: " + message);
+        }
+    }
+    
     class RAMCloudGraphTransaction extends AbstractTransaction {
 
         protected final ThreadLocal<RAMCloudTransaction> threadLocalTx = ThreadLocal.withInitial(() -> null);
@@ -841,9 +842,6 @@ public final class TorcGraph implements Graph {
         }
     }
 
-    /**
-     * TODO: Turn on supportsPersistence and supportsTransactions, and test.
-     */
     public class RAMCloudGraphGraphFeatures implements Features.GraphFeatures {
 
         private RAMCloudGraphGraphFeatures() {

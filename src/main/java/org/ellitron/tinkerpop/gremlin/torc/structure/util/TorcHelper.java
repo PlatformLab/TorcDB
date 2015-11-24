@@ -30,6 +30,7 @@ import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import static org.apache.tinkerpop.gremlin.structure.util.ElementHelper.haveEqualIds;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdge;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdgeDirection;
+import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraph;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertex;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertexProperty;
 
@@ -168,6 +169,16 @@ public class TorcHelper {
             return false;
         
         return true;
+    }
+    
+    public static void checkUserSuppliedVertexIdByteArray(byte[] vertexId) throws IllegalArgumentException {
+        // TODO: This violates the DRY principle (having the length of vertex 
+        // IDs hardcoded like this). Need to centralize this.
+        if (vertexId.length != Long.BYTES*2)
+            throw TorcGraph.Exceptions.invalidVertexId("Byte array has invalid length. (expected: " + Long.BYTES*2 + ", actual: " + vertexId.length + ").");
+        
+        if (vertexId[0] < 0)
+            throw TorcGraph.Exceptions.invalidVertexId("User supplied vertexIds of type byte array should be positive.");
     }
     
     /**
