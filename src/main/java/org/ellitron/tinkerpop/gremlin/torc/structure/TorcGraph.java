@@ -102,7 +102,7 @@ public final class TorcGraph implements Graph {
     private long idTableId, vertexTableId, edgeTableId;
     private String graphName;
     private long nextLocalVertexId = 1;
-    private RAMCloudGraphTransaction ramcloudGraphTransaction = new RAMCloudGraphTransaction();
+    private TorcGraphTransaction ramcloudGraphTransaction = new TorcGraphTransaction();
 
     boolean initialized = false;
 
@@ -444,7 +444,7 @@ public final class TorcGraph implements Graph {
 
     @Override
     public Features features() {
-        return new RAMCloudGraphFeatures();
+        return new TorcGraphFeatures();
     }
 
     /**
@@ -773,11 +773,11 @@ public final class TorcGraph implements Graph {
         }
     }
     
-    class RAMCloudGraphTransaction extends AbstractTransaction {
+    class TorcGraphTransaction extends AbstractTransaction {
 
         protected final ThreadLocal<RAMCloudTransaction> threadLocalTx = ThreadLocal.withInitial(() -> null);
 
-        public RAMCloudGraphTransaction() {
+        public TorcGraphTransaction() {
             super(TorcGraph.this);
         }
 
@@ -818,24 +818,24 @@ public final class TorcGraph implements Graph {
     }
 
     // TODO: Move this to its own file.
-    public class RAMCloudGraphFeatures implements Features {
+    public class TorcGraphFeatures implements Features {
 
-        private RAMCloudGraphFeatures() {
+        private TorcGraphFeatures() {
         }
 
         @Override
         public Features.GraphFeatures graph() {
-            return new RAMCloudGraphGraphFeatures();
+            return new TorcGraphGraphFeatures();
         }
 
         @Override
         public Features.VertexFeatures vertex() {
-            return new RAMCloudGraphVertexFeatures();
+            return new TorcGraphVertexFeatures();
         }
 
         @Override
         public Features.EdgeFeatures edge() {
-            return new RAMCloudGraphEdgeFeatures();
+            return new TorcGraphEdgeFeatures();
         }
 
         @Override
@@ -844,9 +844,9 @@ public final class TorcGraph implements Graph {
         }
     }
 
-    public class RAMCloudGraphGraphFeatures implements Features.GraphFeatures {
+    public class TorcGraphGraphFeatures implements Features.GraphFeatures {
 
-        private RAMCloudGraphGraphFeatures() {
+        private TorcGraphGraphFeatures() {
         }
 
         @Override
@@ -876,15 +876,15 @@ public final class TorcGraph implements Graph {
 
         @Override
         public Features.VariableFeatures variables() {
-            return new RAMCloudGraphVariableFeatures() {
+            return new TorcGraphVariableFeatures() {
             };
         }
 
     }
 
-    public class RAMCloudGraphVertexFeatures implements Features.VertexFeatures {
+    public class TorcGraphVertexFeatures implements Features.VertexFeatures {
 
-        private RAMCloudGraphVertexFeatures() {
+        private TorcGraphVertexFeatures() {
         }
 
         @Override
@@ -914,7 +914,7 @@ public final class TorcGraph implements Graph {
 
         @Override
         public Features.VertexPropertyFeatures properties() {
-            return new RAMCloudGraphVertexPropertyFeatures();
+            return new TorcGraphVertexPropertyFeatures();
         }
 
         @Override
@@ -958,9 +958,9 @@ public final class TorcGraph implements Graph {
         }
     }
 
-    public class RAMCloudGraphEdgeFeatures implements Features.EdgeFeatures {
+    public class TorcGraphEdgeFeatures implements Features.EdgeFeatures {
 
-        private RAMCloudGraphEdgeFeatures() {
+        private TorcGraphEdgeFeatures() {
         }
 
         @Override
@@ -975,7 +975,7 @@ public final class TorcGraph implements Graph {
 
         @Override
         public Features.EdgePropertyFeatures properties() {
-            return new RAMCloudGraphEdgePropertyFeatures() {
+            return new TorcGraphEdgePropertyFeatures() {
             };
         }
 
@@ -1020,9 +1020,9 @@ public final class TorcGraph implements Graph {
         }
     }
 
-    public class RAMCloudGraphVertexPropertyFeatures implements Features.VertexPropertyFeatures {
+    public class TorcGraphVertexPropertyFeatures implements Features.VertexPropertyFeatures {
 
-        private RAMCloudGraphVertexPropertyFeatures() {
+        private TorcGraphVertexPropertyFeatures() {
         }
 
         @Override
@@ -1156,9 +1156,9 @@ public final class TorcGraph implements Graph {
         }
     }
 
-    public class RAMCloudGraphEdgePropertyFeatures implements Features.EdgePropertyFeatures {
+    public class TorcGraphEdgePropertyFeatures implements Features.EdgePropertyFeatures {
 
-        private RAMCloudGraphEdgePropertyFeatures() {
+        private TorcGraphEdgePropertyFeatures() {
         }
 
         @Override
@@ -1252,9 +1252,9 @@ public final class TorcGraph implements Graph {
         }
     }
 
-    public class RAMCloudGraphVariableFeatures implements Features.VariableFeatures {
+    public class TorcGraphVariableFeatures implements Features.VariableFeatures {
 
-        private RAMCloudGraphVariableFeatures() {
+        private TorcGraphVariableFeatures() {
         }
 
         @Override
