@@ -148,7 +148,7 @@ public final class TorcGraph implements Graph {
 
         ElementHelper.legalPropertyKeyValueArray(keyValues);
         
-        // Only values of type String supported
+        // Only values of type String supported, currently.
         for (int i = 0; i < keyValues.length; i = i + 2) {
             if (!(keyValues[i] instanceof T) && !(keyValues[i + 1] instanceof String)) {
                 throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(keyValues[i + 1]);
@@ -766,6 +766,7 @@ public final class TorcGraph implements Graph {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
+    // TODO: Move this into its own file.
     public static class Exceptions {
         public static IllegalArgumentException invalidVertexId(String message) {
             throw new IllegalArgumentException("Invalid vertex ID: " + message);
@@ -816,6 +817,7 @@ public final class TorcGraph implements Graph {
         }
     }
 
+    // TODO: Move this to its own file.
     public class RAMCloudGraphFeatures implements Features {
 
         private RAMCloudGraphFeatures() {
