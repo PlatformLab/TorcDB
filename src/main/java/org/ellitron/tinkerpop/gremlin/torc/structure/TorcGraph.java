@@ -48,7 +48,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.log4j.BasicConfigurator;
-import org.apache.log4j.PropertyConfigurator;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Property;
@@ -102,7 +101,7 @@ public final class TorcGraph implements Graph {
     private long idTableId, vertexTableId, edgeTableId;
     private String graphName;
     private long nextLocalVertexId = 1;
-    private TorcGraphTransaction ramcloudGraphTransaction = new TorcGraphTransaction();
+    private TorcGraphTransaction transaction = new TorcGraphTransaction();
 
     boolean initialized = false;
 
@@ -143,8 +142,8 @@ public final class TorcGraph implements Graph {
             initialize();
         }
 
-        ramcloudGraphTransaction.readWrite();
-        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        transaction.readWrite();
+        RAMCloudTransaction tx = transaction.threadLocalTx.get();
 
         ElementHelper.legalPropertyKeyValueArray(keyValues);
         
@@ -219,8 +218,8 @@ public final class TorcGraph implements Graph {
             initialize();
         }
 
-        ramcloudGraphTransaction.readWrite();
-        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        transaction.readWrite();
+        RAMCloudTransaction tx = transaction.threadLocalTx.get();
 
         ElementHelper.validateMixedElementIds(TorcVertex.class, vertexIds);
 
@@ -297,8 +296,8 @@ public final class TorcGraph implements Graph {
             initialize();
         }
 
-        ramcloudGraphTransaction.readWrite();
-        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        transaction.readWrite();
+        RAMCloudTransaction tx = transaction.threadLocalTx.get();
 
         ElementHelper.validateMixedElementIds(TorcEdge.class, edgeIds);
 
@@ -393,7 +392,7 @@ public final class TorcGraph implements Graph {
             initialize();
         }
 
-        return ramcloudGraphTransaction;
+        return transaction;
     }
 
     @Override
@@ -409,7 +408,7 @@ public final class TorcGraph implements Graph {
     @Override
     public void close() {
         if (initialized) {
-            ramcloudGraphTransaction.close();
+            transaction.close();
             ramcloud.disconnect();
         }
     }
@@ -419,7 +418,7 @@ public final class TorcGraph implements Graph {
             initialize();
         }
 
-        ramcloudGraphTransaction.close();
+        transaction.close();
         ramcloud.dropTable(graphName + "_" + ID_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + EDGE_TABLE_NAME);
@@ -430,7 +429,7 @@ public final class TorcGraph implements Graph {
             initialize();
         }
 
-        ramcloudGraphTransaction.close();
+        transaction.close();
         ramcloud.dropTable(graphName + "_" + ID_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + EDGE_TABLE_NAME);
@@ -455,8 +454,8 @@ public final class TorcGraph implements Graph {
     }
 
     Edge addEdge(final TorcVertex vertex1, final TorcVertex vertex2, final String label, final TorcEdge.Directionality directionality, final Object[] keyValues) {
-        ramcloudGraphTransaction.readWrite();
-        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        transaction.readWrite();
+        RAMCloudTransaction tx = transaction.threadLocalTx.get();
 
         // Validate that these key/value pairs are all strings
         if (keyValues.length % 2 != 0) {
@@ -577,8 +576,8 @@ public final class TorcGraph implements Graph {
     }
 
     Iterator<Edge> vertexEdges(final TorcVertex vertex, final EnumSet<TorcEdgeDirection> edgeDirections, final String[] edgeLabels) {
-        ramcloudGraphTransaction.readWrite();
-        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        transaction.readWrite();
+        RAMCloudTransaction tx = transaction.threadLocalTx.get();
 
         List<Edge> edges = new ArrayList<>();
         List<String> labels = Arrays.asList(edgeLabels);
@@ -628,8 +627,8 @@ public final class TorcGraph implements Graph {
     }
 
     Iterator<Vertex> vertexNeighbors(final TorcVertex vertex, final EnumSet<TorcEdgeDirection> edgeDirections, final String[] edgeLabels) {
-        ramcloudGraphTransaction.readWrite();
-        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        transaction.readWrite();
+        RAMCloudTransaction tx = transaction.threadLocalTx.get();
 
         List<Vertex> vertices = new ArrayList<>();
         List<String> labels = Arrays.asList(edgeLabels);
@@ -666,8 +665,8 @@ public final class TorcGraph implements Graph {
     }
 
     <V> Iterator<VertexProperty<V>> getVertexProperties(final TorcVertex vertex, final String[] propertyKeys) {
-        ramcloudGraphTransaction.readWrite();
-        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        transaction.readWrite();
+        RAMCloudTransaction tx = transaction.threadLocalTx.get();
 
         RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id));
 
@@ -696,8 +695,8 @@ public final class TorcGraph implements Graph {
     }
 
     <V> VertexProperty<V> setVertexProperty(final TorcVertex vertex, final VertexProperty.Cardinality cardinality, final String key, final V value, final Object[] keyValues) {
-        ramcloudGraphTransaction.readWrite();
-        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        transaction.readWrite();
+        RAMCloudTransaction tx = transaction.threadLocalTx.get();
 
         if (keyValues != null) {
             throw VertexProperty.Exceptions.metaPropertiesNotSupported();
@@ -738,8 +737,8 @@ public final class TorcGraph implements Graph {
     }
 
     Iterator<Vertex> edgeVertices(final TorcEdge edge, final Direction direction) {
-        ramcloudGraphTransaction.readWrite();
-        RAMCloudTransaction tx = ramcloudGraphTransaction.threadLocalTx.get();
+        transaction.readWrite();
+        RAMCloudTransaction tx = transaction.threadLocalTx.get();
 
         List<Vertex> list = new ArrayList<>();
 
