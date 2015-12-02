@@ -16,12 +16,14 @@
 package org.ellitron.tinkerpop.gremlin.torc.structure.util;
 
 import edu.stanford.ramcloud.RAMCloudObject;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
@@ -32,6 +34,7 @@ import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdge;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdgeDirection;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraph;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertex;
+import org.ellitron.tinkerpop.gremlin.torc.structure.UInt128;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertexProperty;
 
 /**
@@ -115,140 +118,100 @@ public class TorcHelper {
         return deserializeEdgeLabelList(value);
     }
     
-    public static List<byte[]> parseNeighborIdsFromEdgeList(RAMCloudObject obj) {
+    public static List<UInt128> parseNeighborIdsFromEdgeList(RAMCloudObject obj) {
         ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
         value.put(obj.getValueBytes());
-        value.rewind();
+        value.flip();
         
-        List<byte[]> neighborIds = new ArrayList<>();
+        List<UInt128> neighborIds = new ArrayList<>();
         while (value.hasRemaining()) {
-            byte[] vertexId = new byte[Long.BYTES*2];
+            byte[] vertexId = new byte[UInt128.BYTES];
             value.get(vertexId);
             short propsTotalLen = value.getShort();
             value.position(value.position() + propsTotalLen);
             
-            neighborIds.add(vertexId);
+            neighborIds.add(new UInt128(vertexId));
         }
         
         return neighborIds;
     }
-    
-    public static byte[] parseVertexIdFromKey(String key) {
-        String[] parts = key.split(":");
-        String[] subParts = parts[0].split("-");
-        Long creatorId = Long.parseLong(subParts[0], 16);
-        Long localVertexId = Long.parseLong(subParts[1], 16);
-        ByteBuffer vertexId = ByteBuffer.allocate(Long.BYTES*2);
-        vertexId.putLong(creatorId);
-        vertexId.putLong(localVertexId);
-        return vertexId.array();
-    }
-    
-    public static String parseEdgeLabelFromKey(String key) {
-        String[] parts = key.split(":");
-        return parts[2];
-    }
-    
-    public static Direction parseEdgeDirectionFromKey(String key) {
-        String[] parts = key.split(":");
-        return Direction.valueOf(parts[3]);
-    }
-    
-    public static byte[] makeVertexId(long counterId, long counterValue) {
-        ByteBuffer id = ByteBuffer.allocate(Long.BYTES*2);
-        id.putLong(counterId);
-        id.putLong(counterValue);
-        return id.array();
-    }
-    
-    public static boolean validateVertexId(Object vertexId) {
-        if (!(vertexId instanceof byte[]))
-            return false;
-        
-        if (((byte[]) vertexId).length != Long.BYTES*2)
-            return false;
-        
-        return true;
-    }
-    
-    public static void checkUserSuppliedVertexIdByteArray(byte[] vertexId) throws IllegalArgumentException {
-        // TODO: This violates the DRY principle (having the length of vertex 
-        // IDs hardcoded like this). Need to centralize this.
-        if (vertexId.length != Long.BYTES*2)
-            throw TorcGraph.Exceptions.invalidVertexId("Byte array has invalid length. (expected: " + Long.BYTES*2 + ", actual: " + vertexId.length + ").");
-        
-        if (vertexId[0] < 0)
-            throw TorcGraph.Exceptions.invalidVertexId("User supplied vertexIds of type byte array should be positive.");
+
+    public static UInt128 decodeUserSuppliedVertexIdArgument(Object idValue) {
+        if (idValue instanceof Byte) {
+            return new UInt128((Byte) idValue);
+        } else if (idValue instanceof Short) {
+            return new UInt128((Short) idValue);
+        } else if (idValue instanceof Integer) {
+            return new UInt128((Integer) idValue);
+        } else if (idValue instanceof Long) {
+            return new UInt128((Long) idValue);
+        } else if (idValue instanceof String) {
+            return new UInt128((String) idValue);
+        } else if (idValue instanceof BigInteger) {
+            return new UInt128((BigInteger) idValue);
+        } else if (idValue instanceof UUID) {
+            return new UInt128((UUID) idValue);
+        } else if (idValue instanceof byte[]) {
+            return new UInt128((byte[]) idValue);
+        } else {
+            throw Vertex.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
+        }
     }
     
     /**
      * TODO: Use a more compact key representation to save space in RAMCloud. 
      */
-    public static String stringifyVertexId(byte[] vertexId) {
-        ByteBuffer id = ByteBuffer.allocate(vertexId.length);
-        id.put(vertexId);
-        id.rewind();
-        long creatorId = id.getLong();
-        long creatorAssignedId = id.getLong();
-        return String.format("%X-%X", creatorId, creatorAssignedId);
+    public static enum VertexKeyType {
+        LABEL,
+        PROPERTIES,
+        EDGE_LIST,
+        EDGE_LABELS,
     }
     
-    public static String getVertexLabelKey(byte[] vertexId) {
-        return stringifyVertexId(vertexId) + ":label";
+    public static byte[] getVertexLabelKey(UInt128 vertexId) {
+        ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES + Byte.BYTES);
+        buffer.putLong(vertexId.getUpperLong());
+        buffer.putLong(vertexId.getLowerLong());
+        buffer.put((byte) VertexKeyType.LABEL.ordinal());
+        return buffer.array();
     }
     
-    public static String getVertexPropertiesKey(byte[] vertexId) {
-        return stringifyVertexId(vertexId) + ":props";
+    public static byte[] getVertexPropertiesKey(UInt128 vertexId) {
+        ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES + Byte.BYTES);
+        buffer.putLong(vertexId.getUpperLong());
+        buffer.putLong(vertexId.getLowerLong());
+        buffer.put((byte) VertexKeyType.PROPERTIES.ordinal());
+        return buffer.array();
     }
     
-    public static String getVertexEdgeListKey(byte[] vertexId, String label, TorcEdgeDirection dir) {
-        return stringifyVertexId(vertexId) + ":edges:" + label + ":" + dir.name();
+    public static byte[] getVertexEdgeListKey(UInt128 vertexId, String label, TorcEdgeDirection dir) {
+        ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES + Byte.BYTES*2 + label.getBytes().length);
+        buffer.putLong(vertexId.getUpperLong());
+        buffer.putLong(vertexId.getLowerLong());
+        buffer.put((byte) VertexKeyType.EDGE_LIST.ordinal());
+        buffer.put((byte) dir.ordinal());
+        buffer.put(label.getBytes());
+        return buffer.array();
     }
     
-    public static String getVertexEdgeLabelListKey(byte[] vertexId) {
-        return stringifyVertexId(vertexId) + ":edgeLabels";
+    public static byte[] getVertexEdgeLabelListKey(UInt128 vertexId) {
+        ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES + Byte.BYTES);
+        buffer.putLong(vertexId.getUpperLong());
+        buffer.putLong(vertexId.getLowerLong());
+        buffer.put((byte) VertexKeyType.EDGE_LABELS.ordinal());
+        return buffer.array();
     }
     
-    public static boolean isVertexLabelKey(String key) {
-        String[] parts = key.split(":");
-        if (parts.length > 1) {
-            if (parts[1].equals("label"))
-                return true;
-            
-            return false;
-        }
-        
-        return false;
+    public static VertexKeyType getVertexKeyType(byte[] key) {
+        return VertexKeyType.values()[key[UInt128.BYTES]];
     }
     
-    public static boolean isVertexPropertiesKey(String key) {
-        String[] parts = key.split(":");
-        if (parts.length > 1) {
-            if (parts[1].equals("props"))
-                return true;
-            
-            return false;
-        }
-        
-        return false;
-    }
-    
-    public static boolean isVertexEdgeListKey(String key) {
-        String[] parts = key.split(":");
-        if (parts.length > 1) {
-            if (parts[1].equals("edges"))
-                return true;
-            
-            return false;
-        }
-        
-        return false;
-    }
-    
-    public static byte[] makeEdgeId(byte[] outVertexId, byte[] inVertexId, String label, TorcEdge.Directionality directionality) {
-        ByteBuffer id = ByteBuffer.allocate(Long.BYTES*4 + Byte.BYTES + label.length());
-        id.put(outVertexId);
-        id.put(inVertexId);
+    public static byte[] makeEdgeId(UInt128 outVertexId, UInt128 inVertexId, String label, TorcEdge.Directionality directionality) {
+        ByteBuffer id = ByteBuffer.allocate(UInt128.BYTES*2 + Byte.BYTES + label.length());
+        id.putLong(outVertexId.getUpperLong());
+        id.putLong(outVertexId.getLowerLong());
+        id.putLong(inVertexId.getUpperLong());
+        id.putLong(inVertexId.getLowerLong());
         id.put((byte) directionality.ordinal());
         id.put(label.getBytes());
         return id.array();
@@ -258,26 +221,26 @@ public class TorcHelper {
         if (!(edgeId instanceof byte[]))
             return false;
         
-        if (!(((byte[]) edgeId).length > Long.BYTES*4 + Byte.BYTES))
+        if (!(((byte[]) edgeId).length > UInt128.BYTES*2 + Byte.BYTES))
             return false;
         
         return true;
     }
     
     public static String parseLabelFromEdgeId(byte[] edgeId) {
-        byte[] label = Arrays.copyOfRange(edgeId, Long.BYTES*4 + Byte.BYTES, edgeId.length);
+        byte[] label = Arrays.copyOfRange(edgeId, UInt128.BYTES*2 + Byte.BYTES, edgeId.length);
         return new String(label);
     }
     
-    public static byte[] parseOutVertexIdFromEdgeId(byte[] edgeId) {
-        return Arrays.copyOfRange(edgeId, 0, Long.BYTES*2);
+    public static UInt128 parseOutVertexIdFromEdgeId(byte[] edgeId) {
+        return new UInt128(Arrays.copyOfRange(edgeId, 0, UInt128.BYTES));
     }
     
-    public static byte[] parseInVertexIdFromEdgeId(byte[] edgeId) {
-        return Arrays.copyOfRange(edgeId, Long.BYTES*2, Long.BYTES*4);
+    public static UInt128 parseInVertexIdFromEdgeId(byte[] edgeId) {
+        return new UInt128(Arrays.copyOfRange(edgeId, UInt128.BYTES, UInt128.BYTES*2));
     }
     
     public static TorcEdge.Directionality parseDirectionalityFromEdgeId(byte[] edgeId) {
-        return TorcEdge.Directionality.values()[edgeId[Long.BYTES*4]];
+        return TorcEdge.Directionality.values()[edgeId[UInt128.BYTES*2]];
     }
 }

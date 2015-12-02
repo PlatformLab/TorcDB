@@ -47,6 +47,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Element;
@@ -154,38 +155,43 @@ public final class TorcGraph implements Graph {
             }
         }
 
+        Object idValue = ElementHelper.getIdValue(keyValues).orElse(null);
         final String label = ElementHelper.getLabelValue(keyValues).orElse(Vertex.DEFAULT_LABEL);
 
-        Optional<Object> opVertId = ElementHelper.getIdValue(keyValues);
-        byte[] vertexId;
-        if (opVertId.isPresent()) {
-            if (opVertId.get() instanceof Long) {
-                vertexId = TorcHelper.makeVertexId(0, (Long) opVertId.get());
-            } else if (opVertId.get() instanceof String) {
-                try {
-                    vertexId = TorcHelper.makeVertexId(0, Long.decode((String) opVertId.get()));
-                } catch (NumberFormatException e) {
-                    throw TorcGraph.Exceptions.invalidVertexId(e.getMessage());
-                }
-            } else if (opVertId.get() instanceof byte[]) {
-                vertexId = (byte[]) opVertId.get();
-
-                TorcHelper.checkUserSuppliedVertexIdByteArray(vertexId);
+        UInt128 vertexId;
+        if (idValue != null) {
+            if (idValue instanceof Byte) {
+                vertexId = new UInt128((Byte) idValue);
+            } else if (idValue instanceof Short) {
+                vertexId = new UInt128((Short) idValue);
+            } else if (idValue instanceof Integer) {
+                vertexId = new UInt128((Integer) idValue);
+            } else if (idValue instanceof Long) {
+                vertexId = new UInt128((Long) idValue);
+            } else if (idValue instanceof String) {
+                vertexId = new UInt128((String) idValue);
+            } else if (idValue instanceof BigInteger) {
+                vertexId = new UInt128((BigInteger) idValue);
+            } else if (idValue instanceof UUID) {
+                vertexId = new UInt128((UUID) idValue);
+            } else if (idValue instanceof byte[]) {
+                vertexId = new UInt128((byte[]) idValue);
             } else {
                 throw Vertex.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
             }
-
+            
+            // Check if a vertex with this ID already exists.
             try {
                 tx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
-                throw Graph.Exceptions.vertexWithIdAlreadyExists(TorcHelper.stringifyVertexId(vertexId));
+                throw Graph.Exceptions.vertexWithIdAlreadyExists(vertexId.toString());
             } catch (ObjectDoesntExistException e) {
                 // Good!
             }
         } else {
             long id_counter = (long) (Math.random() * NUM_ID_COUNTERS);
             long id = ramcloud.incrementInt64(idTableId, Long.toString(id_counter).getBytes(), 1, null);
-
-            vertexId = TorcHelper.makeVertexId(id_counter + (1 << 63), id);
+            
+            vertexId = new UInt128((1L << 63) + id_counter, id);
         }
 
         // Create property map.
@@ -196,7 +202,7 @@ public final class TorcGraph implements Graph {
             }
         }
 
-        tx.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId), label);
+        tx.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId), label.getBytes());
         tx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertexId), TorcHelper.serializeProperties(properties).array());
 
         return new TorcVertex(this, vertexId, label);
@@ -230,24 +236,8 @@ public final class TorcGraph implements Graph {
             }
 
             for (int i = 0; i < vertexIds.length; ++i) {
-                byte[] vertexId;
-
-                if (vertexIds[i] instanceof Long) {
-                    vertexId = TorcHelper.makeVertexId(0, (Long) vertexIds[i]);
-                } else if (vertexIds[i] instanceof BigInteger) {
-                    long lower = ((BigInteger) vertexIds[i]).longValue();
-                    long upper = ((BigInteger) vertexIds[i]).shiftRight(Long.SIZE).longValue();
-                    vertexId = TorcHelper.makeVertexId(upper, lower);
-                } else if (vertexIds[i] instanceof byte[]) {
-                    if (TorcHelper.validateVertexId(vertexIds[i])) {
-                        vertexId = (byte[]) vertexIds[i];
-                    } else {
-                        throw Graph.Exceptions.elementNotFound(TorcVertex.class, TorcHelper.stringifyVertexId((byte[]) vertexIds[i]));
-                    }
-                } else {
-                    throw Graph.Exceptions.elementNotFound(TorcVertex.class, vertexIds[i]);
-                }
-
+                UInt128 vertexId = TorcHelper.decodeUserSuppliedVertexIdArgument(vertexIds[i]);
+                
                 RAMCloudObject obj;
                 try {
                     obj = tx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
@@ -276,7 +266,7 @@ public final class TorcGraph implements Graph {
 
             for (int i = 0; i < NUM_ID_COUNTERS; ++i) {
                 for (long j = 1; j <= max_id[i]; ++j) {
-                    byte[] vertexId = TorcHelper.makeVertexId(i + (1 << 63), j);
+                    UInt128 vertexId = new UInt128((1L << 63) + i, j);
                     try {
                         RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
                         list.add(new TorcVertex(this, vertexId, obj.getValue()));
@@ -339,7 +329,7 @@ public final class TorcGraph implements Graph {
 
             for (int i = 0; i < NUM_ID_COUNTERS; ++i) {
                 for (long j = 1; j <= max_id[i]; ++j) {
-                    byte[] vertexId = TorcHelper.makeVertexId(i + (1 << 63), j);
+                    UInt128 vertexId = new UInt128((1L << 63) + i, j);
                     try {
                         RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexEdgeLabelListKey(vertexId));
                         List<String> edgeLabels = TorcHelper.deserializeEdgeLabelList(obj);
@@ -347,8 +337,8 @@ public final class TorcGraph implements Graph {
                         for (String label : edgeLabels) {
                             try {
                                 obj = tx.read(vertexTableId, TorcHelper.getVertexEdgeListKey(vertexId, label, TorcEdgeDirection.DIRECTED_OUT));
-                                List<byte[]> neighborIds = TorcHelper.parseNeighborIdsFromEdgeList(obj);
-                                for (byte[] neighborId : neighborIds) {
+                                List<UInt128> neighborIds = TorcHelper.parseNeighborIdsFromEdgeList(obj);
+                                for (UInt128 neighborId : neighborIds) {
                                     list.add(new TorcEdge(this, TorcHelper.makeEdgeId(vertexId, neighborId, label, TorcEdge.Directionality.DIRECTED), label));
                                 }
                             } catch (ObjectDoesntExistException e) {
@@ -490,18 +480,18 @@ public final class TorcGraph implements Graph {
         // repeated twice as it is below. 
         
         // Update vertex1's edge list
-        String edgeListKey;
+        byte[] edgeListKey;
         if (directionality == TorcEdge.Directionality.UNDIRECTED) {
-            edgeListKey = TorcHelper.getVertexEdgeListKey(vertex1.id, label, TorcEdgeDirection.UNDIRECTED);
+            edgeListKey = TorcHelper.getVertexEdgeListKey(vertex1.id(), label, TorcEdgeDirection.UNDIRECTED);
         } else {
-            edgeListKey = TorcHelper.getVertexEdgeListKey(vertex1.id, label, TorcEdgeDirection.DIRECTED_OUT);
+            edgeListKey = TorcHelper.getVertexEdgeListKey(vertex1.id(), label, TorcEdgeDirection.DIRECTED_OUT);
         }
         try {
             RAMCloudObject edgeListRCObj = tx.read(vertexTableId, edgeListKey);
 
             ByteBuffer newEdgeList = ByteBuffer.allocate(serializedEdgeLength + edgeListRCObj.getValueBytes().length);
 
-            newEdgeList.put(vertex2.id);
+            newEdgeList.put(vertex2.id().toByteArray());
             newEdgeList.putShort((short) serializedProperties.array().length);
             newEdgeList.put(serializedProperties.array());
             newEdgeList.put(edgeListRCObj.getValueBytes());
@@ -510,13 +500,13 @@ public final class TorcGraph implements Graph {
         } catch (ObjectDoesntExistException e) {
             ByteBuffer newEdgeList = ByteBuffer.allocate(serializedEdgeLength);
 
-            newEdgeList.put(vertex2.id);
+            newEdgeList.put(vertex2.id().toByteArray());
             newEdgeList.putShort((short) serializedProperties.array().length);
             newEdgeList.put(serializedProperties.array());
 
             tx.write(vertexTableId, edgeListKey, newEdgeList.array());
 
-            String edgeLabelListKey = TorcHelper.getVertexEdgeLabelListKey(vertex1.id);
+            byte[] edgeLabelListKey = TorcHelper.getVertexEdgeLabelListKey(vertex1.id());
             try {
                 RAMCloudObject edgeLabelListRCObj = tx.read(vertexTableId, edgeLabelListKey);
                 List<String> edgeLabelList = TorcHelper.deserializeEdgeLabelList(edgeLabelListRCObj);
@@ -533,16 +523,16 @@ public final class TorcGraph implements Graph {
 
         // Update vertex2's edge list
         if (directionality == TorcEdge.Directionality.UNDIRECTED) {
-            edgeListKey = TorcHelper.getVertexEdgeListKey(vertex2.id, label, TorcEdgeDirection.UNDIRECTED);
+            edgeListKey = TorcHelper.getVertexEdgeListKey(vertex2.id(), label, TorcEdgeDirection.UNDIRECTED);
         } else {
-            edgeListKey = TorcHelper.getVertexEdgeListKey(vertex2.id, label, TorcEdgeDirection.DIRECTED_IN);
+            edgeListKey = TorcHelper.getVertexEdgeListKey(vertex2.id(), label, TorcEdgeDirection.DIRECTED_IN);
         }
         try {
             RAMCloudObject edgeListRCObj = tx.read(vertexTableId, edgeListKey);
 
             ByteBuffer newEdgeList = ByteBuffer.allocate(serializedEdgeLength + edgeListRCObj.getValueBytes().length);
 
-            newEdgeList.put(vertex1.id);
+            newEdgeList.put(vertex1.id().toByteArray());
             newEdgeList.putShort((short) serializedProperties.array().length);
             newEdgeList.put(serializedProperties.array());
             newEdgeList.put(edgeListRCObj.getValueBytes());
@@ -551,13 +541,13 @@ public final class TorcGraph implements Graph {
         } catch (ObjectDoesntExistException e) {
             ByteBuffer newEdgeList = ByteBuffer.allocate(serializedEdgeLength);
 
-            newEdgeList.put(vertex1.id);
+            newEdgeList.put(vertex1.id().toByteArray());
             newEdgeList.putShort((short) serializedProperties.array().length);
             newEdgeList.put(serializedProperties.array());
 
             tx.write(vertexTableId, edgeListKey, newEdgeList.array());
 
-            String edgeLabelListKey = TorcHelper.getVertexEdgeLabelListKey(vertex2.id);
+            byte[] edgeLabelListKey = TorcHelper.getVertexEdgeLabelListKey(vertex2.id());
             try {
                 RAMCloudObject edgeLabelListRCObj = tx.read(vertexTableId, edgeLabelListKey);
                 List<String> edgeLabelList = TorcHelper.deserializeEdgeLabelList(edgeLabelListRCObj);
@@ -572,7 +562,7 @@ public final class TorcGraph implements Graph {
             }
         }
 
-        return new TorcEdge(this, TorcHelper.makeEdgeId(vertex1.id, vertex2.id, label, directionality), label);
+        return new TorcEdge(this, TorcHelper.makeEdgeId(vertex1.id(), vertex2.id(), label, directionality), label);
     }
 
     Iterator<Edge> vertexEdges(final TorcVertex vertex, final EnumSet<TorcEdgeDirection> edgeDirections, final String[] edgeLabels) {
@@ -584,7 +574,7 @@ public final class TorcGraph implements Graph {
 
         if (labels.isEmpty()) {
             try {
-                RAMCloudObject vertEdgeLabelListRCObj = tx.read(vertexTableId, TorcHelper.getVertexEdgeLabelListKey(vertex.id));
+                RAMCloudObject vertEdgeLabelListRCObj = tx.read(vertexTableId, TorcHelper.getVertexEdgeLabelListKey(vertex.id()));
                 labels = TorcHelper.deserializeEdgeLabelList(vertEdgeLabelListRCObj);
                 if (labels.isEmpty()) {
                     return edges.iterator();
@@ -597,22 +587,22 @@ public final class TorcGraph implements Graph {
         for (String label : labels) {
             for (TorcEdgeDirection dir : edgeDirections) {
                 try {
-                    String edgeListKey = TorcHelper.getVertexEdgeListKey(vertex.id, label, dir);
+                    byte[] edgeListKey = TorcHelper.getVertexEdgeListKey(vertex.id(), label, dir);
                     RAMCloudObject edgeListRCObj = tx.read(vertexTableId, edgeListKey);
-                    List<byte[]> neighborIds = TorcHelper.parseNeighborIdsFromEdgeList(edgeListRCObj);
-                    for (byte[] neighborId : neighborIds) {
+                    List<UInt128> neighborIds = TorcHelper.parseNeighborIdsFromEdgeList(edgeListRCObj);
+                    for (UInt128 neighborId : neighborIds) {
                         byte[] edgeId;
                         switch (dir) {
                             case DIRECTED_OUT:
-                                edgeId = TorcHelper.makeEdgeId(vertex.id, neighborId, label, TorcEdge.Directionality.DIRECTED);
+                                edgeId = TorcHelper.makeEdgeId(vertex.id(), neighborId, label, TorcEdge.Directionality.DIRECTED);
                                 edges.add(new TorcEdge(this, edgeId, label));
                                 break;
                             case DIRECTED_IN:
-                                edgeId = TorcHelper.makeEdgeId(neighborId, vertex.id, label, TorcEdge.Directionality.DIRECTED);
+                                edgeId = TorcHelper.makeEdgeId(neighborId, vertex.id(), label, TorcEdge.Directionality.DIRECTED);
                                 edges.add(new TorcEdge(this, edgeId, label));
                                 break;
                             case UNDIRECTED:
-                                edgeId = TorcHelper.makeEdgeId(vertex.id, neighborId, label, TorcEdge.Directionality.UNDIRECTED);
+                                edgeId = TorcHelper.makeEdgeId(vertex.id(), neighborId, label, TorcEdge.Directionality.UNDIRECTED);
                                 edges.add(new TorcEdge(this, edgeId, label));
                                 break;
                         }
@@ -635,7 +625,7 @@ public final class TorcGraph implements Graph {
 
         if (labels.isEmpty()) {
             try {
-                RAMCloudObject vertEdgeLabelListRCObj = tx.read(vertexTableId, TorcHelper.getVertexEdgeLabelListKey(vertex.id));
+                RAMCloudObject vertEdgeLabelListRCObj = tx.read(vertexTableId, TorcHelper.getVertexEdgeLabelListKey(vertex.id()));
                 labels = TorcHelper.deserializeEdgeLabelList(vertEdgeLabelListRCObj);
                 if (labels.isEmpty()) {
                     return vertices.iterator();
@@ -648,10 +638,10 @@ public final class TorcGraph implements Graph {
         for (String label : labels) {
             for (TorcEdgeDirection dir : edgeDirections) {
                 try {
-                    String edgeListKey = TorcHelper.getVertexEdgeListKey(vertex.id, label, dir);
+                    byte[] edgeListKey = TorcHelper.getVertexEdgeListKey(vertex.id(), label, dir);
                     RAMCloudObject edgeListRCObj = tx.read(vertexTableId, edgeListKey);
-                    List<byte[]> neighborIds = TorcHelper.parseNeighborIdsFromEdgeList(edgeListRCObj);
-                    for (byte[] neighborId : neighborIds) {
+                    List<UInt128> neighborIds = TorcHelper.parseNeighborIdsFromEdgeList(edgeListRCObj);
+                    for (UInt128 neighborId : neighborIds) {
                         RAMCloudObject neighborLabelRCObj = tx.read(vertexTableId, TorcHelper.getVertexLabelKey(neighborId));
                         vertices.add(new TorcVertex(this, neighborId, neighborLabelRCObj.getValue()));
                     }
@@ -668,7 +658,7 @@ public final class TorcGraph implements Graph {
         transaction.readWrite();
         RAMCloudTransaction tx = transaction.threadLocalTx.get();
 
-        RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id));
+        RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()));
 
         Map<String, String> properties = TorcHelper.deserializeProperties(obj);
 
@@ -706,7 +696,7 @@ public final class TorcGraph implements Graph {
             throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(value);
         }
 
-        RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id));
+        RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()));
 
         Map<String, String> properties = TorcHelper.deserializeProperties(obj);
 
@@ -724,7 +714,7 @@ public final class TorcGraph implements Graph {
             properties.put(key, (String) value);
         }
 
-        tx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id), TorcHelper.serializeProperties(properties).array());
+        tx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()), TorcHelper.serializeProperties(properties).array());
 
         return new TorcVertexProperty(vertex, key, value);
     }
@@ -743,13 +733,13 @@ public final class TorcGraph implements Graph {
         List<Vertex> list = new ArrayList<>();
 
         if (direction.equals(Direction.OUT) || direction.equals(Direction.BOTH)) {
-            byte[] outVertexId = TorcHelper.parseOutVertexIdFromEdgeId(edge.id);
+            UInt128 outVertexId = TorcHelper.parseOutVertexIdFromEdgeId(edge.id());
             RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexLabelKey(outVertexId));
             list.add(new TorcVertex(this, outVertexId, obj.getValue()));
         }
 
         if (direction.equals(Direction.IN) || direction.equals(Direction.BOTH)) {
-            byte[] inVertexId = TorcHelper.parseInVertexIdFromEdgeId(edge.id);
+            UInt128 inVertexId = TorcHelper.parseInVertexIdFromEdgeId(edge.id());
             RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexLabelKey(inVertexId));
             list.add(new TorcVertex(this, inVertexId, obj.getValue()));
         }
@@ -767,7 +757,7 @@ public final class TorcGraph implements Graph {
 
     // TODO: Move this into its own file.
     public static class Exceptions {
-        public static IllegalArgumentException invalidVertexId(String message) {
+        public static IllegalArgumentException userSuppliedIdNotValid(String message) {
             throw new IllegalArgumentException("Invalid vertex ID: " + message);
         }
     }

@@ -33,7 +33,8 @@ import org.ellitron.tinkerpop.gremlin.torc.structure.util.TorcHelper;
  */
 public class TorcEdge implements Edge, Element {
     private final TorcGraph graph;
-    byte[] id;
+    // TODO: This needs to be wrapped in its own type.
+    private byte[] id;
     private String label;
     
     public enum Directionality {
@@ -48,7 +49,7 @@ public class TorcEdge implements Edge, Element {
     }
 
     @Override
-    public Object id() {
+    public byte[] id() {
         return id;
     }
 
