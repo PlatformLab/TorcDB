@@ -40,18 +40,18 @@ import org.ellitron.tinkerpop.gremlin.torc.structure.util.TorcHelper;
  */
 public class TorcVertex implements Vertex, Element {
     private final TorcGraph graph;
-    byte[] id;
+    private UInt128 id;
     private String label;
     
-    public TorcVertex(final TorcGraph graph, final byte[] id, final String label) {
+    public TorcVertex(final TorcGraph graph, final UInt128 id, final String label) {
         this.graph = graph;
         this.id = id;
         this.label = label;
     }
 
     @Override
-    public BigInteger id() {
-        return new BigInteger(id);
+    public UInt128 id() {
+        return id;
     }
 
     @Override

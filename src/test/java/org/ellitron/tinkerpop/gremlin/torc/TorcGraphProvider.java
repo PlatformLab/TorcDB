@@ -79,13 +79,6 @@ public class TorcGraphProvider extends AbstractGraphProvider {
 
     @Override
     public Object convertId(final Object id, final Class<? extends Element> c) {
-        if (c.equals(Vertex.class)) {
-            if (id instanceof String) {
-                byte[] vertexId = TorcHelper.makeVertexId(0, Long.decode((String) id));
-                return new BigInteger(vertexId);
-            }
-        }
-
         return id;
     }
 }
