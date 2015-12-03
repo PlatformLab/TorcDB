@@ -94,14 +94,11 @@ public class UInt128 {
     }
 
     /**
-     * Constructs a UInt128 from a String value representing a number in a specified base. 
-     * The value stored in this UInt128 is the 128 bit two's-complement
-     * representation of this value. If the two's-complement representation of
-     * the value requires more than 128 bits to represent, only the lower 128
-     * bits are used to construct this UInt128.
-     * 
-     * TODO: does this work?
-     * {@inheritDoc UInt128(String)}
+     * Constructs a UInt128 from a String value representing a number in a
+     * specified base. The value stored in this UInt128 is the 128 bit
+     * two's-complement representation of this value. If the two's-complement
+     * representation of the value requires more than 128 bits to represent,
+     * only the lower 128 bits are used to construct this UInt128.
      *
      * @param val String, treated as a 128 bit signed value.
      * @param radix The base of the number represented by the string.
@@ -151,7 +148,7 @@ public class UInt128 {
         this.upperLong = val.getMostSignificantBits();
         this.lowerLong = val.getLeastSignificantBits();
     }
-    
+
     /**
      * Constructs a UInt128 from a byte array value. The byte array value is
      * interpreted as unsigned and in big-endian format. If the byte array is
@@ -202,7 +199,7 @@ public class UInt128 {
         buf.putLong(lowerLong);
         return buf.array();
     }
-    
+
     @Override
     public String toString() {
         if (upperLong == 0) {
