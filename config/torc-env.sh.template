@@ -2,9 +2,9 @@
 # by the unit tests.  Please edit this to match your cluster setup.
 
 # The location of your RAMCloud cluster's coordinator.
-#RAMCLOUD.COORDINATOR_LOCATOR="infrc:host=192.168.1.1,port=12246"
-#export RAMCLOUD.COORDINATOR_LOCATOR 
+#RAMCLOUD_COORDINATOR_LOCATOR="infrc:host=192.168.1.1,port=12246"
+#export RAMCLOUD_COORDINATOR_LOCATOR 
 
 # The number of servers in your RAMCloud cluster.
-#RAMCLOUD.SERVERS=1
-#export RAMCLOUD.SERVERS 
+#RAMCLOUD_SERVERS=1
+#export RAMCLOUD_SERVERS 
