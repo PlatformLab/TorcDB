@@ -273,7 +273,7 @@ public class MeasurementClient {
     public void testAddVertexThroughput() {
         BaseConfiguration ramCloudGraphConfig = new BaseConfiguration();
         ramCloudGraphConfig.setDelimiterParsingDisabled(true);
-        ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_COORD_LOC, coordinatorLocator);
+        ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_COORD_LOCATOR, coordinatorLocator);
         ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_NUM_MASTER_SERVERS, numMasters);
         
         TorcGraph graph = TorcGraph.open(ramCloudGraphConfig);
@@ -373,7 +373,7 @@ public class MeasurementClient {
     public void testAddVertexLatency() {
         BaseConfiguration ramCloudGraphConfig = new BaseConfiguration();
         ramCloudGraphConfig.setDelimiterParsingDisabled(true);
-        ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_COORD_LOC, coordinatorLocator);
+        ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_COORD_LOCATOR, coordinatorLocator);
         ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_NUM_MASTER_SERVERS, numMasters);
         
         TorcGraph graph = TorcGraph.open(ramCloudGraphConfig);

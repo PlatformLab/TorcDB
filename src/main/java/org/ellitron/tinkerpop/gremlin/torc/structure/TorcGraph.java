@@ -83,7 +83,7 @@ public final class TorcGraph implements Graph {
 
     // Configuration keys.
     public static final String CONFIG_GRAPH_NAME = "gremlin.torc.graphName";
-    public static final String CONFIG_COORD_LOC = "gremlin.torc.coordinatorLocator";
+    public static final String CONFIG_COORD_LOCATOR = "gremlin.torc.coordinatorLocator";
     public static final String CONFIG_NUM_MASTER_SERVERS = "gremlin.torc.numMasterServers";
     public static final String CONFIG_LOG_LEVEL = "gremlin.torc.logLevel";
 
@@ -110,7 +110,7 @@ public final class TorcGraph implements Graph {
         this.configuration = configuration;
 
         graphName = configuration.getString(CONFIG_GRAPH_NAME);
-        coordinatorLocator = configuration.getString(CONFIG_COORD_LOC);
+        coordinatorLocator = configuration.getString(CONFIG_COORD_LOCATOR);
         totalMasterServers = configuration.getInt(CONFIG_NUM_MASTER_SERVERS);
     }
 
