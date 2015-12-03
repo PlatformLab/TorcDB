@@ -61,13 +61,13 @@ public class TorcGraphProvider extends AbstractGraphProvider {
         config.put(Graph.GRAPH, TorcGraph.class.getName());
         config.put(TorcGraph.CONFIG_GRAPH_NAME, graphName);
         
-        String ramcloudCoordinatorLocator = System.getenv("RAMCLOUD.COORDINATOR_LOCATOR");
+        String ramcloudCoordinatorLocator = System.getenv("RAMCLOUD_COORDINATOR_LOCATOR");
         if (ramcloudCoordinatorLocator == null) 
-            throw new RuntimeException("RAMCLOUD.COORDINATOR_LOCATOR environment variable not set. Please set this to your RAMCloud cluster's coordinator locator string (e.g. infrc:host=192.168.1.1,port=12246).");
+            throw new RuntimeException("RAMCLOUD_COORDINATOR_LOCATOR environment variable not set. Please set this to your RAMCloud cluster's coordinator locator string (e.g. infrc:host=192.168.1.1,port=12246).");
         
-        String ramcloudServers = System.getenv("RAMCLOUD.SERVERS");
+        String ramcloudServers = System.getenv("RAMCLOUD_SERVERS");
         if (ramcloudServers == null)
-            throw new RuntimeException("RAMCLOUD.SERVERS environment variable not set. Please set this to the number of master servers in your RAMCloud cluster.");
+            throw new RuntimeException("RAMCLOUD_SERVERS environment variable not set. Please set this to the number of master servers in your RAMCloud cluster.");
         
         config.put(TorcGraph.CONFIG_COORD_LOCATOR, ramcloudCoordinatorLocator.replace(",", "\\\\,"));
         config.put(TorcGraph.CONFIG_NUM_MASTER_SERVERS, ramcloudServers);
