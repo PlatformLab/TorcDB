@@ -69,7 +69,7 @@ public class TorcGraphProvider extends AbstractGraphProvider {
         if (ramcloudServers == null)
             throw new RuntimeException("RAMCLOUD_SERVERS environment variable not set. Please set this to the number of master servers in your RAMCloud cluster.");
         
-        config.put(TorcGraph.CONFIG_COORD_LOCATOR, ramcloudCoordinatorLocator.replace(",", "\\\\,"));
+        config.put(TorcGraph.CONFIG_COORD_LOCATOR, ramcloudCoordinatorLocator.replace(",", "\\,"));
         config.put(TorcGraph.CONFIG_NUM_MASTER_SERVERS, ramcloudServers);
         return config;
     }
