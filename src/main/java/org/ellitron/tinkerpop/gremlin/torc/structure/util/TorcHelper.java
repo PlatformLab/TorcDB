@@ -24,18 +24,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.tinkerpop.gremlin.structure.Direction;
-import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.VertexProperty;
-import static org.apache.tinkerpop.gremlin.structure.util.ElementHelper.haveEqualIds;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdge;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdgeDirection;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraph;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertex;
 import org.ellitron.tinkerpop.gremlin.torc.structure.UInt128;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertexProperty;
 
 /**
  *
