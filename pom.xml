@@ -12,6 +12,11 @@
     <packaging>jar</packaging>
     <dependencies>
         <dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <version>1.2.17</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.tinkerpop</groupId>
             <artifactId>gremlin-core</artifactId>
             <version>3.0.1-incubating</version>
@@ -27,11 +32,11 @@
             <artifactId>gremlin-test</artifactId>
             <version>3.0.1-incubating</version>
         </dependency>
-        <dependency>
+<!--        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>1.7.12</version>
-        </dependency>
+        </dependency>-->
         <dependency>
             <groupId>edu.stanford</groupId>
             <artifactId>ramcloud</artifactId>
@@ -63,11 +68,11 @@
             <version>1.3.1</version>
             <type>jar</type>
         </dependency>
-        <dependency>
+<!--        <dependency>
             <groupId>org.jfree</groupId>
             <artifactId>jfreechart</artifactId>
             <version>1.0.19</version>
-        </dependency>
+        </dependency>-->
     </dependencies>
     <build>
         <resources>
