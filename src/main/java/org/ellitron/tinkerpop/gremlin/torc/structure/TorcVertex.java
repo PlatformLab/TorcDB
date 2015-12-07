@@ -15,24 +15,15 @@
  */
 package org.ellitron.tinkerpop.gremlin.torc.structure;
 
-import edu.stanford.ramcloud.RAMCloud;
-import edu.stanford.ramcloud.RAMCloudObject;
-import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
-import org.ellitron.tinkerpop.gremlin.torc.structure.util.TorcHelper;
 
 /**
  *

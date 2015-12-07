@@ -24,41 +24,21 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
 import edu.stanford.ramcloud.*;
-import edu.stanford.ramcloud.multiop.*;
-import edu.stanford.ramcloud.transactions.*;
 import static edu.stanford.ramcloud.ClientException.*;
-import java.awt.BasicStroke;
-import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import static java.lang.Thread.sleep;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.OptionBuilder;
-import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.configuration.BaseConfiguration;
-import org.apache.commons.configuration.Configuration;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraph;
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartPanel;
-import org.jfree.chart.ChartUtilities;
-import org.jfree.chart.JFreeChart;
-import org.jfree.chart.axis.LogAxis;
-import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.chart.plot.XYPlot;
-import org.jfree.data.statistics.HistogramDataset;
-import org.jfree.data.statistics.HistogramType;
-import org.jfree.data.xy.XYSeries;
-import org.jfree.data.xy.XYSeriesCollection;
 
 
 /**
