@@ -15,7 +15,6 @@
  */
 package org.ellitron.tinkerpop.gremlin.torc.structure;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -32,7 +31,7 @@ import java.util.UUID;
  *
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
-public class UInt128 {
+public class UInt128 implements Comparable<UInt128> {
 
     public static final int SIZE = 128;
     public static final int BYTES = SIZE / Byte.SIZE;
@@ -180,19 +179,42 @@ public class UInt128 {
         this.lowerLong = buf.getLong();
     }
 
+    /**
+     * Constructs a UInt128 from two longs, one representing the upper 64 bits 
+     * and the other representing the lower 64 bits. 
+     * 
+     * @param upperLong Upper 64 bits.
+     * @param lowerLong Lower 64 bits.
+     */
     public UInt128(final long upperLong, final long lowerLong) {
         this.upperLong = upperLong;
         this.lowerLong = lowerLong;
     }
 
+    /**
+     * Returns the upper 64 bits in a long.
+     * 
+     * @return Upper 64 bits. 
+     */
     public long getUpperLong() {
         return upperLong;
     }
 
+    /**
+     * Returns the lower 64 bits in a long.
+     * 
+     * @return Lower 64 bits.
+     */
     public long getLowerLong() {
         return lowerLong;
     }
 
+    /**
+     * Returns a byte array containing this 128 bit unsigned integer in
+     * big-endian format.
+     * 
+     * @return Byte array containing this number in big-endian format.
+     */
     public byte[] toByteArray() {
         ByteBuffer buf = ByteBuffer.allocate(BYTES);
         buf.putLong(upperLong);
@@ -200,6 +222,12 @@ public class UInt128 {
         return buf.array();
     }
 
+    /**
+     * Returns a hexadecimal String representing this 128 bit unsigned integer 
+     * with the minimum number of digits. 
+     * 
+     * @return Formatted string representing this number.
+     */
     @Override
     public String toString() {
         if (upperLong == 0) {
@@ -207,5 +235,69 @@ public class UInt128 {
         } else {
             return String.format("0x%X%016X", upperLong, lowerLong);
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int compareTo(UInt128 that) {
+        long lower63BitMask = 0x7FFFFFFFFFFFFFFFL;
+        
+        if (this.upperLong != that.upperLong) {
+            if (this.upperLong < 0 && that.upperLong > 0) {
+                return 1;
+            }
+
+            if (this.upperLong > 0 && that.upperLong < 0) {
+                return -1;
+            }
+
+            if ((this.upperLong & lower63BitMask) > (that.upperLong & lower63BitMask)) {
+                return 1;
+            }
+
+            return -1;
+        } else if (this.lowerLong != that.lowerLong) {
+            if (this.lowerLong < 0 && that.lowerLong > 0) {
+                return 1;
+            }
+
+            if (this.lowerLong > 0 && that.lowerLong < 0) {
+                return -1;
+            }
+
+            if ((this.lowerLong & lower63BitMask) > (that.lowerLong & lower63BitMask)) {
+                return 1;
+            }
+
+            return -1;
+        }
+    
+        return 0;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean equals(Object that) {
+        if (!(that instanceof UInt128)) {
+            return false;
+        }
+
+        return ((UInt128) that).upperLong == this.upperLong
+                && ((UInt128) that).lowerLong == this.lowerLong;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int hashCode() {
+        int hash = 7;
+        hash = 83 * hash + (int) (this.upperLong ^ (this.upperLong >>> 32));
+        hash = 83 * hash + (int) (this.lowerLong ^ (this.lowerLong >>> 32));
+        return hash;
     }
 }

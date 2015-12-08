@@ -16,10 +16,6 @@
 package org.ellitron.tinkerpop.gremlin.torc.structure;
 
 import java.math.BigInteger;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -65,13 +61,13 @@ public class UInt128Test {
     }
     
     @Test
-    public void constructor_string() {
+    public void constructor_fromString() {
         UInt128 dut = new UInt128("1");
         assertEquals("0x1", dut.toString());
     }
     
     @Test
-    public void constructor_stringWithBase() {
+    public void constructor_fromStringWithBase() {
         UInt128 dut = new UInt128("DEADBEEF", 16);
         assertEquals("0xDEADBEEF", dut.toString());
     }
@@ -151,5 +147,45 @@ public class UInt128Test {
         src = new UInt128("DEADBEEF", 16);
         cpy = new UInt128(src.toByteArray());
         assertEquals(src.toString(), cpy.toString());
+    }
+    
+    @Test
+    public void compareTo_variousComparisons() {
+        UInt128 a = new UInt128("80000000000000000000000000000000", 16);
+        UInt128 b = new UInt128("40000000000000000000000000000000", 16);
+        assertTrue(a.compareTo(b) > 0);
+        assertTrue(b.compareTo(a) < 0);
+        a = new UInt128("80000000000000010000000000000000", 16);
+        b = new UInt128("80000000000000000000000000000000", 16);
+        assertTrue(a.compareTo(b) > 0);
+        assertTrue(b.compareTo(a) < 0);
+        a = new UInt128("80000000000000008000000000000000", 16);
+        b = new UInt128("80000000000000004000000000000000", 16);
+        assertTrue(a.compareTo(b) > 0);
+        assertTrue(b.compareTo(a) < 0);
+        a = new UInt128("80000000000000008000000000000001", 16);
+        b = new UInt128("80000000000000008000000000000000", 16);
+        assertTrue(a.compareTo(b) > 0);
+        assertTrue(b.compareTo(a) < 0);
+        a = new UInt128("00000000000000001000000000000000", 16);
+        b = new UInt128("00000000000000000000000000000000", 16);
+        assertTrue(a.compareTo(b) > 0);
+        assertTrue(b.compareTo(a) < 0);
+        a = new UInt128("00000000000000000000000000000001", 16);
+        b = new UInt128("00000000000000000000000000000000", 16);
+        assertTrue(a.compareTo(b) > 0);
+        assertTrue(b.compareTo(a) < 0);
+        a = new UInt128("DEADBEEFDEADBEEFDEADBEEFDEADBEEF", 16);
+        b = new UInt128("DEADBEEFDEADBEEFDEADBEEFDEADBEEF", 16);
+        assertTrue(a.compareTo(b) == 0);
+        assertTrue(b.compareTo(a) == 0);
+    }
+    
+    @Test
+    public void equals_sameValue() {
+        UInt128 a = new UInt128("DEADBEEFDEADBEEFDEADBEEFDEADBEEF", 16);
+        UInt128 b = new UInt128("DEADBEEFDEADBEEFDEADBEEFDEADBEEF", 16);
+        assertTrue(a.compareTo(b) == 0);
+        assertTrue(b.compareTo(a) == 0);
     }
 }
