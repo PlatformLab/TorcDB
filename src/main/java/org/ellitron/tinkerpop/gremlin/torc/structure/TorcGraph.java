@@ -76,11 +76,7 @@ import org.ellitron.tinkerpop.gremlin.torc.structure.util.TorcHelper;
 @Graph.OptIn(Graph.OptIn.SUITE_STRUCTURE_STANDARD)
 public final class TorcGraph implements Graph {
 
-    private static final Logger logger = Logger.getLogger(TorcGraph.class);
-
-    static {
-        BasicConfigurator.configure();
-    }
+    private static final Logger logger = Logger.getRootLogger();
 
     // Configuration keys.
     public static final String CONFIG_GRAPH_NAME = "gremlin.torc.graphName";
