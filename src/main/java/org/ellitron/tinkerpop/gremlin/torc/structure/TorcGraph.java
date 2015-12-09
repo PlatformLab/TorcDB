@@ -165,27 +165,7 @@ public final class TorcGraph implements Graph {
 
         UInt128 vertexId;
         if (idValue != null) {
-            if (idValue instanceof Byte) {
-                vertexId = new UInt128((Byte) idValue);
-            } else if (idValue instanceof Short) {
-                vertexId = new UInt128((Short) idValue);
-            } else if (idValue instanceof Integer) {
-                vertexId = new UInt128((Integer) idValue);
-            } else if (idValue instanceof Long) {
-                vertexId = new UInt128((Long) idValue);
-            } else if (idValue instanceof String) {
-                vertexId = new UInt128((String) idValue);
-            } else if (idValue instanceof BigInteger) {
-                vertexId = new UInt128((BigInteger) idValue);
-            } else if (idValue instanceof UUID) {
-                vertexId = new UInt128((UUID) idValue);
-            } else if (idValue instanceof byte[]) {
-                vertexId = new UInt128((byte[]) idValue);
-            } else if (idValue instanceof UInt128) {
-                vertexId = (UInt128) idValue;
-            } else {
-                throw Vertex.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
-            }
+            vertexId = TorcHelper.decodeUserSuppliedVertexIdArgument(idValue);
 
             // Check if a vertex with this ID already exists.
             try {

@@ -145,6 +145,8 @@ public class TorcHelper {
             return new UInt128((UUID) idValue);
         } else if (idValue instanceof byte[]) {
             return new UInt128((byte[]) idValue);
+        } else if (idValue instanceof UInt128) {
+            return (UInt128) idValue;
         } else {
             throw Vertex.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
         }
