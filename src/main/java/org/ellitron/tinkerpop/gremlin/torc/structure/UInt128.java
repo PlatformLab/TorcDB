@@ -192,6 +192,41 @@ public class UInt128 implements Comparable<UInt128> {
     }
 
     /**
+     * This method attempts to translate its argument into a UInt128.
+     * 
+     * @param n Number to translate.
+     * @return UInt128
+     */
+    public static UInt128 decode(Object n) {
+        if (n instanceof Byte) {
+            return new UInt128((Byte) n);
+        } else if (n instanceof Short) {
+            return new UInt128((Short) n);
+        } else if (n instanceof Integer) {
+            return new UInt128((Integer) n);
+        } else if (n instanceof Long) {
+            return new UInt128((Long) n);
+        } else if (n instanceof String) {
+            String idStr = (String) n;
+            if (idStr.startsWith("0x")) {
+                return new UInt128(idStr, 16);
+            } else {
+                return new UInt128(idStr, 10);
+            }
+        } else if (n instanceof BigInteger) {
+            return new UInt128((BigInteger) n);
+        } else if (n instanceof UUID) {
+            return new UInt128((UUID) n);
+        } else if (n instanceof byte[]) {
+            return new UInt128((byte[]) n);
+        } else if (n instanceof UInt128) {
+            return (UInt128) n;
+        } else {
+            throw new NumberFormatException(String.format("Unable to decode number: [%s,%s]", n.getClass(), n.toString()));
+        }
+    }
+    
+    /**
      * Returns the upper 64 bits in a long.
      * 
      * @return Upper 64 bits. 
@@ -278,16 +313,23 @@ public class UInt128 implements Comparable<UInt128> {
     }
 
     /**
-     * {@inheritDoc}
+     * If the supplied argument is another UInt128, tests for bit-wise equality, 
+     * otherwise attempts to convert the argument to a UInt128 and then tests 
+     * for equality.
      */
     @Override
     public boolean equals(Object that) {
-        if (!(that instanceof UInt128)) {
-            return false;
-        }
-
-        return ((UInt128) that).upperLong == this.upperLong
+        if (that instanceof UInt128) {
+            return ((UInt128) that).upperLong == this.upperLong
                 && ((UInt128) that).lowerLong == this.lowerLong;
+        } else {
+            try {
+                UInt128 thatUInt128 = decode(that);
+                return this.equals(thatUInt128);
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
     }
 
     /**

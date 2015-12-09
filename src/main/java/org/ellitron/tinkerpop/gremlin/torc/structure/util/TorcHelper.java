@@ -138,7 +138,12 @@ public class TorcHelper {
         } else if (idValue instanceof Long) {
             return new UInt128((Long) idValue);
         } else if (idValue instanceof String) {
-            return new UInt128((String) idValue);
+            String idStr = (String) idValue;
+            if (idStr.startsWith("0x")) {
+                return new UInt128(idStr, 16);
+            } else {
+                return new UInt128(idStr, 10);
+            }
         } else if (idValue instanceof BigInteger) {
             return new UInt128((BigInteger) idValue);
         } else if (idValue instanceof UUID) {

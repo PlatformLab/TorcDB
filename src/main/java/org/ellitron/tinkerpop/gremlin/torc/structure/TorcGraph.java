@@ -165,7 +165,7 @@ public final class TorcGraph implements Graph {
 
         UInt128 vertexId;
         if (idValue != null) {
-            vertexId = TorcHelper.decodeUserSuppliedVertexIdArgument(idValue);
+            vertexId = UInt128.decode(idValue);
 
             // Check if a vertex with this ID already exists.
             try {
@@ -233,7 +233,7 @@ public final class TorcGraph implements Graph {
                 list = Arrays.asList((Vertex[]) vertexIds);
             } else {
                 for (int i = 0; i < vertexIds.length; ++i) {
-                    UInt128 vertexId = TorcHelper.decodeUserSuppliedVertexIdArgument(vertexIds[i]);
+                    UInt128 vertexId = UInt128.decode(vertexIds[i]);
 
                     RAMCloudObject obj;
                     try {
@@ -1011,7 +1011,7 @@ public final class TorcGraph implements Graph {
 
         @Override
         public boolean supportsUserSuppliedIds() {
-            return false;
+            return true;
         }
 
         @Override
@@ -1021,7 +1021,7 @@ public final class TorcGraph implements Graph {
 
         @Override
         public boolean supportsStringIds() {
-            return false;
+            return true;
         }
 
         @Override
