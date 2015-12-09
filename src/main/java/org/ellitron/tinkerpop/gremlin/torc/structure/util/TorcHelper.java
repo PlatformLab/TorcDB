@@ -198,41 +198,41 @@ public class TorcHelper {
         return VertexKeyType.values()[key[UInt128.BYTES]];
     }
     
-    public static byte[] makeEdgeId(UInt128 outVertexId, UInt128 inVertexId, String label, TorcEdge.Directionality directionality) {
-        ByteBuffer id = ByteBuffer.allocate(UInt128.BYTES*2 + Byte.BYTES + label.length());
-        id.putLong(outVertexId.getUpperLong());
-        id.putLong(outVertexId.getLowerLong());
-        id.putLong(inVertexId.getUpperLong());
-        id.putLong(inVertexId.getLowerLong());
-        id.put((byte) directionality.ordinal());
-        id.put(label.getBytes());
-        return id.array();
-    }
+//    public static byte[] makeEdgeId(UInt128 outVertexId, UInt128 inVertexId, String label, TorcEdge.Type directionality) {
+//        ByteBuffer id = ByteBuffer.allocate(UInt128.BYTES*2 + Byte.BYTES + label.length());
+//        id.putLong(outVertexId.getUpperLong());
+//        id.putLong(outVertexId.getLowerLong());
+//        id.putLong(inVertexId.getUpperLong());
+//        id.putLong(inVertexId.getLowerLong());
+//        id.put((byte) directionality.ordinal());
+//        id.put(label.getBytes());
+//        return id.array();
+//    }
     
-    public static boolean validateEdgeId(Object edgeId) {
-        if (!(edgeId instanceof byte[]))
-            return false;
-        
-        if (!(((byte[]) edgeId).length > UInt128.BYTES*2 + Byte.BYTES))
-            return false;
-        
-        return true;
-    }
+//    public static boolean validateEdgeId(Object edgeId) {
+//        if (!(edgeId instanceof byte[]))
+//            return false;
+//        
+//        if (!(((byte[]) edgeId).length > UInt128.BYTES*2 + Byte.BYTES))
+//            return false;
+//        
+//        return true;
+//    }
     
-    public static String parseLabelFromEdgeId(byte[] edgeId) {
-        byte[] label = Arrays.copyOfRange(edgeId, UInt128.BYTES*2 + Byte.BYTES, edgeId.length);
-        return new String(label);
-    }
-    
-    public static UInt128 parseOutVertexIdFromEdgeId(byte[] edgeId) {
-        return new UInt128(Arrays.copyOfRange(edgeId, 0, UInt128.BYTES));
-    }
-    
-    public static UInt128 parseInVertexIdFromEdgeId(byte[] edgeId) {
-        return new UInt128(Arrays.copyOfRange(edgeId, UInt128.BYTES, UInt128.BYTES*2));
-    }
-    
-    public static TorcEdge.Directionality parseDirectionalityFromEdgeId(byte[] edgeId) {
-        return TorcEdge.Directionality.values()[edgeId[UInt128.BYTES*2]];
-    }
+//    public static String parseLabelFromEdgeId(byte[] edgeId) {
+//        byte[] label = Arrays.copyOfRange(edgeId, UInt128.BYTES*2 + Byte.BYTES, edgeId.length);
+//        return new String(label);
+//    }
+//    
+//    public static UInt128 parseOutVertexIdFromEdgeId(byte[] edgeId) {
+//        return new UInt128(Arrays.copyOfRange(edgeId, 0, UInt128.BYTES));
+//    }
+//    
+//    public static UInt128 parseInVertexIdFromEdgeId(byte[] edgeId) {
+//        return new UInt128(Arrays.copyOfRange(edgeId, UInt128.BYTES, UInt128.BYTES*2));
+//    }
+//    
+//    public static TorcEdge.Type parseDirectionalityFromEdgeId(byte[] edgeId) {
+//        return TorcEdge.Type.values()[edgeId[UInt128.BYTES*2]];
+//    }
 }
