@@ -181,6 +181,8 @@ public final class TorcGraph implements Graph {
                 vertexId = new UInt128((UUID) idValue);
             } else if (idValue instanceof byte[]) {
                 vertexId = new UInt128((byte[]) idValue);
+            } else if (idValue instanceof UInt128) {
+                vertexId = (UInt128) idValue;
             } else {
                 throw Vertex.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
             }
