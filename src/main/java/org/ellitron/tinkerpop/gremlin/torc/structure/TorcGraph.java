@@ -914,12 +914,22 @@ public final class TorcGraph implements Graph {
 
         @Override
         public void doRollback() throws AbstractTransaction.TransactionException {
+            long startTimeNs = 0;
+            if (logger.isDebugEnabled()) {
+                startTimeNs = System.nanoTime();
+            }
+            
             try {
                 threadLocalTx.get().close();
             } catch (Exception e) {
                 throw new AbstractTransaction.TransactionException(e);
             } finally {
                 threadLocalTx.remove();
+            }
+            
+            if (logger.isDebugEnabled()) {
+                long endTimeNs = System.nanoTime();
+                logger.debug(String.format("TorcGraphTransaction.doRollback(), took %dus", (endTimeNs - startTimeNs) / 1000l));
             }
         }
 
