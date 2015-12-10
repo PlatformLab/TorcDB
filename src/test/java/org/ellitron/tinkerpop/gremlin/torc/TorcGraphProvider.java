@@ -15,7 +15,6 @@
  */
 package org.ellitron.tinkerpop.gremlin.torc;
 
-import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -24,17 +23,15 @@ import org.apache.commons.configuration.Configuration;
 
 import org.apache.tinkerpop.gremlin.AbstractGraphProvider;
 import org.apache.tinkerpop.gremlin.LoadGraphWith;
-import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdge;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraph;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraphVariables;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcProperty;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertex;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertexProperty;
-import org.ellitron.tinkerpop.gremlin.torc.structure.util.TorcHelper;
+import org.ellitron.tinkerpop.gremlin.torc.structure.UInt128;
 
 /**
  *
@@ -88,6 +85,6 @@ public class TorcGraphProvider extends AbstractGraphProvider {
 
     @Override
     public Object convertId(final Object id, final Class<? extends Element> c) {
-        return id;
+        return UInt128.decode(id);
     }
 }
