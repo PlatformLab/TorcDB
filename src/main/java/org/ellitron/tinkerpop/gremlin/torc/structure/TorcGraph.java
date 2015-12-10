@@ -230,7 +230,7 @@ public final class TorcGraph implements Graph {
         List<Vertex> list = new ArrayList<>();
         if (vertexIds.length > 0) {
             if (vertexIds[0] instanceof TorcVertex) {
-                list = Arrays.asList((Vertex[]) vertexIds);
+                Arrays.asList(vertexIds).forEach((id) -> {list.add((Vertex) id);});
             } else {
                 for (int i = 0; i < vertexIds.length; ++i) {
                     UInt128 vertexId = UInt128.decode(vertexIds[i]);
