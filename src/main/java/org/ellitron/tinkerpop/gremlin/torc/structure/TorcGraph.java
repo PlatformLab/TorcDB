@@ -1041,7 +1041,7 @@ public final class TorcGraph implements Graph {
 
         @Override
         public boolean supportsUserSuppliedIds() {
-            return true;
+            return false;
         }
 
         @Override
@@ -1051,7 +1051,7 @@ public final class TorcGraph implements Graph {
 
         @Override
         public boolean supportsStringIds() {
-            return true;
+            return false;
         }
 
         @Override
