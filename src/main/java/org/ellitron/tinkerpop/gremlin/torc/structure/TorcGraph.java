@@ -417,6 +417,11 @@ public final class TorcGraph implements Graph {
     }
 
     public void deleteDatabase() {
+        long startTimeNs = 0;
+        if (logger.isDebugEnabled()) {
+            startTimeNs = System.nanoTime();
+        }
+        
         if (!initialized) {
             initialize();
         }
@@ -425,9 +430,19 @@ public final class TorcGraph implements Graph {
         ramcloud.dropTable(graphName + "_" + ID_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + EDGE_TABLE_NAME);
+        
+        if (logger.isDebugEnabled()) {
+            long endTimeNs = System.nanoTime();
+            logger.debug(String.format("deleteDatabase(), took %dus", (endTimeNs - startTimeNs) / 1000l));
+        }
     }
 
     public void deleteDatabaseAndCloseConnection() {
+        long startTimeNs = 0;
+        if (logger.isDebugEnabled()) {
+            startTimeNs = System.nanoTime();
+        }
+        
         if (!initialized) {
             initialize();
         }
@@ -437,6 +452,11 @@ public final class TorcGraph implements Graph {
         ramcloud.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + EDGE_TABLE_NAME);
         ramcloud.disconnect();
+        
+        if (logger.isDebugEnabled()) {
+            long endTimeNs = System.nanoTime();
+            logger.debug(String.format("deleteDatabaseAndCloseConnection(), took %dus", (endTimeNs - startTimeNs) / 1000l));
+        }
     }
 
     @Override
@@ -870,6 +890,11 @@ public final class TorcGraph implements Graph {
 
         @Override
         public void doCommit() throws AbstractTransaction.TransactionException {
+            long startTimeNs = 0;
+            if (logger.isDebugEnabled()) {
+                startTimeNs = System.nanoTime();
+            }
+
             try {
                 if (!threadLocalTx.get().commitAndSync()) {
                     throw new AbstractTransaction.TransactionException("RAMCloud commitAndSync failed.");
@@ -879,6 +904,11 @@ public final class TorcGraph implements Graph {
             } finally {
                 threadLocalTx.get().close();
                 threadLocalTx.remove();
+            }
+            
+            if (logger.isDebugEnabled()) {
+                long endTimeNs = System.nanoTime();
+                logger.debug(String.format("TorcGraphTransaction.doCommit(), took %dus", (endTimeNs - startTimeNs) / 1000l));
             }
         }
 
