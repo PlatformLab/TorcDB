@@ -313,7 +313,7 @@ public class MeasurementClient {
             
             dataFile.flush();
             dataFile.close();
-            graph.deleteDatabaseAndCloseConnection();
+            graph.deleteDatabaseAndCloseAllConnectionsAndTransactions();
             return;
         } else {
             setStatusAndReturnValue(ReturnStatus.STATUS_OK, null);
@@ -433,7 +433,7 @@ public class MeasurementClient {
                 logger.log(Level.SEVERE, null, ex);
             }
 
-            graph.deleteDatabaseAndCloseConnection();
+            graph.deleteDatabaseAndCloseAllConnectionsAndTransactions();
             return;
         } else {
             setStatusAndReturnValue(ReturnStatus.STATUS_OK, null);

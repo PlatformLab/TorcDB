@@ -30,7 +30,6 @@ import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import edu.stanford.ramcloud.*;
 import edu.stanford.ramcloud.transactions.*;
 import edu.stanford.ramcloud.ClientException.*;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -46,8 +45,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
-import org.apache.log4j.BasicConfigurator;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Property;
@@ -98,7 +96,7 @@ public final class TorcGraph implements Graph {
     private RAMCloud ramcloud;
     private long idTableId, vertexTableId, edgeTableId;
     private final String graphName;
-    private final TorcGraphTransaction transaction = new TorcGraphTransaction();
+    private final TorcGraphTransaction torcGraphTx = new TorcGraphTransaction();
 
     boolean initialized = false;
 
@@ -148,8 +146,8 @@ public final class TorcGraph implements Graph {
             initialize();
         }
 
-        transaction.readWrite();
-        RAMCloudTransaction tx = transaction.threadLocalTx.get();
+        torcGraphTx.readWrite();
+        RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
         ElementHelper.legalPropertyKeyValueArray(keyValues);
 
@@ -169,7 +167,7 @@ public final class TorcGraph implements Graph {
 
             // Check if a vertex with this ID already exists.
             try {
-                tx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
+                rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
                 throw Graph.Exceptions.vertexWithIdAlreadyExists(vertexId.toString());
             } catch (ObjectDoesntExistException e) {
                 // Good!
@@ -189,8 +187,8 @@ public final class TorcGraph implements Graph {
             }
         }
 
-        tx.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId), label.getBytes());
-        tx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertexId), TorcHelper.serializeProperties(properties).array());
+        rctx.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId), label.getBytes());
+        rctx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertexId), TorcHelper.serializeProperties(properties).array());
 
         if (logger.isDebugEnabled()) {
             long endTimeNs = System.nanoTime();
@@ -222,8 +220,8 @@ public final class TorcGraph implements Graph {
             initialize();
         }
 
-        transaction.readWrite();
-        RAMCloudTransaction tx = transaction.threadLocalTx.get();
+        torcGraphTx.readWrite();
+        RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
         ElementHelper.validateMixedElementIds(TorcVertex.class, vertexIds);
 
@@ -237,7 +235,7 @@ public final class TorcGraph implements Graph {
 
                     RAMCloudObject obj;
                     try {
-                        obj = tx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
+                        obj = rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
                     } catch (ObjectDoesntExistException e) {
                         throw Graph.Exceptions.elementNotFound(TorcVertex.class, vertexIds[i]);
                     }
@@ -252,7 +250,7 @@ public final class TorcGraph implements Graph {
                 try {
                     ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
                     buffer.order(ByteOrder.LITTLE_ENDIAN);
-                    buffer.put(tx.read(idTableId, Long.toString(i)).getValueBytes());
+                    buffer.put(rctx.read(idTableId, Long.toString(i)).getValueBytes());
                     buffer.flip();
                     max_id[i] = buffer.getLong();
                 } catch (ObjectDoesntExistException e) {
@@ -264,7 +262,7 @@ public final class TorcGraph implements Graph {
                 for (long j = 1; j <= max_id[i]; ++j) {
                     UInt128 vertexId = new UInt128((1L << 63) + i, j);
                     try {
-                        RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
+                        RAMCloudObject obj = rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
                         list.add(new TorcVertex(this, vertexId, obj.getValue()));
                     } catch (ObjectDoesntExistException e) {
                         // Continue...
@@ -292,8 +290,8 @@ public final class TorcGraph implements Graph {
             initialize();
         }
 
-        transaction.readWrite();
-        RAMCloudTransaction tx = transaction.threadLocalTx.get();
+        torcGraphTx.readWrite();
+        RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
         ElementHelper.validateMixedElementIds(TorcEdge.class, edgeIds);
 
@@ -315,7 +313,7 @@ public final class TorcGraph implements Graph {
                 try {
                     ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
                     buffer.order(ByteOrder.LITTLE_ENDIAN);
-                    buffer.put(tx.read(idTableId, Integer.toString(i)).getValueBytes());
+                    buffer.put(rctx.read(idTableId, Integer.toString(i)).getValueBytes());
                     buffer.flip();
                     max_id[i] = buffer.getLong();
                 } catch (ObjectDoesntExistException e) {
@@ -327,12 +325,12 @@ public final class TorcGraph implements Graph {
                 for (long j = 1; j <= max_id[i]; ++j) {
                     UInt128 baseVertexId = new UInt128((1L << 63) + i, j);
                     try {
-                        RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexEdgeLabelListKey(baseVertexId));
+                        RAMCloudObject obj = rctx.read(vertexTableId, TorcHelper.getVertexEdgeLabelListKey(baseVertexId));
                         List<String> edgeLabels = TorcHelper.deserializeEdgeLabelList(obj);
 
                         for (String label : edgeLabels) {
                             try {
-                                obj = tx.read(vertexTableId, TorcHelper.getVertexEdgeListKey(baseVertexId, label, TorcEdgeDirection.DIRECTED_OUT));
+                                obj = rctx.read(vertexTableId, TorcHelper.getVertexEdgeListKey(baseVertexId, label, TorcEdgeDirection.DIRECTED_OUT));
                                 List<UInt128> neighborVertexIds = TorcHelper.parseNeighborIdsFromEdgeList(obj);
                                 for (UInt128 neighborVertexId : neighborVertexIds) {
                                     list.add(new TorcEdge(this, baseVertexId, neighborVertexId, TorcEdge.Type.DIRECTED, label));
@@ -352,7 +350,7 @@ public final class TorcGraph implements Graph {
                              * violation of the API.
                              */
                             try {
-                                obj = tx.read(vertexTableId, TorcHelper.getVertexEdgeListKey(baseVertexId, label, TorcEdgeDirection.UNDIRECTED));
+                                obj = rctx.read(vertexTableId, TorcHelper.getVertexEdgeListKey(baseVertexId, label, TorcEdgeDirection.UNDIRECTED));
                                 List<UInt128> neighborVertexIds = TorcHelper.parseNeighborIdsFromEdgeList(obj);
                                 for (UInt128 neighborVertexId : neighborVertexIds) {
                                     /*
@@ -395,7 +393,7 @@ public final class TorcGraph implements Graph {
             initialize();
         }
 
-        return transaction;
+        return torcGraphTx;
     }
 
     @Override
@@ -411,12 +409,12 @@ public final class TorcGraph implements Graph {
     @Override
     public void close() {
         if (initialized) {
-            transaction.close();
+            torcGraphTx.close();
             ramcloud.disconnect();
         }
     }
 
-    public void deleteDatabase() {
+    public void deleteDatabaseAndCloseAllConnectionsAndTransactions() {
         long startTimeNs = 0;
         if (logger.isDebugEnabled()) {
             startTimeNs = System.nanoTime();
@@ -426,28 +424,8 @@ public final class TorcGraph implements Graph {
             initialize();
         }
 
-        transaction.close();
-        ramcloud.dropTable(graphName + "_" + ID_TABLE_NAME);
-        ramcloud.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
-        ramcloud.dropTable(graphName + "_" + EDGE_TABLE_NAME);
         
-        if (logger.isDebugEnabled()) {
-            long endTimeNs = System.nanoTime();
-            logger.debug(String.format("deleteDatabase(), took %dus", (endTimeNs - startTimeNs) / 1000l));
-        }
-    }
-
-    public void deleteDatabaseAndCloseConnection() {
-        long startTimeNs = 0;
-        if (logger.isDebugEnabled()) {
-            startTimeNs = System.nanoTime();
-        }
-        
-        if (!initialized) {
-            initialize();
-        }
-
-        transaction.close();
+        torcGraphTx.doRollbackAllThreads();
         ramcloud.dropTable(graphName + "_" + ID_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
         ramcloud.dropTable(graphName + "_" + EDGE_TABLE_NAME);
@@ -455,7 +433,7 @@ public final class TorcGraph implements Graph {
         
         if (logger.isDebugEnabled()) {
             long endTimeNs = System.nanoTime();
-            logger.debug(String.format("deleteDatabaseAndCloseConnection(), took %dus", (endTimeNs - startTimeNs) / 1000l));
+            logger.debug(String.format("deleteDatabaseAndCloseAllConnectionsAndTransactions(), took %dus", (endTimeNs - startTimeNs) / 1000l));
         }
     }
 
@@ -482,8 +460,8 @@ public final class TorcGraph implements Graph {
             startTimeNs = System.nanoTime();
         }
 
-        transaction.readWrite();
-        RAMCloudTransaction tx = transaction.threadLocalTx.get();
+        torcGraphTx.readWrite();
+        RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
         // Validate that these key/value pairs are all strings
         if (keyValues.length % 2 != 0) {
@@ -524,7 +502,7 @@ public final class TorcGraph implements Graph {
             edgeListKey = TorcHelper.getVertexEdgeListKey(vertex1.id(), label, TorcEdgeDirection.DIRECTED_OUT);
         }
         try {
-            RAMCloudObject edgeListRCObj = tx.read(vertexTableId, edgeListKey);
+            RAMCloudObject edgeListRCObj = rctx.read(vertexTableId, edgeListKey);
 
             ByteBuffer newEdgeList = ByteBuffer.allocate(serializedEdgeLength + edgeListRCObj.getValueBytes().length);
 
@@ -533,7 +511,7 @@ public final class TorcGraph implements Graph {
             newEdgeList.put(serializedProperties.array());
             newEdgeList.put(edgeListRCObj.getValueBytes());
 
-            tx.write(vertexTableId, edgeListKey, newEdgeList.array());
+            rctx.write(vertexTableId, edgeListKey, newEdgeList.array());
         } catch (ObjectDoesntExistException e) {
             ByteBuffer newEdgeList = ByteBuffer.allocate(serializedEdgeLength);
 
@@ -541,20 +519,20 @@ public final class TorcGraph implements Graph {
             newEdgeList.putShort((short) serializedProperties.array().length);
             newEdgeList.put(serializedProperties.array());
 
-            tx.write(vertexTableId, edgeListKey, newEdgeList.array());
+            rctx.write(vertexTableId, edgeListKey, newEdgeList.array());
 
             byte[] edgeLabelListKey = TorcHelper.getVertexEdgeLabelListKey(vertex1.id());
             try {
-                RAMCloudObject edgeLabelListRCObj = tx.read(vertexTableId, edgeLabelListKey);
+                RAMCloudObject edgeLabelListRCObj = rctx.read(vertexTableId, edgeLabelListKey);
                 List<String> edgeLabelList = TorcHelper.deserializeEdgeLabelList(edgeLabelListRCObj);
                 if (!edgeLabelList.contains(label)) {
                     edgeLabelList.add(label);
-                    tx.write(vertexTableId, edgeLabelListKey, TorcHelper.serializeEdgeLabelList(edgeLabelList).array());
+                    rctx.write(vertexTableId, edgeLabelListKey, TorcHelper.serializeEdgeLabelList(edgeLabelList).array());
                 }
             } catch (ObjectDoesntExistException e2) {
                 List<String> edgeLabelList = new ArrayList<>();
                 edgeLabelList.add(label);
-                tx.write(vertexTableId, edgeLabelListKey, TorcHelper.serializeEdgeLabelList(edgeLabelList).array());
+                rctx.write(vertexTableId, edgeLabelListKey, TorcHelper.serializeEdgeLabelList(edgeLabelList).array());
             }
         }
 
@@ -565,7 +543,7 @@ public final class TorcGraph implements Graph {
             edgeListKey = TorcHelper.getVertexEdgeListKey(vertex2.id(), label, TorcEdgeDirection.DIRECTED_IN);
         }
         try {
-            RAMCloudObject edgeListRCObj = tx.read(vertexTableId, edgeListKey);
+            RAMCloudObject edgeListRCObj = rctx.read(vertexTableId, edgeListKey);
 
             ByteBuffer newEdgeList = ByteBuffer.allocate(serializedEdgeLength + edgeListRCObj.getValueBytes().length);
 
@@ -574,7 +552,7 @@ public final class TorcGraph implements Graph {
             newEdgeList.put(serializedProperties.array());
             newEdgeList.put(edgeListRCObj.getValueBytes());
 
-            tx.write(vertexTableId, edgeListKey, newEdgeList.array());
+            rctx.write(vertexTableId, edgeListKey, newEdgeList.array());
         } catch (ObjectDoesntExistException e) {
             ByteBuffer newEdgeList = ByteBuffer.allocate(serializedEdgeLength);
 
@@ -582,20 +560,20 @@ public final class TorcGraph implements Graph {
             newEdgeList.putShort((short) serializedProperties.array().length);
             newEdgeList.put(serializedProperties.array());
 
-            tx.write(vertexTableId, edgeListKey, newEdgeList.array());
+            rctx.write(vertexTableId, edgeListKey, newEdgeList.array());
 
             byte[] edgeLabelListKey = TorcHelper.getVertexEdgeLabelListKey(vertex2.id());
             try {
-                RAMCloudObject edgeLabelListRCObj = tx.read(vertexTableId, edgeLabelListKey);
+                RAMCloudObject edgeLabelListRCObj = rctx.read(vertexTableId, edgeLabelListKey);
                 List<String> edgeLabelList = TorcHelper.deserializeEdgeLabelList(edgeLabelListRCObj);
                 if (!edgeLabelList.contains(label)) {
                     edgeLabelList.add(label);
-                    tx.write(vertexTableId, edgeLabelListKey, TorcHelper.serializeEdgeLabelList(edgeLabelList).array());
+                    rctx.write(vertexTableId, edgeLabelListKey, TorcHelper.serializeEdgeLabelList(edgeLabelList).array());
                 }
             } catch (ObjectDoesntExistException e2) {
                 List<String> edgeLabelList = new ArrayList<>();
                 edgeLabelList.add(label);
-                tx.write(vertexTableId, edgeLabelListKey, TorcHelper.serializeEdgeLabelList(edgeLabelList).array());
+                rctx.write(vertexTableId, edgeLabelListKey, TorcHelper.serializeEdgeLabelList(edgeLabelList).array());
             }
         }
 
@@ -614,15 +592,15 @@ public final class TorcGraph implements Graph {
             startTimeNs = System.nanoTime();
         }
 
-        transaction.readWrite();
-        RAMCloudTransaction tx = transaction.threadLocalTx.get();
+        torcGraphTx.readWrite();
+        RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
         List<Edge> edges = new ArrayList<>();
         List<String> labels = Arrays.asList(edgeLabels);
 
         if (labels.isEmpty()) {
             try {
-                RAMCloudObject vertEdgeLabelListRCObj = tx.read(vertexTableId, TorcHelper.getVertexEdgeLabelListKey(vertex.id()));
+                RAMCloudObject vertEdgeLabelListRCObj = rctx.read(vertexTableId, TorcHelper.getVertexEdgeLabelListKey(vertex.id()));
                 labels = TorcHelper.deserializeEdgeLabelList(vertEdgeLabelListRCObj);
             } catch (ObjectDoesntExistException e) {
 
@@ -633,7 +611,7 @@ public final class TorcGraph implements Graph {
             for (TorcEdgeDirection dir : edgeDirections) {
                 try {
                     byte[] edgeListKey = TorcHelper.getVertexEdgeListKey(vertex.id(), label, dir);
-                    RAMCloudObject edgeListRCObj = tx.read(vertexTableId, edgeListKey);
+                    RAMCloudObject edgeListRCObj = rctx.read(vertexTableId, edgeListKey);
                     List<UInt128> neighborVertexIds = TorcHelper.parseNeighborIdsFromEdgeList(edgeListRCObj);
                     for (UInt128 neighborVertexId : neighborVertexIds) {
                         switch (dir) {
@@ -671,15 +649,15 @@ public final class TorcGraph implements Graph {
             startTimeNs = System.nanoTime();
         }
 
-        transaction.readWrite();
-        RAMCloudTransaction tx = transaction.threadLocalTx.get();
+        torcGraphTx.readWrite();
+        RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
         List<Vertex> vertices = new ArrayList<>();
         List<String> labels = Arrays.asList(edgeLabels);
 
         if (labels.isEmpty()) {
             try {
-                RAMCloudObject vertEdgeLabelListRCObj = tx.read(vertexTableId, TorcHelper.getVertexEdgeLabelListKey(vertex.id()));
+                RAMCloudObject vertEdgeLabelListRCObj = rctx.read(vertexTableId, TorcHelper.getVertexEdgeLabelListKey(vertex.id()));
                 labels = TorcHelper.deserializeEdgeLabelList(vertEdgeLabelListRCObj);
             } catch (ObjectDoesntExistException e) {
 
@@ -690,10 +668,10 @@ public final class TorcGraph implements Graph {
             for (TorcEdgeDirection dir : edgeDirections) {
                 try {
                     byte[] edgeListKey = TorcHelper.getVertexEdgeListKey(vertex.id(), label, dir);
-                    RAMCloudObject edgeListRCObj = tx.read(vertexTableId, edgeListKey);
+                    RAMCloudObject edgeListRCObj = rctx.read(vertexTableId, edgeListKey);
                     List<UInt128> neighborIds = TorcHelper.parseNeighborIdsFromEdgeList(edgeListRCObj);
                     for (UInt128 neighborId : neighborIds) {
-                        RAMCloudObject neighborLabelRCObj = tx.read(vertexTableId, TorcHelper.getVertexLabelKey(neighborId));
+                        RAMCloudObject neighborLabelRCObj = rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(neighborId));
                         vertices.add(new TorcVertex(this, neighborId, neighborLabelRCObj.getValue()));
                     }
                 } catch (ObjectDoesntExistException e) {
@@ -719,10 +697,10 @@ public final class TorcGraph implements Graph {
             startTimeNs = System.nanoTime();
         }
 
-        transaction.readWrite();
-        RAMCloudTransaction tx = transaction.threadLocalTx.get();
+        torcGraphTx.readWrite();
+        RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
-        RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()));
+        RAMCloudObject obj = rctx.read(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()));
 
         Map<String, String> properties = TorcHelper.deserializeProperties(obj);
 
@@ -759,8 +737,8 @@ public final class TorcGraph implements Graph {
             startTimeNs = System.nanoTime();
         }
 
-        transaction.readWrite();
-        RAMCloudTransaction tx = transaction.threadLocalTx.get();
+        torcGraphTx.readWrite();
+        RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
         if (keyValues != null) {
             throw VertexProperty.Exceptions.metaPropertiesNotSupported();
@@ -770,7 +748,7 @@ public final class TorcGraph implements Graph {
             throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(value);
         }
 
-        RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()));
+        RAMCloudObject obj = rctx.read(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()));
 
         Map<String, String> properties = TorcHelper.deserializeProperties(obj);
 
@@ -788,7 +766,7 @@ public final class TorcGraph implements Graph {
             properties.put(key, (String) value);
         }
 
-        tx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()), TorcHelper.serializeProperties(properties).array());
+        rctx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()), TorcHelper.serializeProperties(properties).array());
 
         if (logger.isDebugEnabled()) {
             long endTimeNs = System.nanoTime();
@@ -815,18 +793,18 @@ public final class TorcGraph implements Graph {
                 direction != Direction.BOTH) 
             throw new RuntimeException(String.format("Tried get source/destination vertex of an undirected edge: [edge:%s, direction:%s]", edge.toString(), direction.toString()));
         
-        transaction.readWrite();
-        RAMCloudTransaction tx = transaction.threadLocalTx.get();
+        torcGraphTx.readWrite();
+        RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
         List<Vertex> list = new ArrayList<>();
 
         if (direction.equals(Direction.OUT) || direction.equals(Direction.BOTH)) {
-            RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexLabelKey(edge.getV1Id()));
+            RAMCloudObject obj = rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(edge.getV1Id()));
             list.add(new TorcVertex(this, edge.getV1Id(), obj.getValue()));
         }
 
         if (direction.equals(Direction.IN) || direction.equals(Direction.BOTH)) {
-            RAMCloudObject obj = tx.read(vertexTableId, TorcHelper.getVertexLabelKey(edge.getV2Id()));
+            RAMCloudObject obj = rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(edge.getV2Id()));
             list.add(new TorcVertex(this, edge.getV2Id(), obj.getValue()));
         }
 
@@ -877,15 +855,55 @@ public final class TorcGraph implements Graph {
 
     class TorcGraphTransaction extends AbstractTransaction {
 
-        protected final ThreadLocal<RAMCloudTransaction> threadLocalTx = ThreadLocal.withInitial(() -> null);
-
+        private final ConcurrentHashMap<Thread, RAMCloudTransaction> txMap = new ConcurrentHashMap<>();
+        
         public TorcGraphTransaction() {
             super(TorcGraph.this);
         }
 
+        /** 
+         * This method returns the underlying RAMCloudTransaction object for
+         * this thread that contains all of the transaction state.
+         *
+         * @return RAMCloudTransaction for current thread.
+         */
+        protected RAMCloudTransaction getThreadLocalRAMCloudTx() {
+            return txMap.get(Thread.currentThread());
+        }
+
+        /**
+         * This method rolls back the transactions of all threads that have not
+         * closed their transactions themselves. It is meant to be used as a
+         * final cleanup method to free all transaction state before exiting, in
+         * the case that threads had executed without performing final cleanup
+         * themselves before exiting. This currently happens in TinkerPop unit
+         * tests (3.1.0-incubating). See
+         * {@link org.apache.tinkerpop.gremlin.structure.TransactionTest#shouldExecuteCompetingThreadsOnMultipleDbInstances}.
+         * This method is *not* meant to be called while other threads and still
+         * executing.
+         */
+        protected void doRollbackAllThreads() {
+            txMap.forEach((thread, rctx) -> {
+                try {
+                    rctx.close();
+                } catch (Exception e) {
+                    logger.error("TorcGraphTransaction.doRollbackAllThreads(): could not close transaction of thread " + thread.getId());
+                }
+
+                logger.debug(String.format("TorcGraphTransaction.doRollbackAllThreads(): %d", thread.getId()));
+            });
+
+            txMap.clear();
+        }
+        
         @Override
         public void doOpen() {
-            threadLocalTx.set(new RAMCloudTransaction(TorcGraph.this.ramcloud));
+            if (txMap.get(Thread.currentThread()) == null)
+                txMap.put(Thread.currentThread(), new RAMCloudTransaction(TorcGraph.this.ramcloud));
+            else
+                throw Transaction.Exceptions.transactionAlreadyOpen();
+            
+            logger.debug(String.format("TorcGraphTransaction.doOpen(thread=%d)", Thread.currentThread().getId()));
         }
 
         @Override
@@ -895,20 +913,22 @@ public final class TorcGraph implements Graph {
                 startTimeNs = System.nanoTime();
             }
 
+            RAMCloudTransaction rctx = txMap.get(Thread.currentThread());
+            
             try {
-                if (!threadLocalTx.get().commitAndSync()) {
+                if (!rctx.commitAndSync()) {
                     throw new AbstractTransaction.TransactionException("RAMCloud commitAndSync failed.");
                 }
             } catch (ClientException ex) {
                 throw new AbstractTransaction.TransactionException(ex);
             } finally {
-                threadLocalTx.get().close();
-                threadLocalTx.remove();
+                rctx.close();
+                txMap.remove(Thread.currentThread());
             }
             
             if (logger.isDebugEnabled()) {
                 long endTimeNs = System.nanoTime();
-                logger.debug(String.format("TorcGraphTransaction.doCommit(), took %dus", (endTimeNs - startTimeNs) / 1000l));
+                logger.debug(String.format("TorcGraphTransaction.doCommit(thread=%d), took %dus", Thread.currentThread().getId(), (endTimeNs - startTimeNs) / 1000l));
             }
         }
 
@@ -919,23 +939,29 @@ public final class TorcGraph implements Graph {
                 startTimeNs = System.nanoTime();
             }
             
+            RAMCloudTransaction rctx = txMap.get(Thread.currentThread());
+            
             try {
-                threadLocalTx.get().close();
+                rctx.close();
             } catch (Exception e) {
                 throw new AbstractTransaction.TransactionException(e);
             } finally {
-                threadLocalTx.remove();
+                txMap.remove(Thread.currentThread());
             }
             
             if (logger.isDebugEnabled()) {
                 long endTimeNs = System.nanoTime();
-                logger.debug(String.format("TorcGraphTransaction.doRollback(), took %dus", (endTimeNs - startTimeNs) / 1000l));
+                logger.debug(String.format("TorcGraphTransaction.doRollback(thread=%d), took %dus", Thread.currentThread().getId(), (endTimeNs - startTimeNs) / 1000l));
             }
         }
 
         @Override
         public boolean isOpen() {
-            return (threadLocalTx.get() != null);
+            boolean isOpen = (txMap.get(Thread.currentThread()) != null);
+            
+            logger.debug(String.format("TorcGraphTransaction.isOpen(thread=%d): returning %s", Thread.currentThread().getId(), isOpen));
+            
+            return isOpen;
         }
     }
 
