@@ -114,21 +114,23 @@ public final class TorcGraph implements Graph {
         return initialized;
     }
 
-    private void initialize() {
-        try {
-            ramcloud = new RAMCloud(coordinatorLocator);
-        } catch (ClientException e) {
-            System.out.println(e.toString());
-            throw e;
+    private synchronized void initialize() {
+        if (!initialized) {
+            try {
+                ramcloud = new RAMCloud(coordinatorLocator);
+            } catch (ClientException e) {
+                System.out.println(e.toString());
+                throw e;
+            }
+
+            idTableId = ramcloud.createTable(graphName + "_" + ID_TABLE_NAME, totalMasterServers);
+            vertexTableId = ramcloud.createTable(graphName + "_" + VERTEX_TABLE_NAME, totalMasterServers);
+            edgeTableId = ramcloud.createTable(graphName + "_" + EDGE_TABLE_NAME, totalMasterServers);
+
+            initialized = true;
+            
+            logger.debug("Initialized");
         }
-
-        idTableId = ramcloud.createTable(graphName + "_" + ID_TABLE_NAME, totalMasterServers);
-        vertexTableId = ramcloud.createTable(graphName + "_" + VERTEX_TABLE_NAME, totalMasterServers);
-        edgeTableId = ramcloud.createTable(graphName + "_" + EDGE_TABLE_NAME, totalMasterServers);
-
-        initialized = true;
-
-        logger.debug("Initialized");
     }
 
     public static TorcGraph open(final Configuration configuration) {
