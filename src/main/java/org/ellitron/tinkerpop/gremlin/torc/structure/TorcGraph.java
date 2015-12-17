@@ -93,7 +93,7 @@ public final class TorcGraph implements Graph {
     private final Configuration configuration;
     private final String coordinatorLocator;
     private final int totalMasterServers;
-    private RAMCloud ramcloud;
+    private final ConcurrentHashMap<Thread, RAMCloud> threadLocalClientMap = new ConcurrentHashMap<>();
     private long idTableId, vertexTableId, edgeTableId;
     private final String graphName;
     private final TorcGraphTransaction torcGraphTx = new TorcGraphTransaction();
@@ -114,22 +114,39 @@ public final class TorcGraph implements Graph {
         return initialized;
     }
 
-    private synchronized void initialize() {
-        if (!initialized) {
-            try {
-                ramcloud = new RAMCloud(coordinatorLocator);
-            } catch (ClientException e) {
-                System.out.println(e.toString());
-                throw e;
+    /**
+     * This method ensures three things are true before it returns to the
+     * caller:
+     *
+     * 1) This thread has an initialized thread-local RAMCloud client (its own
+     * connection to RAMCloud)
+     *
+     * 2) RAMCloud tables have been created for this graph
+     *
+     * 3) RAMCloud table IDs have been fetched.
+     *
+     *
+     * This method is intended to be used as a way of deferring costly
+     * initialization until absolutely needed. This method should be called at
+     * the top of any public method of TorcGraph that performs operations
+     * against RAMCloud.
+     */
+    private void initialize() {
+        if (!threadLocalClientMap.containsKey(Thread.currentThread())) {
+            threadLocalClientMap.put(Thread.currentThread(), new RAMCloud(coordinatorLocator));
+
+            logger.debug(String.format("initialize(): Thread %d made connection to RAMCloud cluster.", Thread.currentThread().getId()));
+
+            if (!initialized) {
+                RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
+                idTableId = client.createTable(graphName + "_" + ID_TABLE_NAME, totalMasterServers);
+                vertexTableId = client.createTable(graphName + "_" + VERTEX_TABLE_NAME, totalMasterServers);
+                edgeTableId = client.createTable(graphName + "_" + EDGE_TABLE_NAME, totalMasterServers);
+
+                initialized = true;
+
+                logger.debug(String.format("initialize(): Fetched table Ids (%s=%d,%s=%d,%s=%d)", graphName + "_" + ID_TABLE_NAME, idTableId, graphName + "_" + VERTEX_TABLE_NAME, vertexTableId, graphName + "_" + EDGE_TABLE_NAME, edgeTableId));
             }
-
-            idTableId = ramcloud.createTable(graphName + "_" + ID_TABLE_NAME, totalMasterServers);
-            vertexTableId = ramcloud.createTable(graphName + "_" + VERTEX_TABLE_NAME, totalMasterServers);
-            edgeTableId = ramcloud.createTable(graphName + "_" + EDGE_TABLE_NAME, totalMasterServers);
-
-            initialized = true;
-            
-            logger.debug("Initialized");
         }
     }
 
@@ -144,9 +161,7 @@ public final class TorcGraph implements Graph {
             startTimeNs = System.nanoTime();
         }
 
-        if (!initialized) {
-            initialize();
-        }
+        initialize();
 
         torcGraphTx.readWrite();
         RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
@@ -176,7 +191,8 @@ public final class TorcGraph implements Graph {
             }
         } else {
             long id_counter = (long) (Math.random() * NUM_ID_COUNTERS);
-            long id = ramcloud.incrementInt64(idTableId, Long.toString(id_counter).getBytes(), 1, null);
+            RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
+            long id = client.incrementInt64(idTableId, Long.toString(id_counter).getBytes(), 1, null);
 
             vertexId = new UInt128((1L << 63) + id_counter, id);
         }
@@ -218,9 +234,7 @@ public final class TorcGraph implements Graph {
             startTimeNs = System.nanoTime();
         }
 
-        if (!initialized) {
-            initialize();
-        }
+        initialize();
 
         torcGraphTx.readWrite();
         RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
@@ -230,7 +244,9 @@ public final class TorcGraph implements Graph {
         List<Vertex> list = new ArrayList<>();
         if (vertexIds.length > 0) {
             if (vertexIds[0] instanceof TorcVertex) {
-                Arrays.asList(vertexIds).forEach((id) -> {list.add((Vertex) id);});
+                Arrays.asList(vertexIds).forEach((id) -> {
+                    list.add((Vertex) id);
+                });
             } else {
                 for (int i = 0; i < vertexIds.length; ++i) {
                     UInt128 vertexId = UInt128.decode(vertexIds[i]);
@@ -288,9 +304,7 @@ public final class TorcGraph implements Graph {
             startTimeNs = System.nanoTime();
         }
 
-        if (!initialized) {
-            initialize();
-        }
+        initialize();
 
         torcGraphTx.readWrite();
         RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
@@ -391,9 +405,7 @@ public final class TorcGraph implements Graph {
 
     @Override
     public Transaction tx() {
-        if (!initialized) {
-            initialize();
-        }
+        initialize();
 
         return torcGraphTx;
     }
@@ -408,34 +420,109 @@ public final class TorcGraph implements Graph {
         return configuration;
     }
 
+    /**
+     * Closes the thread-local transaction (if it is open), and closes the
+     * thread-local connection to RAMCloud (if one has been made). This may
+     * affect the state of the graph in RAMCloud depending on the close behavior
+     * set for the transaction (e.g. in the case that there is an open
+     * transaction which is set to automatically commit when closed).
+     *
+     * Important: Every thread that performs any operation on this graph
+     * instance has the responsibility of calling this close method before
+     * exiting. Otherwise it is possible that state that has been created via
+     * the RAMCloud JNI library will not be cleaned up properly (for instance,
+     * although {@link RAMCloud} and {@link RAMCloudTransaction} objects have
+     * implemented finalize() methods to clean up their mirrored C++ objects, it
+     * is still possible that the garbage collector will clean up the RAMCloud
+     * object before the RAMCloudTransaction object that uses it. This *may*
+     * lead to unexpected behavior).
+     */
     @Override
     public void close() {
-        if (initialized) {
+        long startTimeNs = 0;
+        if (logger.isDebugEnabled()) {
+            startTimeNs = System.nanoTime();
+        }
+
+        if (threadLocalClientMap.containsKey(Thread.currentThread())) {
             torcGraphTx.close();
-            ramcloud.disconnect();
+            RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
+            client.disconnect();
+            threadLocalClientMap.remove(Thread.currentThread());
+        }
+
+        if (logger.isDebugEnabled()) {
+            long endTimeNs = System.nanoTime();
+            logger.debug(String.format("close(), took %dus", (endTimeNs - startTimeNs) / 1000l));
         }
     }
 
-    public void deleteDatabaseAndCloseAllConnectionsAndTransactions() {
+    /**
+     * This method closes all open transactions on all threads (using rollback),
+     * and closes all open client connections to RAMCloud on all threads. Since
+     * this method uses rollback as the close mechanism for open transactions,
+     * and RAMCloud transactions keep no server-side state until commit, it is
+     * safe to execute this method even after the graph has been deleted with
+     * {@link #deleteAll()}. Its intended use is primarily for unit tests to
+     * ensure the freeing of all client-side state remaining across JNI (i.e.
+     * C++ RAMCloud client objects, C++ RAMCloud Transaction objects) before
+     * finishing the current test and moving on to the next.
+     */
+    public void closeAllThreads() {
+        long startTimeNs = 0;
+        if (logger.isDebugEnabled()) {
+            startTimeNs = System.nanoTime();
+        }
+
+        torcGraphTx.doRollbackAllThreads();
+
+        threadLocalClientMap.forEach((thread, client) -> {
+            try {
+                client.disconnect();
+            } catch (Exception e) {
+                logger.error("closeAllThreads(): could not close transaction of thread " + thread.getId());
+            }
+
+            logger.debug(String.format("closeAllThreads(): closed client connection of %d", thread.getId()));
+        });
+
+        threadLocalClientMap.clear();
+        
+        if (logger.isDebugEnabled()) {
+            long endTimeNs = System.nanoTime();
+            logger.debug(String.format("closeAllThreads(), took %dus", (endTimeNs - startTimeNs) / 1000l));
+        }
+    }
+    
+    /**
+     * Deletes all graph data for the graph represented by this TorcGraph
+     * instance in RAMCloud.
+     *
+     * This method's intended use is for the reset phase of unit tests (see also
+     * {@link #closeAllThreads()}). To delete all RAMCloud state representing
+     * this graph as well as clear up all client-side state, one would execute
+     * the following in sequence:
+     *
+     * graph.deleteGraph();
+     *
+     * graph.closeAllThreads();
+     */
+    public void deleteGraph() {
         long startTimeNs = 0;
         if (logger.isDebugEnabled()) {
             startTimeNs = System.nanoTime();
         }
         
-        if (!initialized) {
-            initialize();
-        }
-
+        initialize();
         
-        torcGraphTx.doRollbackAllThreads();
-        ramcloud.dropTable(graphName + "_" + ID_TABLE_NAME);
-        ramcloud.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
-        ramcloud.dropTable(graphName + "_" + EDGE_TABLE_NAME);
-        ramcloud.disconnect();
+        RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
+        client.dropTable(graphName + "_" + ID_TABLE_NAME);
+        client.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
+        client.dropTable(graphName + "_" + EDGE_TABLE_NAME);
         
         if (logger.isDebugEnabled()) {
             long endTimeNs = System.nanoTime();
-            logger.debug(String.format("deleteDatabaseAndCloseAllConnectionsAndTransactions(), took %dus", (endTimeNs - startTimeNs) / 1000l));
+            logger.debug(String.format("deleteGraph(), took %dus", (endTimeNs - startTimeNs) / 1000l));
         }
     }
 
@@ -629,8 +716,8 @@ public final class TorcGraph implements Graph {
                         }
                     }
                 } catch (ObjectDoesntExistException e) {
-                    /* 
-                     * The list of edges for this direction and label does not 
+                    /*
+                     * The list of edges for this direction and label does not
                      * exist. Continue...
                      */
                 }
@@ -677,8 +764,8 @@ public final class TorcGraph implements Graph {
                         vertices.add(new TorcVertex(this, neighborId, neighborLabelRCObj.getValue()));
                     }
                 } catch (ObjectDoesntExistException e) {
-                    /* 
-                     * The list of edges for this direction and label does not 
+                    /*
+                     * The list of edges for this direction and label does not
                      * exist. Continue...
                      */
                 }
@@ -791,10 +878,11 @@ public final class TorcGraph implements Graph {
             startTimeNs = System.nanoTime();
         }
 
-        if (edge.getType() == TorcEdge.Type.UNDIRECTED &&
-                direction != Direction.BOTH) 
+        if (edge.getType() == TorcEdge.Type.UNDIRECTED
+                && direction != Direction.BOTH) {
             throw new RuntimeException(String.format("Tried get source/destination vertex of an undirected edge: [edge:%s, direction:%s]", edge.toString(), direction.toString()));
-        
+        }
+
         torcGraphTx.readWrite();
         RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
@@ -857,20 +945,20 @@ public final class TorcGraph implements Graph {
 
     class TorcGraphTransaction extends AbstractTransaction {
 
-        private final ConcurrentHashMap<Thread, RAMCloudTransaction> txMap = new ConcurrentHashMap<>();
-        
+        private final ConcurrentHashMap<Thread, RAMCloudTransaction> threadLocalRCTXMap = new ConcurrentHashMap<>();
+
         public TorcGraphTransaction() {
             super(TorcGraph.this);
         }
 
-        /** 
+        /**
          * This method returns the underlying RAMCloudTransaction object for
          * this thread that contains all of the transaction state.
          *
          * @return RAMCloudTransaction for current thread.
          */
         protected RAMCloudTransaction getThreadLocalRAMCloudTx() {
-            return txMap.get(Thread.currentThread());
+            return threadLocalRCTXMap.get(Thread.currentThread());
         }
 
         /**
@@ -884,8 +972,8 @@ public final class TorcGraph implements Graph {
          * This method is *not* meant to be called while other threads and still
          * executing.
          */
-        protected void doRollbackAllThreads() {
-            txMap.forEach((thread, rctx) -> {
+        private void doRollbackAllThreads() {
+            threadLocalRCTXMap.forEach((thread, rctx) -> {
                 try {
                     rctx.close();
                 } catch (Exception e) {
@@ -895,17 +983,20 @@ public final class TorcGraph implements Graph {
                 logger.debug(String.format("TorcGraphTransaction.doRollbackAllThreads(): %d", thread.getId()));
             });
 
-            txMap.clear();
+            threadLocalRCTXMap.clear();
         }
-        
+
         @Override
         public void doOpen() {
-            if (txMap.get(Thread.currentThread()) == null)
-                txMap.put(Thread.currentThread(), new RAMCloudTransaction(TorcGraph.this.ramcloud));
-            else
+            Thread us = Thread.currentThread();
+            if (threadLocalRCTXMap.get(us) == null) {
+                RAMCloud client = threadLocalClientMap.get(us);
+                threadLocalRCTXMap.put(us, new RAMCloudTransaction(client));
+            } else {
                 throw Transaction.Exceptions.transactionAlreadyOpen();
-            
-            logger.debug(String.format("TorcGraphTransaction.doOpen(thread=%d)", Thread.currentThread().getId()));
+            }
+
+            logger.debug(String.format("TorcGraphTransaction.doOpen(thread=%d)", us.getId()));
         }
 
         @Override
@@ -915,8 +1006,8 @@ public final class TorcGraph implements Graph {
                 startTimeNs = System.nanoTime();
             }
 
-            RAMCloudTransaction rctx = txMap.get(Thread.currentThread());
-            
+            RAMCloudTransaction rctx = threadLocalRCTXMap.get(Thread.currentThread());
+
             try {
                 if (!rctx.commitAndSync()) {
                     throw new AbstractTransaction.TransactionException("RAMCloud commitAndSync failed.");
@@ -925,9 +1016,9 @@ public final class TorcGraph implements Graph {
                 throw new AbstractTransaction.TransactionException(ex);
             } finally {
                 rctx.close();
-                txMap.remove(Thread.currentThread());
+                threadLocalRCTXMap.remove(Thread.currentThread());
             }
-            
+
             if (logger.isDebugEnabled()) {
                 long endTimeNs = System.nanoTime();
                 logger.debug(String.format("TorcGraphTransaction.doCommit(thread=%d), took %dus", Thread.currentThread().getId(), (endTimeNs - startTimeNs) / 1000l));
@@ -940,17 +1031,17 @@ public final class TorcGraph implements Graph {
             if (logger.isDebugEnabled()) {
                 startTimeNs = System.nanoTime();
             }
-            
-            RAMCloudTransaction rctx = txMap.get(Thread.currentThread());
-            
+
+            RAMCloudTransaction rctx = threadLocalRCTXMap.get(Thread.currentThread());
+
             try {
                 rctx.close();
             } catch (Exception e) {
                 throw new AbstractTransaction.TransactionException(e);
             } finally {
-                txMap.remove(Thread.currentThread());
+                threadLocalRCTXMap.remove(Thread.currentThread());
             }
-            
+
             if (logger.isDebugEnabled()) {
                 long endTimeNs = System.nanoTime();
                 logger.debug(String.format("TorcGraphTransaction.doRollback(thread=%d), took %dus", Thread.currentThread().getId(), (endTimeNs - startTimeNs) / 1000l));
@@ -959,10 +1050,10 @@ public final class TorcGraph implements Graph {
 
         @Override
         public boolean isOpen() {
-            boolean isOpen = (txMap.get(Thread.currentThread()) != null);
-            
+            boolean isOpen = (threadLocalRCTXMap.get(Thread.currentThread()) != null);
+
             logger.debug(String.format("TorcGraphTransaction.isOpen(thread=%d): returning %s", Thread.currentThread().getId(), isOpen));
-            
+
             return isOpen;
         }
     }

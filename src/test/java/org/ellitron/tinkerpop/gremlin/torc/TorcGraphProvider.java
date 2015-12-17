@@ -73,9 +73,13 @@ public class TorcGraphProvider extends AbstractGraphProvider {
 
     @Override
     public void clear(Graph graph, Configuration configuration) throws Exception {
-        if (graph != null)
-            if (((TorcGraph) graph).isInitialized())
-                ((TorcGraph)graph).deleteDatabaseAndCloseAllConnectionsAndTransactions();
+        if (graph != null) {
+            TorcGraph g = (TorcGraph) graph;
+            if (g.isInitialized()) {
+                g.deleteGraph();
+                g.closeAllThreads();
+            }
+        }
     }
 
     @Override
