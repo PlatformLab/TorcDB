@@ -980,7 +980,7 @@ public final class TorcGraph implements Graph {
                     logger.error("TorcGraphTransaction.doRollbackAllThreads(): could not close transaction of thread " + thread.getId());
                 }
 
-                logger.debug(String.format("TorcGraphTransaction.doRollbackAllThreads(): %d", thread.getId()));
+                logger.debug(String.format("TorcGraphTransaction.doRollbackAllThreads(): rolling back oustanding transaction of thread %d", thread.getId()));
             });
 
             threadLocalRCTXMap.clear();
