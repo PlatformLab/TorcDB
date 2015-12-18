@@ -77,6 +77,7 @@ public final class TorcGraph implements Graph {
     private static final String EDGE_TABLE_NAME = "edgeTable";
     private static final int MAX_TX_RETRY_COUNT = 100;
     private static final int NUM_ID_COUNTERS = 16;
+    private static final int RAMCLOUD_OBJECT_SIZE_LIMIT = 1 << 20;
 
     // Normal private members.
     private final Configuration configuration;
@@ -188,7 +189,7 @@ public final class TorcGraph implements Graph {
 
         Object idValue = ElementHelper.getIdValue(keyValues).orElse(null);
         final String label = ElementHelper.getLabelValue(keyValues).orElse(Vertex.DEFAULT_LABEL);
-
+            
         UInt128 vertexId;
         if (idValue != null) {
             vertexId = UInt128.decode(idValue);
@@ -216,6 +217,14 @@ public final class TorcGraph implements Graph {
             }
         }
 
+        /* Perform size checks on objects to be written to RAMCloud. */
+        if (label.getBytes().length > RAMCLOUD_OBJECT_SIZE_LIMIT)
+            throw new IllegalArgumentException(String.format("Size of vertex label exceeds maximum allowable (size=%dB, max=%dB)", label.getBytes().length, RAMCLOUD_OBJECT_SIZE_LIMIT));
+        
+        byte[] props = TorcHelper.serializeProperties(properties).array();
+        if (props.length > RAMCLOUD_OBJECT_SIZE_LIMIT)
+            throw new IllegalArgumentException(String.format("Total size of properties exceeds maximum allowable (size=%dB, max=%dB)", props.length, RAMCLOUD_OBJECT_SIZE_LIMIT));
+        
         rctx.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId), label.getBytes());
         rctx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertexId), TorcHelper.serializeProperties(properties).array());
 
