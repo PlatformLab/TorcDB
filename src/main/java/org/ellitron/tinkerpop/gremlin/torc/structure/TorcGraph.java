@@ -466,7 +466,7 @@ public final class TorcGraph implements Graph {
         }
 
         ByteBuffer serializedProperties = TorcHelper.serializeProperties(properties);
-        int serializedEdgeLength = Long.BYTES * 2 + Short.BYTES + serializedProperties.array().length;
+        int serializedEdgeLength = UInt128.BYTES + Short.BYTES + serializedProperties.array().length;
 
         // TODO: Figure out a way to work this logic into a function so it's not
         // repeated twice as it is below. 
