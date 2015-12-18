@@ -19,13 +19,11 @@ import edu.stanford.ramcloud.RAMCloudObject;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdge;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdgeDirection;
 import org.ellitron.tinkerpop.gremlin.torc.structure.UInt128;
 
@@ -127,39 +125,7 @@ public class TorcHelper {
         
         return neighborIds;
     }
-
-    public static UInt128 decodeUserSuppliedVertexIdArgument(Object idValue) {
-        if (idValue instanceof Byte) {
-            return new UInt128((Byte) idValue);
-        } else if (idValue instanceof Short) {
-            return new UInt128((Short) idValue);
-        } else if (idValue instanceof Integer) {
-            return new UInt128((Integer) idValue);
-        } else if (idValue instanceof Long) {
-            return new UInt128((Long) idValue);
-        } else if (idValue instanceof String) {
-            String idStr = (String) idValue;
-            if (idStr.startsWith("0x")) {
-                return new UInt128(idStr, 16);
-            } else {
-                return new UInt128(idStr, 10);
-            }
-        } else if (idValue instanceof BigInteger) {
-            return new UInt128((BigInteger) idValue);
-        } else if (idValue instanceof UUID) {
-            return new UInt128((UUID) idValue);
-        } else if (idValue instanceof byte[]) {
-            return new UInt128((byte[]) idValue);
-        } else if (idValue instanceof UInt128) {
-            return (UInt128) idValue;
-        } else {
-            throw Vertex.Exceptions.userSuppliedIdsOfThisTypeNotSupported();
-        }
-    }
     
-    /**
-     * TODO: Use a more compact key representation to save space in RAMCloud. 
-     */
     public static enum VertexKeyType {
         LABEL,
         PROPERTIES,
@@ -204,42 +170,4 @@ public class TorcHelper {
     public static VertexKeyType getVertexKeyType(byte[] key) {
         return VertexKeyType.values()[key[UInt128.BYTES]];
     }
-    
-//    public static byte[] makeEdgeId(UInt128 outVertexId, UInt128 inVertexId, String label, TorcEdge.Type directionality) {
-//        ByteBuffer id = ByteBuffer.allocate(UInt128.BYTES*2 + Byte.BYTES + label.length());
-//        id.putLong(outVertexId.getUpperLong());
-//        id.putLong(outVertexId.getLowerLong());
-//        id.putLong(inVertexId.getUpperLong());
-//        id.putLong(inVertexId.getLowerLong());
-//        id.put((byte) directionality.ordinal());
-//        id.put(label.getBytes());
-//        return id.array();
-//    }
-    
-//    public static boolean validateEdgeId(Object edgeId) {
-//        if (!(edgeId instanceof byte[]))
-//            return false;
-//        
-//        if (!(((byte[]) edgeId).length > UInt128.BYTES*2 + Byte.BYTES))
-//            return false;
-//        
-//        return true;
-//    }
-    
-//    public static String parseLabelFromEdgeId(byte[] edgeId) {
-//        byte[] label = Arrays.copyOfRange(edgeId, UInt128.BYTES*2 + Byte.BYTES, edgeId.length);
-//        return new String(label);
-//    }
-//    
-//    public static UInt128 parseOutVertexIdFromEdgeId(byte[] edgeId) {
-//        return new UInt128(Arrays.copyOfRange(edgeId, 0, UInt128.BYTES));
-//    }
-//    
-//    public static UInt128 parseInVertexIdFromEdgeId(byte[] edgeId) {
-//        return new UInt128(Arrays.copyOfRange(edgeId, UInt128.BYTES, UInt128.BYTES*2));
-//    }
-//    
-//    public static TorcEdge.Type parseDirectionalityFromEdgeId(byte[] edgeId) {
-//        return TorcEdge.Type.values()[edgeId[UInt128.BYTES*2]];
-//    }
 }
