@@ -34,48 +34,49 @@ import org.ellitron.tinkerpop.gremlin.torc.structure.UInt128;
  * A TorcVertexEdgeList is a RAMCloud-resident data structure representing a
  * list of edges of a certain TorcVertex that have the same label and direction
  * from the vertex. It abstracts details of the RAMCloud storage layer, and
- provides a set of high-level methods for adding, fetching, and removing edges
- from the list. These operations are all performed within a transaction
- context, and therefore writes to this data structure are only externally
- visible after a successful commit of the transaction. The implementation has
- been performance tuned to make optimal use of the RAMCloud storage layer.
-
- Internally, an edge list is composed of multiple segments, where each segment
- is stored in its own RAMCloud object. When a segment exceeds a certain size
- limit (see EDGE_LIST_SIZE_LIMIT) due to edge list insertions or updates, a
- certain amount is taken from the tail of the segment and from it a new
- segment is created. To keep track of the segments, every segment has a major
- and minor number. The head segment has (major,minor) = (0,0). When the head
- segment splits for the first time, its tail is chopped off (see
- EDGE_LIST_SPLIT_POINT), and a new segment is created with (major,minor) =
- (1,0). This is referred to as major segment #1. The second time the head
- segment splits, it will create major segment #2 and so on. If a major segment
- (say major segment #N) subsequently grows too large due to insertion or
- updates and splits for the first time, it will truncate its tail and create a
- new segment with number (N,1). This segment is referred to as minor segment
- #1 of major segment #N. The next time this happens the new segment number
- will be (N,2) and so on, similar to major segments. In order find all of
- these segments starting from the head segment, the head segment contains
- information on the total number of major segments for the edge list. Given
- this, all major segments can then be readEdges in parallel. Every major segment,
- similarly, contains information on the total number of minor segments for the
- given major segment, and all minor segments can be readEdges in parallel.
- Therefore, at most 1 RAMCloud readEdges and 2 multi-reads need to be performed to
- fetch the entire list, in the worst case. 
+ * provides a set of high-level methods for adding, fetching, and removing edges
+ * from the list. These operations are all performed within a transaction
+ * context, and therefore writes to this data structure are only externally
+ * visible after a successful commit of the transaction. The implementation has
+ * been performance tuned to make optimal use of the RAMCloud storage layer.
+ *
+ * Internally, an edge list is composed of multiple segments, where each segment
+ * is stored in its own RAMCloud object. When a segment exceeds a certain size
+ * limit (see EDGE_LIST_SIZE_LIMIT) due to edge list insertions or updates, a
+ * certain amount is taken from the tail of the segment and from it a new
+ * segment is created. To keep track of the segments, every segment has a major
+ * and minor number. The head segment has (major,minor) = (0,0). When the head
+ * segment splits for the first time, its tail is chopped off (see
+ * EDGE_LIST_SPLIT_POINT), and a new segment is created with (major,minor) =
+ * (1,0). This is referred to as major segment #1. The second time the head
+ * segment splits, it will create major segment #2 and so on. If a major segment
+ * (say major segment #N) subsequently grows too large due to insertion or
+ * updates and splits for the first time, it will truncate its tail and create a
+ * new segment with number (N,1). This segment is referred to as minor segment
+ * #1 of major segment #N. The next time this happens the new segment number
+ * will be (N,2) and so on, similar to major segments. In order find all of
+ * these segments starting from the head segment, the head segment contains
+ * information on the total number of major segments for the edge list. Given
+ * this, all major segments can then be readEdges in parallel. Every major
+ * segment, similarly, contains information on the total number of minor
+ * segments for the given major segment, and all minor segments can be readEdges
+ * in parallel. Therefore, at most 1 RAMCloud readEdges and 2 multi-reads need
+ * to be performed to fetch the entire list, in the worst case.
  *
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
 public class TorcVertexEdgeList {
 
     private static final Logger logger = Logger.getLogger(TorcVertexEdgeList.class);
-    
+
     /*
      * Internal limit placed on the number of bytes allowed to be stored in a
      * single RAMCloud object. For large edge lists, if this limit is too high
-     * then simple operations like prepend will need to readEdges a lot of data only
-     * to add a relatively small number of bytes to the list. If this limit is
-     * too small, then operations like reading all of the edges in the list will
-     * require reading many RAMCloud objects and incur high readEdges overhead.
+     * then simple operations like prepend will need to readEdges a lot of data
+     * only to add a relatively small number of bytes to the list. If this limit
+     * is too small, then operations like reading all of the edges in the list
+     * will require reading many RAMCloud objects and incur high readEdges
+     * overhead.
      */
     private static final int EDGE_LIST_SIZE_LIMIT = 1 << 16;
 
@@ -94,7 +95,7 @@ public class TorcVertexEdgeList {
     private final TorcVertex vertex;
     private final TorcEdgeDirection direction;
     private final String label;
-    
+
     private TorcVertexEdgeList(RAMCloudTransaction rctx, long rcTableId, TorcVertex vertex, TorcEdgeDirection direction, String label) {
         this.rctx = rctx;
         this.rcTableId = rcTableId;
@@ -102,7 +103,7 @@ public class TorcVertexEdgeList {
         this.direction = direction;
         this.label = label;
     }
-    
+
     /**
      * Open a TorcVertexEdgeList representing a list of all the edges that have
      * the given label and direction which are incident to the given vertex. All
@@ -115,7 +116,7 @@ public class TorcVertexEdgeList {
      * TorcVertexEdgeLists.
      *
      * @param rctx RAMCloud transaction context.
-     * @param rcTableId RAMCloud table Id in which edge lists are stored. This 
+     * @param rcTableId RAMCloud table Id in which edge lists are stored. This
      * table should be used exclusively for storing TorcVerteEdgeLists to avoid
      * collision with other objects in the table key-space.
      * @param vertex TorcVertex to which the edges are incident.
@@ -126,19 +127,21 @@ public class TorcVertexEdgeList {
     public static TorcVertexEdgeList open(RAMCloudTransaction rctx, long rcTableId, TorcVertex vertex, TorcEdgeDirection direction, String label) {
         return new TorcVertexEdgeList(rctx, rcTableId, vertex, direction, label);
     }
-    
+
     /**
      * Prepends the edge represented by the given neighbor vertex and serialized
-     * properties to this edge list. This method allows multiple edges with the 
-     * same neighbor vertex to exist in the list (it will not check for 
+     * properties to this edge list. This method allows multiple edges with the
+     * same neighbor vertex to exist in the list (it will not check for
      * duplicates).
-     * 
+     *
      * @param neighbor Remote vertex for this edge.
      * @param serializedProperties Pre-serialized properties for this edge.
      */
     public void prependEdge(TorcVertex neighbor, byte[] serializedProperties) {
-        
-        /* First retrieve the head segment. */
+
+        /*
+         * First retrieve the head segment.
+         */
         ByteBuffer headSeg;
         byte[] headSegKey = getSegmentKey(vertex.id(), label, direction, 0, 0);
         boolean newList = false;
@@ -151,9 +154,9 @@ public class TorcVertexEdgeList {
             headSeg.flip();
             newList = true;
         }
-        
+
         ByteBuffer serializedEdge = serializeEdge(neighbor, serializedProperties);
-        
+
         // Create fancy new segment with the edge we want to prepend.
         ByteBuffer prependedSeg = ByteBuffer.allocate(serializedEdge.capacity() + headSeg.capacity());
         int majorSegments = headSeg.getInt();
@@ -178,7 +181,7 @@ public class TorcVertexEdgeList {
                 if (nextEdgeStartPos >= EDGE_LIST_TARGET_SPLIT_POINT) {
                     int left = EDGE_LIST_TARGET_SPLIT_POINT - edgeStartPos;
                     int right = nextEdgeStartPos - EDGE_LIST_TARGET_SPLIT_POINT;
-                    
+
                     if (edgeStartPos == Integer.BYTES) {
                         // Always keep at least the first edge, even if the 
                         // first edge extends beyond the size limit. It doesn't
@@ -208,12 +211,12 @@ public class TorcVertexEdgeList {
                         break;
                     }
                 }
-                
+
                 prependedSeg.position(nextEdgeStartPos);
             }
-            
+
             prependedSeg.rewind();
-            
+
             if (splitIndex == prependedSeg.capacity()) {
                 // We have chosen not to split this segment.
                 rctx.write(rcTableId, headSegKey, prependedSeg.array());
@@ -221,22 +224,22 @@ public class TorcVertexEdgeList {
                 ByteBuffer newHeadSeg = ByteBuffer.allocate(splitIndex);
                 ByteBuffer newMajorSeg = ByteBuffer.allocate(Integer.BYTES + prependedSeg.capacity() - splitIndex);
                 int newMajorSegments = curMajorSegments + 1;
-                
+
                 newHeadSeg.put(prependedSeg.array(), 0, splitIndex);
                 newHeadSeg.rewind();
                 newHeadSeg.putInt(newMajorSegments);
-                
+
                 newMajorSeg.putInt(0);
                 newMajorSeg.put(prependedSeg.array(), splitIndex, prependedSeg.capacity() - splitIndex);
-                
+
                 rctx.write(rcTableId, headSegKey, newHeadSeg.array());
-                
+
                 byte[] newMajorSegKey = getSegmentKey(vertex.id(), label, direction, newMajorSegments, 0);
-                
+
                 rctx.write(rcTableId, newMajorSegKey, newMajorSeg.array());
             }
         }
-        
+
         if (newList) {
             // We created a brand new edge list for edges with this label and 
             // direction. It's possible that this is the first edge with this
@@ -257,40 +260,43 @@ public class TorcVertexEdgeList {
             }
         }
     }
-    
+
     /**
-     * Calculates the byte length of the edge at the current location in the 
-     * ByteBuffer. If the buffer is empty or there are no more edge remaining, 
-     * then this method returns 0. If the bytes remaining in the buffer is 
-     * less than the minimum serialized edge length, or the length calculated 
-     * while parsing the edge exceeds the bytes remaining in the buffer, then -1 
-     * is returned.
-     * 
+     * Calculates the byte length of the edge at the current location in the
+     * ByteBuffer. If the buffer is empty or there are no more edge remaining,
+     * then this method returns 0. If the bytes remaining in the buffer is less
+     * than the minimum serialized edge length, or the length calculated while
+     * parsing the edge exceeds the bytes remaining in the buffer, then -1 is
+     * returned.
+     *
      * @param edgeListBuf Buffer of serialized edges.
-     * @return Length of the edge at the current location in the buffer. -1 is 
-     * returned if the bytes remaining in the buffer is less than the minimum 
-     * length of an edge, or if the calculated edge length is larger than the 
+     * @return Length of the edge at the current location in the buffer. -1 is
+     * returned if the bytes remaining in the buffer is less than the minimum
+     * length of an edge, or if the calculated edge length is larger than the
      * number of bytes remaining in the buffer.
      */
     private int getLengthOfCurrentEdge(ByteBuffer edgeListBuf) {
-        if (edgeListBuf.remaining() == 0) 
+        if (edgeListBuf.remaining() == 0) {
             return 0;
-        
-        if (edgeListBuf.remaining() < UInt128.BYTES + Short.BYTES)
+        }
+
+        if (edgeListBuf.remaining() < UInt128.BYTES + Short.BYTES) {
             return -1;
-        
+        }
+
         short propLen = edgeListBuf.getShort(edgeListBuf.position() + UInt128.BYTES);
         int edgeLength = UInt128.BYTES + Short.BYTES + propLen;
-        
-        if (edgeListBuf.remaining() < edgeLength)
+
+        if (edgeListBuf.remaining() < edgeLength) {
             return -1;
-        
+        }
+
         return edgeLength;
     }
-    
+
     /**
      * Serialize an edge to a neighbor with the given properties.
-     * 
+     *
      * @param neighbor Neighbor vertex on the edge.
      * @param serializedProperties Serialized properties of this edge.
      * @return ByteBuffer containing the serialized edge.
@@ -303,18 +309,18 @@ public class TorcVertexEdgeList {
         buf.put(serializedProperties);
         return buf;
     }
-    
+
     /**
-     * Parses a buffer of edges starting at the current location of the 
-     * ByteBuffer. 
-     * 
+     * Parses a buffer of edges starting at the current location of the
+     * ByteBuffer.
+     *
      * @param edgeListBuf
      * @return Collection of TorcEdge objects stored in this buffer.
      */
     private Collection<TorcEdge> parseEdgeListBuffer(ByteBuffer edgeListBuf) {
-        
+
         List<TorcEdge> edgeList = new ArrayList<>();
-        
+
         while (edgeListBuf.hasRemaining()) {
             byte[] neighborIdBytes = new byte[UInt128.BYTES];
             edgeListBuf.get(neighborIdBytes);
@@ -329,35 +335,35 @@ public class TorcVertexEdgeList {
                 edgeList.add(new TorcEdge(vertex.graph(), vertex.id(), neighborId, TorcEdge.Type.UNDIRECTED, label));
             }
         }
-        
+
         return edgeList;
     }
-    
+
     /**
      * Reads all of the edges in this edge list.
-     * 
+     *
      * @return Iterator over all the TorcEdges represented by this list.
      */
     public Iterator<TorcEdge> readEdges() {
         byte[] headSegKey = getSegmentKey(vertex.id(), label, direction, 0, 0);
-        
+
         RAMCloudObject headSegObj;
         try {
             headSegObj = rctx.read(rcTableId, headSegKey);
         } catch (ClientException.ObjectDoesntExistException e) {
             return Collections.emptyIterator();
         }
-        
+
         List<TorcEdge> edgeList = new ArrayList<>();
-        
+
         ByteBuffer headSeg = ByteBuffer.allocate(headSegObj.getValueBytes().length);
         headSeg.put(headSegObj.getValueBytes());
         headSeg.flip();
-        
+
         int majorSegments = headSeg.getInt();
-        
+
         edgeList.addAll(parseEdgeListBuffer(headSeg));
-        
+
         for (int i = majorSegments; i > 0; --i) {
             byte[] majorSegKey = getSegmentKey(vertex.id(), label, direction, i, 0);
 
@@ -367,7 +373,7 @@ public class TorcVertexEdgeList {
             } catch (ClientException.ObjectDoesntExistException e) {
                 continue;
             }
-            
+
             ByteBuffer majorSeg = ByteBuffer.allocate(majorSegObj.getValueBytes().length);
             majorSeg.put(majorSegObj.getValueBytes());
             majorSeg.flip();
@@ -375,7 +381,7 @@ public class TorcVertexEdgeList {
             int minorSegments = majorSeg.getInt();
 
             edgeList.addAll(parseEdgeListBuffer(majorSeg));
-            
+
             for (int j = minorSegments; j > 0; --j) {
                 byte[] minorSegKey = getSegmentKey(vertex.id(), label, direction, i, j);
 
@@ -389,14 +395,14 @@ public class TorcVertexEdgeList {
                 ByteBuffer minorSeg = ByteBuffer.allocate(minorSegObj.getValueBytes().length);
                 minorSeg.put(minorSegObj.getValueBytes());
                 minorSeg.flip();
-                
+
                 edgeList.addAll(parseEdgeListBuffer(minorSeg));
             }
         }
-        
+
         return edgeList.iterator();
     }
-    
+
     /**
      * Reads all of the edges in this edge list that have the given neighbor on
      * the other end.
@@ -408,7 +414,7 @@ public class TorcVertexEdgeList {
     public Iterator<TorcEdge> readEdges(TorcVertex neighbor) {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
-    
+
     /*
      * Creates a RAMCloud key for the given edge list segment.
      */
@@ -423,7 +429,7 @@ public class TorcVertexEdgeList {
         buffer.putInt(minorSegmentNumber);
         return buffer.array();
     }
-    
+
     private static byte[] getEdgeLabelListKey(UInt128 vertexId) {
         ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES);
         buffer.putLong(vertexId.getUpperLong());
