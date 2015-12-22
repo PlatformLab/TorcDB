@@ -15,6 +15,7 @@
  */
 package org.ellitron.tinkerpop.gremlin.torc.structure;
 
+import org.ellitron.tinkerpop.gremlin.torc.structure.util.UInt128;
 import java.util.Iterator;
 import java.util.Objects;
 import org.apache.tinkerpop.gremlin.structure.Direction;

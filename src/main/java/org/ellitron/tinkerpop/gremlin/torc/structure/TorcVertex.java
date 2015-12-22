@@ -15,6 +15,7 @@
  */
 package org.ellitron.tinkerpop.gremlin.torc.structure;
 
+import org.ellitron.tinkerpop.gremlin.torc.structure.util.UInt128;
 import java.util.EnumSet;
 import java.util.Iterator;
 import org.apache.tinkerpop.gremlin.structure.Direction;
@@ -61,7 +62,7 @@ public class TorcVertex implements Vertex, Element {
      * {@inheritDoc}
      */
     @Override
-    public Graph graph() {
+    public TorcGraph graph() {
         return graph;
     }
 

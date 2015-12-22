@@ -31,7 +31,7 @@ import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraphVariables;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcProperty;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertex;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertexProperty;
-import org.ellitron.tinkerpop.gremlin.torc.structure.UInt128;
+import org.ellitron.tinkerpop.gremlin.torc.structure.util.UInt128;
 
 /**
  *

@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdgeDirection;
-import org.ellitron.tinkerpop.gremlin.torc.structure.UInt128;
 
 /**
  *
@@ -108,24 +107,6 @@ public class TorcHelper {
         return deserializeEdgeLabelList(value);
     }
     
-    public static List<UInt128> parseNeighborIdsFromEdgeList(RAMCloudObject obj) {
-        ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
-        value.put(obj.getValueBytes());
-        value.flip();
-        
-        List<UInt128> neighborIds = new ArrayList<>();
-        while (value.hasRemaining()) {
-            byte[] vertexId = new byte[UInt128.BYTES];
-            value.get(vertexId);
-            short propsTotalLen = value.getShort();
-            value.position(value.position() + propsTotalLen);
-            
-            neighborIds.add(new UInt128(vertexId));
-        }
-        
-        return neighborIds;
-    }
-    
     public static enum VertexKeyType {
         LABEL,
         PROPERTIES,
@@ -149,25 +130,32 @@ public class TorcHelper {
         return buffer.array();
     }
     
-    public static byte[] getVertexEdgeListKey(UInt128 vertexId, String label, TorcEdgeDirection dir) {
-        ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES + Byte.BYTES*2 + label.getBytes().length);
-        buffer.putLong(vertexId.getUpperLong());
-        buffer.putLong(vertexId.getLowerLong());
-        buffer.put((byte) VertexKeyType.EDGE_LIST.ordinal());
-        buffer.put((byte) dir.ordinal());
-        buffer.put(label.getBytes());
-        return buffer.array();
-    }
-    
-    public static byte[] getVertexEdgeLabelListKey(UInt128 vertexId) {
-        ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES + Byte.BYTES);
-        buffer.putLong(vertexId.getUpperLong());
-        buffer.putLong(vertexId.getLowerLong());
-        buffer.put((byte) VertexKeyType.EDGE_LABELS.ordinal());
-        return buffer.array();
-    }
-    
     public static VertexKeyType getVertexKeyType(byte[] key) {
         return VertexKeyType.values()[key[UInt128.BYTES]];
+    }
+    
+    /**
+     * Generates a key prefix that defines an exclusive key-space for this
+     * combination of vertex ID, edge label, and edge direction. No other
+     * (vertex ID, label, direction) combination will have a key prefix that 
+     * is a prefix of this key, or for which this key is a prefix of.
+     *
+     * @param vertexId
+     * @param label
+     * @param dir
+     * @return
+     */
+    public static byte[] getEdgeListKeyPrefix(UInt128 vertexId, String label, TorcEdgeDirection dir) {
+        ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES + Short.BYTES + label.getBytes().length + Byte.BYTES);
+        buffer.putLong(vertexId.getUpperLong());
+        buffer.putLong(vertexId.getLowerLong());
+        buffer.putShort((short) label.getBytes().length);
+        buffer.put(label.getBytes());
+        buffer.put((byte) dir.ordinal());
+        return buffer.array();
+    }
+    
+    public static byte[] getEdgeLabelListKey(UInt128 vertexId) {
+        return vertexId.toByteArray();
     }
 }
