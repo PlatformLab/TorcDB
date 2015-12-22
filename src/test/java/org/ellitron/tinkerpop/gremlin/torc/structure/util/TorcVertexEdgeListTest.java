@@ -94,4 +94,52 @@ public class TorcVertexEdgeListTest {
             assertEquals(new UInt128(i), neighborList.get((1<<14) - i - 1));
         }
     }
+
+    @Test
+    public void prependEdge_manyEdgesRandomProperties_prepended() {
+        byte[] keyPrefix = new byte[0];
+        int segmentSizeLimit = 1 << 20;
+        int segmentTargetSplitPoint = segmentSizeLimit / 4;
+        int totalNeighbors = (1 << 13);
+        int maxPropLen = (1 << 7);
+
+        TorcVertexEdgeList dut = TorcVertexEdgeList.open(rctx, testTableId, keyPrefix, segmentSizeLimit, segmentTargetSplitPoint);
+
+        for (int i = 0; i < totalNeighbors; i++) {
+            byte[] props = new byte[(int) (Math.random() * maxPropLen + 1)];
+            dut.prependEdge(new UInt128(i), props);
+        }
+
+        List<UInt128> neighborList = dut.readNeighborIds();
+
+        assertEquals(totalNeighbors, neighborList.size());
+
+        for (int i = 0; i < totalNeighbors; i++) {
+            assertEquals(new UInt128(i), neighborList.get(totalNeighbors - i - 1));
+        }
+    }
+    
+    @Test
+    public void prependEdge_manyEdgesRandomPropertiesWithSplitting_prepended() {
+        byte[] keyPrefix = new byte[0];
+        int segmentSizeLimit = 1 << 10;
+        int segmentTargetSplitPoint = segmentSizeLimit / 2;
+        int totalNeighbors = (1 << 13);
+        int maxPropLen = (1 << 7);
+
+        TorcVertexEdgeList dut = TorcVertexEdgeList.open(rctx, testTableId, keyPrefix, segmentSizeLimit, segmentTargetSplitPoint);
+
+        for (int i = 0; i < totalNeighbors; i++) {
+            byte[] props = new byte[(int) (Math.random() * maxPropLen + 1)];
+            dut.prependEdge(new UInt128(i), props);
+        }
+
+        List<UInt128> neighborList = dut.readNeighborIds();
+
+        assertEquals(totalNeighbors, neighborList.size());
+
+        for (int i = 0; i < totalNeighbors; i++) {
+            assertEquals(new UInt128(i), neighborList.get(totalNeighbors - i - 1));
+        }
+    }
 }
