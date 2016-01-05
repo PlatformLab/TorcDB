@@ -664,7 +664,7 @@ public final class TorcGraph implements Graph {
         torcGraphTx.readWrite();
         RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
-        if (keyValues != null) {
+        if (!(keyValues == null || keyValues.length == 0)) {
             throw VertexProperty.Exceptions.metaPropertiesNotSupported();
         }
 
