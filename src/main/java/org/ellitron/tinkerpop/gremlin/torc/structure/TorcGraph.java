@@ -220,7 +220,7 @@ public final class TorcGraph implements Graph {
                 if (properties.containsKey(key)) {
                     properties.get(key).add(val);
                 } else {
-                    properties.put(key, Arrays.asList(val));
+                    properties.put(key, new ArrayList<>(Arrays.asList(val)));
                 }
             }
         }
@@ -460,7 +460,7 @@ public final class TorcGraph implements Graph {
             if (properties.containsKey(key)) {
                 properties.get(key).add(val);
             } else {
-                properties.put(key, Arrays.asList(val));
+                properties.put(key, new ArrayList<>(Arrays.asList(val)));
             }
         }
 
@@ -678,7 +678,7 @@ public final class TorcGraph implements Graph {
 
         if (properties.containsKey(key)) {
             if (cardinality == VertexProperty.Cardinality.single) {
-                properties.put(key, Arrays.asList((String) value));
+                properties.put(key, new ArrayList<>(Arrays.asList((String) value)));
             } else if (cardinality == VertexProperty.Cardinality.list) {
                 properties.get(key).add((String) value);
             } else if (cardinality == VertexProperty.Cardinality.set) {
@@ -688,7 +688,7 @@ public final class TorcGraph implements Graph {
                 throw new UnsupportedOperationException("Do not recognize Cardinality of this type: " + cardinality.toString());
             }
         } else {
-            properties.put(key, Arrays.asList((String) value));
+            properties.put(key, new ArrayList<>(Arrays.asList((String) value)));
         }
 
         rctx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()), TorcHelper.serializeProperties(properties).array());
