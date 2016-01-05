@@ -212,10 +212,16 @@ public final class TorcGraph implements Graph {
         }
 
         // Create property map.
-        Map<String, String> properties = new HashMap<>();
+        Map<String, List<String>> properties = new HashMap<>();
         for (int i = 0; i < keyValues.length; i = i + 2) {
             if (keyValues[i] instanceof String) {
-                properties.put((String) keyValues[i], (String) keyValues[i + 1]);
+                String key = (String) keyValues[i];
+                String val = (String) keyValues[i + 1];
+                if (properties.containsKey(key)) {
+                    properties.get(key).add(val);
+                } else {
+                    properties.put(key, Arrays.asList(val));
+                }
             }
         }
 
@@ -447,13 +453,18 @@ public final class TorcGraph implements Graph {
         }
 
         // Create property map.
-        Map<String, String> properties = new HashMap<>();
+        Map<String, List<String>> properties = new HashMap<>();
         for (int i = 0; i < keyValues.length; i = i + 2) {
-            properties.put((String) keyValues[i], (String) keyValues[i + 1]);
+            String key = (String) keyValues[i];
+            String val = (String) keyValues[i + 1];
+            if (properties.containsKey(key)) {
+                properties.get(key).add(val);
+            } else {
+                properties.put(key, Arrays.asList(val));
+            }
         }
 
         ByteBuffer serializedProperties = TorcHelper.serializeProperties(properties);
-        int serializedEdgeLength = UInt128.BYTES + Short.BYTES + serializedProperties.array().length;
 
         /*
          * Add one vertex to the other's edge list, and vice versa.
@@ -612,24 +623,27 @@ public final class TorcGraph implements Graph {
 
         RAMCloudObject obj = rctx.read(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()));
 
-        Map<String, String> properties = TorcHelper.deserializeProperties(obj);
+        Map<String, List<String>> properties = TorcHelper.deserializeProperties(obj);
 
         List<VertexProperty<V>> propList = new ArrayList<>();
 
         if (propertyKeys.length > 0) {
             for (String key : propertyKeys) {
                 if (properties.containsKey(key)) {
-                    propList.add(new TorcVertexProperty(vertex, key, properties.get(key)));
+                    for (String value : properties.get(key))
+                        propList.add(new TorcVertexProperty(vertex, key, value));
                 } else {
                     throw Property.Exceptions.propertyDoesNotExist(vertex, key);
                 }
             }
         } else {
-            for (Map.Entry<String, String> property : properties.entrySet()) {
+            for (Map.Entry<String, List<String>> property : properties.entrySet()) {
                 // TODO: Here I am implicitly assuming that V is of type String, 
                 // since property.getValue() returns a string, making the new 
                 // elemennt to propList TorcVertexProperty<String>
-                propList.add(new TorcVertexProperty(vertex, property.getKey(), property.getValue()));
+                String key = property.getKey();
+                for (String value : property.getValue())
+                    propList.add(new TorcVertexProperty(vertex, key, value));
             }
         }
 
@@ -660,20 +674,21 @@ public final class TorcGraph implements Graph {
 
         RAMCloudObject obj = rctx.read(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()));
 
-        Map<String, String> properties = TorcHelper.deserializeProperties(obj);
+        Map<String, List<String>> properties = TorcHelper.deserializeProperties(obj);
 
         if (properties.containsKey(key)) {
             if (cardinality == VertexProperty.Cardinality.single) {
-                properties.put(key, (String) value);
+                properties.put(key, Arrays.asList((String) value));
             } else if (cardinality == VertexProperty.Cardinality.list) {
-                throw VertexProperty.Exceptions.multiPropertiesNotSupported();
+                properties.get(key).add((String) value);
             } else if (cardinality == VertexProperty.Cardinality.set) {
-                throw VertexProperty.Exceptions.multiPropertiesNotSupported();
+                if (!properties.get(key).contains((String) value)) 
+                    properties.get(key).add((String) value);
             } else {
                 throw new UnsupportedOperationException("Do not recognize Cardinality of this type: " + cardinality.toString());
             }
         } else {
-            properties.put(key, (String) value);
+            properties.put(key, Arrays.asList((String) value));
         }
 
         rctx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()), TorcHelper.serializeProperties(properties).array());
@@ -1077,7 +1092,7 @@ public final class TorcGraph implements Graph {
 
         @Override
         public boolean supportsMultiProperties() {
-            return false;
+            return true;
         }
 
         @Override

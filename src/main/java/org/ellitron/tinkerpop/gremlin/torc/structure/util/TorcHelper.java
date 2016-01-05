@@ -31,41 +31,59 @@ import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdgeDirection;
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
 public class TorcHelper {
-    public static ByteBuffer serializeProperties(Map<String, String> propertyMap) {
+    public static ByteBuffer serializeProperties(Map<String, List<String>> propertyMap) {
         int serializedLength = 0;
-        for (Map.Entry<String, String> property : propertyMap.entrySet()) {
-            serializedLength += Short.BYTES + property.getKey().getBytes().length;
-            serializedLength += Short.BYTES + property.getValue().getBytes().length;
+        for (Map.Entry<String, List<String>> property : propertyMap.entrySet()) {
+            serializedLength += Integer.BYTES;
+            String key = property.getKey();
+            serializedLength += Short.BYTES + key.getBytes().length;
+            for (String value : property.getValue())
+                serializedLength += Short.BYTES + value.getBytes().length;
         }
         
         ByteBuffer buffer = ByteBuffer.allocate(serializedLength);
-        for (Map.Entry<String, String> property : propertyMap.entrySet()) {
-            buffer.putShort((short) property.getKey().getBytes().length);
-            buffer.put(property.getKey().getBytes());
-            buffer.putShort((short) property.getValue().getBytes().length);
-            buffer.put(property.getValue().getBytes());
+        for (Map.Entry<String, List<String>> property : propertyMap.entrySet()) {
+            int propLenPos = buffer.position();
+            buffer.putInt(0); // will fill this in when we've got the total len
+            String key = property.getKey();
+            buffer.putShort((short) key.getBytes().length);
+            buffer.put(key.getBytes());
+            for (String value : property.getValue()) {
+                buffer.putShort((short) value.getBytes().length);
+                buffer.put(value.getBytes());
+            }
+            int propLen = buffer.position() - propLenPos - Integer.BYTES;
+            buffer.putInt(propLenPos, propLen);
         }
         
         return buffer;
     }
     
-    public static Map<String, String> deserializeProperties(ByteBuffer buffer) {
-        Map<String, String> propertyMap = new HashMap<>();
+    public static Map<String, List<String>> deserializeProperties(ByteBuffer buffer) {
+        Map<String, List<String>> propertyMap = new HashMap<>();
         while (buffer.hasRemaining()) {
-            short len = buffer.getShort();
-            byte key[] = new byte[len];
-            buffer.get(key);
-            len = buffer.getShort();
-            byte value[] = new byte[len];
-            buffer.get(value);
+            int propLen = buffer.getInt();
+            if (propLen > 0) {
+                int propStartPos = buffer.position();
+                short keyLen = buffer.getShort();
+                byte key[] = new byte[keyLen];
+                buffer.get(key);
+                List<String> values = new ArrayList<>();
+                while (buffer.position() - propStartPos < propLen) {
+                    short valLen = buffer.getShort();
+                    byte value[] = new byte[valLen];
+                    buffer.get(value);
+                    values.add(new String(value));
+                }
 
-            propertyMap.put(new String(key), new String(value));
+                propertyMap.put(new String(key), values);
+            }
         }
         
         return propertyMap;
     }
     
-    public static Map<String, String> deserializeProperties(RAMCloudObject obj) {
+    public static Map<String, List<String>> deserializeProperties(RAMCloudObject obj) {
         ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
         value.put(obj.getValueBytes());
         value.rewind();
