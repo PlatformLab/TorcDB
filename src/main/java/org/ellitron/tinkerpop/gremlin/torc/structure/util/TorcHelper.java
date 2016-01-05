@@ -90,6 +90,13 @@ public class TorcHelper {
         return deserializeProperties(value);
     }
     
+    public static Map<String, List<String>> deserializeProperties(byte[] buf) {
+        ByteBuffer value = ByteBuffer.allocate(buf.length);
+        value.put(buf);
+        value.rewind();
+        return deserializeProperties(value);
+    }
+    
     public static ByteBuffer serializeEdgeLabelList(List<String> edgeLabelList) {
         int serializedLength = 0;
         for (String label : edgeLabelList) {

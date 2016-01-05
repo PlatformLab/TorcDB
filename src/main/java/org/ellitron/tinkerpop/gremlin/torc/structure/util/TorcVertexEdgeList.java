@@ -20,10 +20,12 @@ import edu.stanford.ramcloud.RAMCloudObject;
 import edu.stanford.ramcloud.transactions.RAMCloudTransaction;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.log4j.Logger;
@@ -512,5 +514,169 @@ public class TorcVertexEdgeList {
         buf.put(serializedProperties);
         buf.flip();
         return buf;
+    }
+    
+    private static class EntryList {
+        List<Entry> list;
+        ByteBuffer serializedFormat;
+        
+        public EntryList(List<Entry> list) {
+            this.list = list;
+            this.serializedFormat = null;
+        }
+        
+        private EntryList(ByteBuffer serializedFormat) {
+            this.list = null;
+            this.serializedFormat = serializedFormat.asReadOnlyBuffer();
+        }
+        
+        public List<Entry> getList() {
+            if (list != null) {
+                return list;
+            } else {
+                list = new ArrayList<>();
+                
+                ByteBuffer listBuf = serializedFormat.duplicate();
+                
+                while (listBuf.hasRemaining()) {
+                    int entryLength = listBuf.getInt();
+                    ByteBuffer entryBuf = listBuf.duplicate();
+                    entryBuf.limit(entryBuf.position() + entryLength);
+                    list.add(Entry.deserialize(entryBuf));
+                }
+                
+                return list;
+            }
+        }
+        
+        public int getSerializedLength() {
+            return serialize().remaining();
+        }
+        
+        public ByteBuffer serialize() {
+            if (serializedFormat != null) {
+                return serializedFormat;
+            } else {
+                int serializedLength = 0;
+                for (Entry entry : list) {
+                    serializedLength += Integer.BYTES;
+                    serializedLength += entry.getSerializedLength();
+                }
+
+                ByteBuffer buf = ByteBuffer.allocate(serializedLength);
+                for (Entry entry : list) {
+                    buf.putInt(entry.getSerializedLength());
+                    buf.put(entry.serialize());
+                }
+                
+                serializedFormat = buf;
+                return serializedFormat;
+            }
+        }
+        
+        public static EntryList deserialize(ByteBuffer serializedFormat) {
+            return new EntryList(serializedFormat);
+        }
+    }
+    
+    /**
+     * A class representing an entry in the edge list with methods for 
+     * serializing / de-serializing the Entry to / from an array of bytes.
+     */
+    private static class Entry {
+        private UInt128 neighborId;
+        private Map<String, List<String>> properties;
+        private ByteBuffer serializedFormat;
+        
+        /**
+         * Construct Entry from raw elements.
+         * 
+         * @param neighborId ID of the neighbor represented by this entry.
+         * @param properties Properties attached to this entry.
+         */
+        public Entry(UInt128 neighborId, Map<String, List<String>> properties) {
+            this.neighborId = neighborId;
+            this.properties = properties;
+            this.serializedFormat = null;
+        }
+        
+        /**
+         * Construct Entry from the serialized entry in the byte array.
+         * 
+         * @param serializedFormat Serialization of this entry.
+         */
+        private Entry(ByteBuffer serializedFormat) {
+            this.neighborId = null;
+            this.properties = null;
+            this.serializedFormat = serializedFormat.asReadOnlyBuffer();
+        }
+        
+        /**
+         * Get neighbor ID of this entry.
+         * 
+         * @return 
+         */
+        public UInt128 getNeighborId() {
+            if (neighborId != null) {
+                return neighborId;
+            } else {
+                ByteBuffer neighborIdBuf = serializedFormat.duplicate();
+                neighborIdBuf.limit(neighborIdBuf.position() + UInt128.BYTES);
+                this.neighborId = UInt128.parseFromByteBuffer(neighborIdBuf);
+                return neighborId;
+            }
+        }
+        
+        /**
+         * Get the properties of this entry.
+         * 
+         * @return 
+         */
+        public Map<String, List<String>> getProperties() {
+            if (properties != null) {
+                return properties;
+            } else {
+                ByteBuffer propBuf = serializedFormat.duplicate();
+                propBuf.position(propBuf.position() + UInt128.BYTES);
+                this.properties = TorcHelper.deserializeProperties(propBuf);
+                return properties;
+            }
+        }
+        
+        /**
+         * Return the serialized length of this entry in bytes.
+         */
+        public int getSerializedLength() {
+            return serialize().remaining();
+        }
+        
+        /**
+         * Return serialized format of this entry.
+         * 
+         * @return 
+         */
+        public ByteBuffer serialize() {
+            if (serializedFormat != null) {
+                return serializedFormat;
+            } else {
+                byte[] serializedNeighborId = neighborId.toByteArray();
+                byte[] serializedProperties = TorcHelper.serializeProperties(properties).array();
+                serializedFormat = ByteBuffer.allocate(UInt128.BYTES + serializedProperties.length);
+                serializedFormat.put(serializedNeighborId);
+                serializedFormat.put(serializedProperties);
+                serializedFormat.flip();
+                return serializedFormat;
+            }
+        }
+        
+        /**
+         * Return entry represented by this serialized version.
+         * 
+         * @param serializedFormat
+         * @return 
+         */
+        public static Entry deserialize(ByteBuffer serializedFormat) {
+            return new Entry(serializedFormat);
+        }
     }
 }
