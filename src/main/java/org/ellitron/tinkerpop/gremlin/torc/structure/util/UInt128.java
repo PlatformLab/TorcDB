@@ -227,6 +227,21 @@ public class UInt128 implements Comparable<UInt128> {
     }
     
     /**
+     * Parses a UInt128 from a ByteBuffer. The ByteBuffer is expected to have at
+     * least 16 bytes at the current position, storing a UInt128 in big-endian
+     * order. This method will also advance the current position of the
+     * ByteBuffer by 16 bytes.
+     *
+     * @param buf ByteBuffer containing the value in big-endian format at the
+     * current position of the buffer.
+     */
+    public static UInt128 parseFromByteBuffer(ByteBuffer buf) {
+        long upperLong = buf.getLong();
+        long lowerLong = buf.getLong();
+        return new UInt128(upperLong, lowerLong);
+    }
+
+    /**
      * Returns the upper 64 bits in a long.
      * 
      * @return Upper 64 bits. 
