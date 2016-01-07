@@ -998,9 +998,7 @@ public final class TorcGraph implements Graph {
         @Override
         public boolean isOpen() {
             boolean isOpen = (threadLocalRCTXMap.get(Thread.currentThread()) != null);
-
-            logger.debug(String.format("TorcGraphTransaction.isOpen(thread=%d): returning %s", Thread.currentThread().getId(), isOpen));
-
+            
             return isOpen;
         }
     }
