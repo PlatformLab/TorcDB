@@ -180,6 +180,11 @@ public final class TorcGraph implements Graph {
         torcGraphTx.readWrite();
         RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
+        long startTime = 0;
+        if (logger.isTraceEnabled()) {
+            startTime = System.nanoTime();
+        }
+        
         ElementHelper.legalPropertyKeyValueArray(keyValues);
 
         // Only values of type String supported, currently.
@@ -192,10 +197,19 @@ public final class TorcGraph implements Graph {
         Object idValue = ElementHelper.getIdValue(keyValues).orElse(null);
         final String label = ElementHelper.getLabelValue(keyValues).orElse(Vertex.DEFAULT_LABEL);
 
+        if (logger.isTraceEnabled()) {
+            long endTime = System.nanoTime();
+            logger.trace(String.format("addVertex(label=%s):setup, took %dus", label, (endTime - startTime) / 1000l));
+        }
+        
         UInt128 vertexId;
         if (idValue != null) {
             vertexId = UInt128.decode(idValue);
 
+            startTime = 0;
+            if (logger.isTraceEnabled()) {
+                startTime = System.nanoTime();
+            }
             // Check if a vertex with this ID already exists.
             try {
                 rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
@@ -203,14 +217,36 @@ public final class TorcGraph implements Graph {
             } catch (ObjectDoesntExistException e) {
                 // Good!
             }
+            
+            if (logger.isTraceEnabled()) {
+                long endTime = System.nanoTime();
+                logger.trace(String.format("addVertex(id=%s,label=%s):idCheck, took %dus", vertexId.toString(), label, (endTime - startTime) / 1000l));
+            }
+            
         } else {
+            startTime = 0;
+            if (logger.isTraceEnabled()) {
+                startTime = System.nanoTime();
+            }
+            
             long id_counter = (long) (Math.random() * NUM_ID_COUNTERS);
             RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
+            
             long id = client.incrementInt64(idTableId, Long.toString(id_counter).getBytes(), 1, null);
 
             vertexId = new UInt128((1L << 63) + id_counter, id);
+            
+            if (logger.isTraceEnabled()) {
+                long endTime = System.nanoTime();
+                logger.trace(String.format("addVertex(id=%s,label=%s):idGen, took %dus", vertexId.toString(), label, (endTime - startTime) / 1000l));
+            }
         }
 
+        startTime = 0;
+        if (logger.isTraceEnabled()) {
+            startTime = System.nanoTime();
+        }
+        
         // Create property map.
         Map<String, List<String>> properties = new HashMap<>();
         for (int i = 0; i < keyValues.length; i = i + 2) {
@@ -225,6 +261,16 @@ public final class TorcGraph implements Graph {
             }
         }
 
+        if (logger.isTraceEnabled()) {
+            long endTime = System.nanoTime();
+            logger.trace(String.format("addVertex(id=%s,label=%s):propMap, took %dus", vertexId.toString(), label, (endTime - startTime) / 1000l));
+        }
+        
+        startTime = 0;
+        if (logger.isTraceEnabled()) {
+            startTime = System.nanoTime();
+        }
+        
         /*
          * Perform size checks on objects to be written to RAMCloud.
          */
@@ -232,17 +278,43 @@ public final class TorcGraph implements Graph {
             throw new IllegalArgumentException(String.format("Size of vertex label exceeds maximum allowable (size=%dB, max=%dB)", label.getBytes().length, RAMCLOUD_OBJECT_SIZE_LIMIT));
         }
 
-        byte[] props = TorcHelper.serializeProperties(properties).array();
-        if (props.length > RAMCLOUD_OBJECT_SIZE_LIMIT) {
-            throw new IllegalArgumentException(String.format("Total size of properties exceeds maximum allowable (size=%dB, max=%dB)", props.length, RAMCLOUD_OBJECT_SIZE_LIMIT));
+        byte[] serializedProps = TorcHelper.serializeProperties(properties).array();
+        if (serializedProps.length > RAMCLOUD_OBJECT_SIZE_LIMIT) {
+            throw new IllegalArgumentException(String.format("Total size of properties exceeds maximum allowable (size=%dB, max=%dB)", serializedProps.length, RAMCLOUD_OBJECT_SIZE_LIMIT));
+        }
+        
+        if (logger.isTraceEnabled()) {
+            long endTime = System.nanoTime();
+            logger.trace(String.format("addVertex(id=%s,label=%s):sizeCheck, took %dus", vertexId.toString(), label, (endTime - startTime) / 1000l));
         }
 
+        startTime = 0;
+        if (logger.isTraceEnabled()) {
+            startTime = System.nanoTime();
+        }
+            
         rctx.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId), label.getBytes());
-        rctx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertexId), TorcHelper.serializeProperties(properties).array());
+        
+        if (logger.isTraceEnabled()) {
+            long endTime = System.nanoTime();
+            logger.trace(String.format("addVertex(id=%s,label=%s):writeLabel, took %dus", vertexId.toString(), label, (endTime - startTime) / 1000l));
+        }
+        
+        startTime = 0;
+        if (logger.isTraceEnabled()) {
+            startTime = System.nanoTime();
+        }
+        
+        rctx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertexId), serializedProps);
 
+        if (logger.isTraceEnabled()) {
+            long endTime = System.nanoTime();
+            logger.trace(String.format("addVertex(id=%s,label=%s):writeProps, took %dus", vertexId.toString(), label, (endTime - startTime) / 1000l));
+        }
+        
         if (logger.isDebugEnabled()) {
             long endTimeNs = System.nanoTime();
-            int propLength = TorcHelper.serializeProperties(properties).array().length;
+            int propLength = serializedProps.length;
             logger.debug(String.format("addVertex(id=%s,label=%s,propLen=%d), took %dus", vertexId.toString(), label, propLength, (endTimeNs - startTimeNs) / 1000l));
         }
 
@@ -935,6 +1007,11 @@ public final class TorcGraph implements Graph {
 
         @Override
         public void doOpen() {
+            long startTimeNs = 0;
+            if (logger.isDebugEnabled()) {
+                startTimeNs = System.nanoTime();
+            }
+
             Thread us = Thread.currentThread();
             if (threadLocalRCTXMap.get(us) == null) {
                 RAMCloud client = threadLocalClientMap.get(us);
@@ -943,7 +1020,10 @@ public final class TorcGraph implements Graph {
                 throw Transaction.Exceptions.transactionAlreadyOpen();
             }
 
-            logger.debug(String.format("TorcGraphTransaction.doOpen(thread=%d)", us.getId()));
+            if (logger.isDebugEnabled()) {
+                long endTimeNs = System.nanoTime();
+                logger.debug(String.format("TorcGraphTransaction.doOpen(thread=%d), took %dus", us.getId(), (endTimeNs - startTimeNs) / 1000l));
+            }
         }
 
         @Override
