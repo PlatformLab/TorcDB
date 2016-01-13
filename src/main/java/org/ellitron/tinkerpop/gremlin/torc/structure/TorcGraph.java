@@ -72,6 +72,7 @@ public final class TorcGraph implements Graph {
     public static final String CONFIG_COORD_LOCATOR = "gremlin.torc.coordinatorLocator";
     public static final String CONFIG_NUM_MASTER_SERVERS = "gremlin.torc.numMasterServers";
     public static final String CONFIG_LOG_LEVEL = "gremlin.torc.logLevel";
+    public static final String CONFIG_SINGLETON = "gremlin.torc.singleton";
 
     // Constants.
     private static final String ID_TABLE_NAME = "idTable";
@@ -89,7 +90,8 @@ public final class TorcGraph implements Graph {
     private long idTableId, vertexTableId, edgeListTableId;
     private final String graphName;
     private final TorcGraphTransaction torcGraphTx = new TorcGraphTransaction();
-
+    private static TorcGraph singleton = null;
+    
     boolean initialized = false;
 
     private TorcGraph(final Configuration configuration) {
@@ -98,12 +100,21 @@ public final class TorcGraph implements Graph {
         graphName = configuration.getString(CONFIG_GRAPH_NAME);
         coordinatorLocator = configuration.getString(CONFIG_COORD_LOCATOR);
         totalMasterServers = configuration.getInt(CONFIG_NUM_MASTER_SERVERS);
-
+        
         logger.debug(String.format("Constructing TorcGraph (%s,%s,%d)", graphName, coordinatorLocator, totalMasterServers));
     }
 
     public static TorcGraph open(final Configuration configuration) {
-        return new TorcGraph(configuration);
+        if (configuration.getBoolean(CONFIG_SINGLETON)) {
+            if (singleton != null) {
+                return singleton;
+            } else {
+                singleton = new TorcGraph(configuration);
+                return singleton;
+            }
+        } else {
+            return new TorcGraph(configuration);
+        }    
     }
 
     @Override
