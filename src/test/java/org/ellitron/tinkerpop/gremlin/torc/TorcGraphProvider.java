@@ -57,6 +57,7 @@ public class TorcGraphProvider extends AbstractGraphProvider {
         Map<String, Object> config = new HashMap<>();
         config.put(Graph.GRAPH, TorcGraph.class.getName());
         config.put(TorcGraph.CONFIG_GRAPH_NAME, graphName);
+        config.put(TorcGraph.CONFIG_SINGLETON, true);
         
         String ramcloudCoordinatorLocator = System.getenv("RAMCLOUD_COORDINATOR_LOCATOR");
         if (ramcloudCoordinatorLocator == null) 
