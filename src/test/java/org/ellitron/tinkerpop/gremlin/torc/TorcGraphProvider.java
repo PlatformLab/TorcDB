@@ -78,7 +78,7 @@ public class TorcGraphProvider extends AbstractGraphProvider {
             TorcGraph g = (TorcGraph) graph;
             if (g.isInitialized()) {
                 g.deleteGraph();
-                g.closeAllThreads();
+                g.rollbackAllThreads();
             }
         }
     }
