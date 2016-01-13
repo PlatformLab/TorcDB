@@ -898,6 +898,28 @@ public final class TorcGraph implements Graph {
     }
     
     /**
+     * This method closes all open client connections to RAMCloud on all
+     * threads. Since this method uses rollback as the close mechanism for open
+     * transactions, and RAMCloud transactions keep no server-side state until
+     * commit, it is safe to execute this method even after the graph has been
+     * deleted with {@link #deleteAll()}. Its intended use is primarily for unit
+     * tests to reset all transaction state before executing the next test .
+     */
+    public void rollbackAllThreads() {
+        long startTimeNs = 0;
+        if (logger.isDebugEnabled()) {
+            startTimeNs = System.nanoTime();
+        }
+
+        torcGraphTx.doRollbackAllThreads();
+
+        if (logger.isDebugEnabled()) {
+            long endTimeNs = System.nanoTime();
+            logger.debug(String.format("closeAllThreads(), took %dus", (endTimeNs - startTimeNs) / 1000l));
+        }
+    }
+
+    /**
      * Deletes all graph data for the graph represented by this TorcGraph
      * instance in RAMCloud.
      *
