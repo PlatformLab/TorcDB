@@ -896,7 +896,7 @@ public final class TorcGraph implements Graph {
             logger.debug(String.format("closeAllThreads(), took %dus", (endTimeNs - startTimeNs) / 1000l));
         }
     }
-
+    
     /**
      * Deletes all graph data for the graph represented by this TorcGraph
      * instance in RAMCloud.
@@ -922,6 +922,9 @@ public final class TorcGraph implements Graph {
         client.dropTable(graphName + "_" + ID_TABLE_NAME);
         client.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
         client.dropTable(graphName + "_" + EDGELIST_TABLE_NAME);
+        idTableId = client.createTable(graphName + "_" + ID_TABLE_NAME, totalMasterServers);
+        vertexTableId = client.createTable(graphName + "_" + VERTEX_TABLE_NAME, totalMasterServers);
+        edgeListTableId = client.createTable(graphName + "_" + EDGELIST_TABLE_NAME, totalMasterServers);
 
         if (logger.isDebugEnabled()) {
             long endTimeNs = System.nanoTime();
