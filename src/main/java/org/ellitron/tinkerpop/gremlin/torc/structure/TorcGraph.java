@@ -72,7 +72,7 @@ public final class TorcGraph implements Graph {
     public static final String CONFIG_COORD_LOCATOR = "gremlin.torc.coordinatorLocator";
     public static final String CONFIG_NUM_MASTER_SERVERS = "gremlin.torc.numMasterServers";
     public static final String CONFIG_LOG_LEVEL = "gremlin.torc.logLevel";
-    public static final String CONFIG_SINGLETON = "gremlin.torc.singleton";
+    public static final String CONFIG_THREADLOCALCLIENTMAP = "gremlin.torc.threadLocalClientMap";
 
     // Constants.
     private static final String ID_TABLE_NAME = "idTable";
@@ -86,17 +86,24 @@ public final class TorcGraph implements Graph {
     private final Configuration configuration;
     private final String coordinatorLocator;
     private final int totalMasterServers;
-    private final ConcurrentHashMap<Thread, RAMCloud> threadLocalClientMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Thread, RAMCloud> threadLocalClientMap;
     private long idTableId, vertexTableId, edgeListTableId;
     private final String graphName;
-    private final TorcGraphTransaction torcGraphTx = new TorcGraphTransaction();
-    private static TorcGraph singleton = null;
+    private final TorcGraphTransaction torcGraphTx;
     
     boolean initialized = false;
 
     private TorcGraph(final Configuration configuration) {
         this.configuration = configuration;
-
+        
+        if (configuration.containsKey(CONFIG_THREADLOCALCLIENTMAP)) {
+            this.threadLocalClientMap = (ConcurrentHashMap<Thread, RAMCloud>) configuration.getProperty(CONFIG_THREADLOCALCLIENTMAP);
+        } else {
+            this.threadLocalClientMap = new ConcurrentHashMap<>();
+        }
+        
+        this.torcGraphTx = new TorcGraphTransaction();
+        
         graphName = configuration.getString(CONFIG_GRAPH_NAME);
         coordinatorLocator = configuration.getString(CONFIG_COORD_LOCATOR);
         totalMasterServers = configuration.getInt(CONFIG_NUM_MASTER_SERVERS);
@@ -105,18 +112,9 @@ public final class TorcGraph implements Graph {
     }
 
     public static TorcGraph open(final Configuration configuration) {
-        if (configuration.getBoolean(CONFIG_SINGLETON)) {
-            if (singleton != null) {
-                return singleton;
-            } else {
-                singleton = new TorcGraph(configuration);
-                return singleton;
-            }
-        } else {
-            return new TorcGraph(configuration);
-        }    
+        return new TorcGraph(configuration);
     }
-
+    
     @Override
     public Variables variables() {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
@@ -165,17 +163,17 @@ public final class TorcGraph implements Graph {
             threadLocalClientMap.put(Thread.currentThread(), new RAMCloud(coordinatorLocator));
 
             logger.debug(String.format("initialize(): Thread %d made connection to RAMCloud cluster.", Thread.currentThread().getId()));
+        }
+        
+        if (!initialized) {
+            RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
+            idTableId = client.createTable(graphName + "_" + ID_TABLE_NAME, totalMasterServers);
+            vertexTableId = client.createTable(graphName + "_" + VERTEX_TABLE_NAME, totalMasterServers);
+            edgeListTableId = client.createTable(graphName + "_" + EDGELIST_TABLE_NAME, totalMasterServers);
 
-            if (!initialized) {
-                RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
-                idTableId = client.createTable(graphName + "_" + ID_TABLE_NAME, totalMasterServers);
-                vertexTableId = client.createTable(graphName + "_" + VERTEX_TABLE_NAME, totalMasterServers);
-                edgeListTableId = client.createTable(graphName + "_" + EDGELIST_TABLE_NAME, totalMasterServers);
+            initialized = true;
 
-                initialized = true;
-
-                logger.debug(String.format("initialize(): Fetched table Ids (%s=%d,%s=%d,%s=%d)", graphName + "_" + ID_TABLE_NAME, idTableId, graphName + "_" + VERTEX_TABLE_NAME, vertexTableId, graphName + "_" + EDGELIST_TABLE_NAME, edgeListTableId));
-            }
+            logger.debug(String.format("initialize(): Fetched table Ids (%s=%d,%s=%d,%s=%d)", graphName + "_" + ID_TABLE_NAME, idTableId, graphName + "_" + VERTEX_TABLE_NAME, vertexTableId, graphName + "_" + EDGELIST_TABLE_NAME, edgeListTableId));
         }
     }
 
@@ -926,7 +924,7 @@ public final class TorcGraph implements Graph {
 
         if (logger.isDebugEnabled()) {
             long endTimeNs = System.nanoTime();
-            logger.debug(String.format("closeAllThreads(), took %dus", (endTimeNs - startTimeNs) / 1000l));
+            logger.debug(String.format("rollbackAllThreads(), took %dus", (endTimeNs - startTimeNs) / 1000l));
         }
     }
 

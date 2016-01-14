@@ -15,10 +15,15 @@
  */
 package org.ellitron.tinkerpop.gremlin.torc;
 
+import edu.stanford.ramcloud.RAMCloud;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.configuration.Configuration;
 
 import org.apache.tinkerpop.gremlin.AbstractGraphProvider;
@@ -38,7 +43,16 @@ import org.ellitron.tinkerpop.gremlin.torc.structure.util.UInt128;
  * @author ellitron
  */
 public class TorcGraphProvider extends AbstractGraphProvider {
-
+    private final String graphNamePrefix;
+    private ConcurrentHashMap<Thread, RAMCloud> cachedThreadLocalClientMap;
+    
+    public TorcGraphProvider() {
+        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss");
+        Date date = new Date();
+        this.graphNamePrefix = dateFormat.format(date);
+        cachedThreadLocalClientMap = new ConcurrentHashMap<>();
+    }
+    
     private static final Set<Class> IMPLEMENTATIONS = new HashSet<Class>() {{
         add(TorcEdge.class);
         add(TorcGraph.class);
@@ -56,8 +70,9 @@ public class TorcGraphProvider extends AbstractGraphProvider {
     public Map<String, Object> getBaseConfiguration(String graphName, Class<?> test, String testMethodName, LoadGraphWith.GraphData loadGraphWith) {
         Map<String, Object> config = new HashMap<>();
         config.put(Graph.GRAPH, TorcGraph.class.getName());
-        config.put(TorcGraph.CONFIG_GRAPH_NAME, graphName);
-        config.put(TorcGraph.CONFIG_SINGLETON, true);
+        config.put(TorcGraph.CONFIG_GRAPH_NAME, graphNamePrefix + "_" + test.getSimpleName() + "_" + testMethodName);
+        
+        config.put(TorcGraph.CONFIG_THREADLOCALCLIENTMAP, cachedThreadLocalClientMap);
         
         String ramcloudCoordinatorLocator = System.getenv("RAMCLOUD_COORDINATOR_LOCATOR");
         if (ramcloudCoordinatorLocator == null) 
@@ -76,10 +91,7 @@ public class TorcGraphProvider extends AbstractGraphProvider {
     public void clear(Graph graph, Configuration configuration) throws Exception {
         if (graph != null) {
             TorcGraph g = (TorcGraph) graph;
-            if (g.isInitialized()) {
-                g.deleteGraph();
-                g.rollbackAllThreads();
-            }
+            g.rollbackAllThreads();
         }
     }
 
