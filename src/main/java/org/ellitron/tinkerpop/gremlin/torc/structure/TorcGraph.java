@@ -194,14 +194,7 @@ public final class TorcGraph implements Graph {
             startTime = System.nanoTime();
         }
         
-        ElementHelper.legalPropertyKeyValueArray(keyValues);
-
-        // Only values of type String supported, currently.
-        for (int i = 0; i < keyValues.length; i = i + 2) {
-            if (!(keyValues[i] instanceof T) && !(keyValues[i + 1] instanceof String)) {
-                throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(keyValues[i + 1]);
-            }
-        }
+        TorcHelper.legalPropertyKeyValueArray(Vertex.class, keyValues);
 
         Object idValue = ElementHelper.getIdValue(keyValues).orElse(null);
         final String label = ElementHelper.getLabelValue(keyValues).orElse(Vertex.DEFAULT_LABEL);
@@ -513,25 +506,7 @@ public final class TorcGraph implements Graph {
         torcGraphTx.readWrite();
         RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
-        // Validate that these key/value pairs are all strings
-        if (keyValues.length % 2 != 0) {
-            throw Element.Exceptions.providedKeyValuesMustBeAMultipleOfTwo();
-        }
-        for (int i = 0; i < keyValues.length; i = i + 2) {
-            if (keyValues[i] instanceof T) {
-                if (keyValues[i].equals(T.id)) {
-                    throw Edge.Exceptions.userSuppliedIdsNotSupported();
-                } else {
-                    throw new UnsupportedOperationException("Not supported yet.");
-                }
-            }
-            if (!(keyValues[i] instanceof String)) {
-                throw Element.Exceptions.providedKeyValuesMustHaveALegalKeyOnEvenIndices();
-            }
-            if (!(keyValues[i + 1] instanceof String)) {
-                throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(keyValues[i + 1]);
-            }
-        }
+        TorcHelper.legalPropertyKeyValueArray(Edge.class, keyValues);
 
         // Create property map.
         Map<String, List<String>> properties = new HashMap<>();

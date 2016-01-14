@@ -23,6 +23,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.structure.Element;
+import org.apache.tinkerpop.gremlin.structure.Property;
+import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdgeDirection;
 
@@ -31,16 +35,56 @@ import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdgeDirection;
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
 public class TorcHelper {
+
+    public static void legalPropertyKeyValueArray(final Class<? extends Element> clazz, final Object... propertyKeyValues) throws IllegalArgumentException {
+        if (propertyKeyValues.length % 2 != 0) {
+            throw Element.Exceptions.providedKeyValuesMustBeAMultipleOfTwo();
+        }
+        for (int i = 0; i < propertyKeyValues.length; i = i + 2) {
+            if (propertyKeyValues[i] == null) {
+                throw Property.Exceptions.propertyKeyCanNotBeNull();
+            }
+            if (!(propertyKeyValues[i] instanceof String) && !(propertyKeyValues[i] instanceof T)) {
+                throw Element.Exceptions.providedKeyValuesMustHaveALegalKeyOnEvenIndices();
+            }
+            if (propertyKeyValues[i] instanceof T) {
+                if ((propertyKeyValues[i].equals(T.label))) {
+                    if (propertyKeyValues[i + 1] == null) {
+                        throw Element.Exceptions.labelCanNotBeNull();
+                    } else if (((String) propertyKeyValues[i + 1]).length() == 0) {
+                        throw Element.Exceptions.labelCanNotBeEmpty();
+                    }
+                }
+                if ((propertyKeyValues[i].equals(T.id))) {
+                    if (clazz.isAssignableFrom(Edge.class)) {
+                        throw Edge.Exceptions.userSuppliedIdsNotSupported();
+                    }
+                }
+            } else {
+                if (((String) propertyKeyValues[i]).length() == 0) {
+                    throw Property.Exceptions.propertyKeyCanNotBeEmpty();
+                }
+                if (propertyKeyValues[i + 1] == null) {
+                    throw Property.Exceptions.propertyValueCanNotBeNull();
+                }
+                if (!(propertyKeyValues[i + 1] instanceof String)) {
+                    throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(propertyKeyValues[i + 1]);
+                }
+            }
+        }
+    }
+
     public static ByteBuffer serializeProperties(Map<String, List<String>> propertyMap) {
         int serializedLength = 0;
         for (Map.Entry<String, List<String>> property : propertyMap.entrySet()) {
             serializedLength += Integer.BYTES;
             String key = property.getKey();
             serializedLength += Short.BYTES + key.getBytes().length;
-            for (String value : property.getValue())
+            for (String value : property.getValue()) {
                 serializedLength += Short.BYTES + value.getBytes().length;
+            }
         }
-        
+
         ByteBuffer buffer = ByteBuffer.allocate(serializedLength);
         for (Map.Entry<String, List<String>> property : propertyMap.entrySet()) {
             int propLenPos = buffer.position();
@@ -55,10 +99,10 @@ public class TorcHelper {
             int propLen = buffer.position() - propLenPos - Integer.BYTES;
             buffer.putInt(propLenPos, propLen);
         }
-        
+
         return buffer;
     }
-    
+
     public static Map<String, List<String>> deserializeProperties(ByteBuffer buffer) {
         Map<String, List<String>> propertyMap = new HashMap<>();
         while (buffer.hasRemaining()) {
@@ -79,24 +123,24 @@ public class TorcHelper {
                 propertyMap.put(new String(key), values);
             }
         }
-        
+
         return propertyMap;
     }
-    
+
     public static Map<String, List<String>> deserializeProperties(RAMCloudObject obj) {
         ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
         value.put(obj.getValueBytes());
         value.rewind();
         return deserializeProperties(value);
     }
-    
+
     public static Map<String, List<String>> deserializeProperties(byte[] buf) {
         ByteBuffer value = ByteBuffer.allocate(buf.length);
         value.put(buf);
         value.rewind();
         return deserializeProperties(value);
     }
-    
+
     public static ByteBuffer serializeEdgeLabelList(List<String> edgeLabelList) {
         int serializedLength = 0;
         for (String label : edgeLabelList) {
@@ -108,37 +152,38 @@ public class TorcHelper {
             buffer.putShort((short) label.length());
             buffer.put(label.getBytes());
         }
-        
+
         return buffer;
     }
-    
+
     public static List<String> deserializeEdgeLabelList(ByteBuffer buffer) {
         List<String> edgeLabelList = new ArrayList<>();
         while (buffer.hasRemaining()) {
             short len = buffer.getShort();
             byte label[] = new byte[len];
             buffer.get(label);
-            
+
             edgeLabelList.add(new String(label));
         }
-        
+
         return edgeLabelList;
     }
-    
+
     public static List<String> deserializeEdgeLabelList(RAMCloudObject obj) {
         ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
         value.put(obj.getValueBytes());
         value.rewind();
         return deserializeEdgeLabelList(value);
     }
-    
+
     public static enum VertexKeyType {
+
         LABEL,
         PROPERTIES,
         EDGE_LIST,
         EDGE_LABELS,
     }
-    
+
     public static byte[] getVertexLabelKey(UInt128 vertexId) {
         ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES + Byte.BYTES);
         buffer.putLong(vertexId.getUpperLong());
@@ -146,7 +191,7 @@ public class TorcHelper {
         buffer.put((byte) VertexKeyType.LABEL.ordinal());
         return buffer.array();
     }
-    
+
     public static byte[] getVertexPropertiesKey(UInt128 vertexId) {
         ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES + Byte.BYTES);
         buffer.putLong(vertexId.getUpperLong());
@@ -154,16 +199,16 @@ public class TorcHelper {
         buffer.put((byte) VertexKeyType.PROPERTIES.ordinal());
         return buffer.array();
     }
-    
+
     public static VertexKeyType getVertexKeyType(byte[] key) {
         return VertexKeyType.values()[key[UInt128.BYTES]];
     }
-    
+
     /**
      * Generates a key prefix that defines an exclusive key-space for this
      * combination of vertex ID, edge label, and edge direction. No other
-     * (vertex ID, label, direction) combination will have a key prefix that 
-     * is a prefix of this key, or for which this key is a prefix of.
+     * (vertex ID, label, direction) combination will have a key prefix that is
+     * a prefix of this key, or for which this key is a prefix of.
      *
      * @param vertexId
      * @param label
@@ -179,7 +224,7 @@ public class TorcHelper {
         buffer.put((byte) dir.ordinal());
         return buffer.array();
     }
-    
+
     public static byte[] getEdgeLabelListKey(UInt128 vertexId) {
         return vertexId.toByteArray();
     }
