@@ -329,7 +329,7 @@ public class TorcVertexEdgeList {
      */
     public List<TorcEdge> readEdges(TorcGraph graph, UInt128 baseVertexId, String label, TorcEdgeDirection direction) {
         List<TorcEdge> edgeList = new ArrayList<>();
-        parseAllSegments((segBuf) -> {
+        parseSegments((segBuf) -> {
             while (segBuf.hasRemaining()) {
                 UInt128 neighborId = getNeighborIdOfCurrentEdge(segBuf);
                 if (direction == TorcEdgeDirection.DIRECTED_OUT) {
@@ -341,6 +341,8 @@ public class TorcVertexEdgeList {
                 }
                 segBuf.position(segBuf.position() + getLengthOfCurrentEdge(segBuf));
             }
+            
+            return true;
         });
         return edgeList;
     }
@@ -352,13 +354,39 @@ public class TorcVertexEdgeList {
      */
     public List<UInt128> readNeighborIds() {
         List<UInt128> neighborIDList = new ArrayList<>();
-        parseAllSegments((segBuf) -> {
+        parseSegments((segBuf) -> {
             while (segBuf.hasRemaining()) {
                 neighborIDList.add(getNeighborIdOfCurrentEdge(segBuf));
                 segBuf.position(segBuf.position() + getLengthOfCurrentEdge(segBuf));
             }
+            
+            return true;
         });
         return neighborIDList;
+    }
+    
+    /**
+     * Finds and returns the serialized properties on the edge with the given 
+     * neighbor. Returns null if not found.
+     */
+    public byte[] getEdgeProperties(UInt128 neighborId) {
+        List<byte[]> serPropList = new ArrayList<>();
+        parseSegments((segBuf) -> {
+            while (segBuf.hasRemaining()) {
+                if (getNeighborIdOfCurrentEdge(segBuf).equals(neighborId)) {
+                    serPropList.add(getSerializedPropertiesOfCurrentEdge(segBuf));
+                    return false;
+                }
+                segBuf.position(segBuf.position() + getLengthOfCurrentEdge(segBuf));
+            }
+            
+            return true;
+        });
+        
+        if (serPropList.size() == 1)
+            return serPropList.get(0);
+        else
+            return null;
     }
 
     /**
@@ -366,9 +394,10 @@ public class TorcVertexEdgeList {
      * list segments that compose the logical edge list.
      *
      * @param segmentParser Consumer object that is applied to each of the edge
-     * list segments.
+     * list segments. Returns a boolean, where true means continue parsing 
+     * segments, and false means stop.
      */
-    private void parseAllSegments(Consumer<ByteBuffer> segmentParser) {
+    private void parseSegments(Function<ByteBuffer,Boolean> segmentParser) {
         byte[] headSegKey = getSegmentKey(0, 0);
 
         RAMCloudObject headSegObj;
@@ -384,8 +413,9 @@ public class TorcVertexEdgeList {
 
         int majorSegments = headSeg.getInt();
         
-        segmentParser.accept(headSeg);
-
+        if(!segmentParser.apply(headSeg))
+            return;
+        
         for (int i = majorSegments; i > 0; --i) {
             byte[] majorSegKey = getSegmentKey(i, 0);
 
@@ -402,7 +432,8 @@ public class TorcVertexEdgeList {
 
             int minorSegments = majorSeg.getInt();
             
-            segmentParser.accept(majorSeg);
+            if(!segmentParser.apply(majorSeg))
+                return;
 
             for (int j = minorSegments; j > 0; --j) {
                 byte[] minorSegKey = getSegmentKey(i, j);
@@ -418,7 +449,8 @@ public class TorcVertexEdgeList {
                 minorSeg.put(minorSegObj.getValueBytes());
                 minorSeg.flip();
                 
-                segmentParser.accept(minorSeg);
+                if(!segmentParser.apply(minorSeg))
+                    return;
             }
         }
     }
@@ -464,6 +496,41 @@ public class TorcVertexEdgeList {
         edgeListBuf.get(neighborIdBytes);
         edgeListBuf.reset();
         return new UInt128(neighborIdBytes);
+    }
+    
+    /**
+     * Given a ByteBuffer of serialized edges, parses the serialized edge at the
+     * current location of the buffer for the serialized properties. If the
+     * buffer is empty or there are no more edges to parse, then this method
+     * returns null.
+     *
+     * @param edgeListBuf Buffer of serialized edges.
+     * @return Byte array representing the serialized properties of the current
+     * edge in the buffer. If the buffer has no more bytes remaining then null
+     * is returned.
+     */
+    private byte[] getSerializedPropertiesOfCurrentEdge(ByteBuffer edgeListBuf) {
+        if (edgeListBuf.remaining() == 0) {
+            return null;
+        }
+        
+        if (edgeListBuf.remaining() < UInt128.BYTES + Short.BYTES) 
+            throw new RuntimeException(String.format("Incomplete serialized edge found in edge list. Should be at least %d bytes, but only %d bytes are remaining in the buffer.", UInt128.BYTES + Short.BYTES, edgeListBuf.remaining()));
+        
+        edgeListBuf.mark();
+        edgeListBuf.position(edgeListBuf.position() + UInt128.BYTES);
+        short propLen = edgeListBuf.getShort();
+        
+        if (edgeListBuf.remaining() < propLen) {
+            edgeListBuf.reset();
+            throw new RuntimeException(String.format("Incomplete serialized edge found in edge list. Should be at least %d bytes, but only %d bytes are remaining in the buffer.", UInt128.BYTES + Short.BYTES + propLen, edgeListBuf.remaining()));
+        }
+        
+        byte[] serializedProperties = new byte[propLen];
+        edgeListBuf.get(serializedProperties);
+        edgeListBuf.reset();
+        
+        return serializedProperties;
     }
 
     /**

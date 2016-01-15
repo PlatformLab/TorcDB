@@ -25,6 +25,7 @@ import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
+import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 
 /**
  *
@@ -81,12 +82,12 @@ public class TorcEdge implements Edge, Element {
         @Override
         public String toString() {
             if (type == Type.DIRECTED) {
-                return String.format("[%s,%s,%d,%s]", v1Id.toString(), v2Id.toString(), type.ordinal(), label);
+                return String.format("(%s,%s,%s,%s)", v1Id.toString(), v2Id.toString(), type.toString(), label);
             } else {
                 if (v1Id.compareTo(v2Id) < 0) {
-                    return String.format("[%s,%s,%d,%s]", v1Id.toString(), v2Id.toString(), type.ordinal(), label);
+                    return String.format("(%s,%s,%s,%s)", v1Id.toString(), v2Id.toString(), type.toString(), label);
                 } else {
-                    return String.format("[%s,%s,%d,%s]", v2Id.toString(), v1Id.toString(), type.ordinal(), label);
+                    return String.format("(%s,%s,%s,%s)", v2Id.toString(), v1Id.toString(), type.toString(), label);
                 }
             }
         }
@@ -240,12 +241,13 @@ public class TorcEdge implements Edge, Element {
     @Override
     public String toString() {
         if (type == Type.DIRECTED) {
-            return String.format("(%s)-[:%s]->(%s)", v1Id.toString(), label, v2Id.toString());
+            return StringFactory.edgeString(this);
+            //return String.format("(%s)-[:%s]->(%s)", v1Id.toString(), label, v2Id.toString());
         } else {
             if (v1Id.compareTo(v2Id) < 0) {
-                return String.format("(%s)-[:%s]-(%s)", v1Id.toString(), label, v2Id.toString());
+                return String.format("e[%s][%s-%s-%s]", id(), v1Id.toString(), label, v2Id.toString());
             } else {
-                return String.format("(%s)-[:%s]-(%s)", v2Id.toString(), label, v1Id.toString());
+                return String.format("e[%s][%s-%s-%s]", id(), v2Id.toString(), label, v1Id.toString());
             }
         }
     }

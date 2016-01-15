@@ -24,25 +24,33 @@ import org.apache.tinkerpop.gremlin.structure.Property;
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
 public class TorcProperty<V> implements Property<V> {
-
+    private String key;
+    private V value;
+    private Element element;
+    
+    public TorcProperty(Element element, String key, V value) {
+        this.key = key;
+        this.value = value;
+    }
+    
     @Override
     public String key() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return key;
     }
 
     @Override
     public V value() throws NoSuchElementException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return value;
     }
 
     @Override
     public boolean isPresent() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return (value != null);
     }
 
     @Override
     public Element element() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return element;
     }
 
     @Override

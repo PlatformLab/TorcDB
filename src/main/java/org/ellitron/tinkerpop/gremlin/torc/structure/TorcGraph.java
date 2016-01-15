@@ -494,7 +494,7 @@ public final class TorcGraph implements Graph {
      * Methods called by TorcVertex.
      */
     void removeVertex(final TorcVertex vertex) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        throw Vertex.Exceptions.vertexRemovalNotSupported();
     }
 
     Edge addEdge(final TorcVertex vertex1, final TorcVertex vertex2, final String label, final TorcEdge.Type type, final Object[] keyValues) {
@@ -506,6 +506,11 @@ public final class TorcGraph implements Graph {
         torcGraphTx.readWrite();
         RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
+        if (vertex1 == null || vertex2 == null) 
+            throw Graph.Exceptions.argumentCanNotBeNull("vertex");
+        
+        ElementHelper.validateLabel(label);
+        
         TorcHelper.legalPropertyKeyValueArray(Edge.class, keyValues);
 
         // Create property map.
@@ -761,7 +766,7 @@ public final class TorcGraph implements Graph {
      * Methods called by TorcEdge.
      */
     void removeEdge(final TorcEdge edge) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        throw Edge.Exceptions.edgeRemovalNotSupported();
     }
 
     Iterator<Vertex> edgeVertices(final TorcEdge edge, final Direction direction) {
@@ -800,11 +805,62 @@ public final class TorcGraph implements Graph {
     }
 
     <V> Iterator<Property<V>> getEdgeProperties(final TorcEdge edge, final String[] propertyKeys) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        long startTimeNs = 0;
+        if (logger.isDebugEnabled()) {
+            startTimeNs = System.nanoTime();
+        }
+        
+        torcGraphTx.readWrite();
+        RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+        
+        byte[] keyPrefix;
+        if (edge.getType() == TorcEdge.Type.DIRECTED) {
+            keyPrefix = TorcHelper.getEdgeListKeyPrefix(edge.getV1Id(), edge.label(), TorcEdgeDirection.DIRECTED_OUT);
+        } else {
+            keyPrefix = TorcHelper.getEdgeListKeyPrefix(edge.getV1Id(), edge.label(), TorcEdgeDirection.UNDIRECTED);
+        }
+        
+        TorcVertexEdgeList edgeList = TorcVertexEdgeList.open(rctx, edgeListTableId, keyPrefix);
+        
+        byte[] serializedProperties = edgeList.getEdgeProperties(edge.getV2Id());
+        
+        List<Property<V>> propList = new ArrayList<>();
+        
+        if (serializedProperties == null) {
+            if (propertyKeys == null || propertyKeys.length == 0) {
+                return propList.iterator();
+            } else {
+                logger.debug("Throwing exception with propkey " + propertyKeys[0]);
+                throw Property.Exceptions.propertyDoesNotExist((Edge)edge, propertyKeys[0]);
+            }
+        }
+        
+        Map<String, List<String>> propMap = TorcHelper.deserializeProperties(serializedProperties);
+        
+        for (String key : propertyKeys) {
+            if (key == null) {
+                throw Property.Exceptions.propertyKeyCanNotBeNull();
+            } else if (key.length() == 0) {
+                throw Property.Exceptions.propertyKeyCanNotBeEmpty();
+            }
+            
+            if (propMap.containsKey(key)) {
+                List<String> values = propMap.get(key);
+                for (String value : values)
+                    propList.add(new TorcProperty(edge, key, value));
+            }
+        }
+        
+        if (logger.isDebugEnabled()) {
+            long endTimeNs = System.nanoTime();
+            logger.debug(String.format("getEdgeProperties(v1Id=%s,v2Id=%s,propKeys=%s), took %dus", edge.getV1Id().toString(), edge.getV2Id().toString(), Arrays.asList(propertyKeys).toString(), (endTimeNs - startTimeNs) / 1000l));
+        }
+        
+        return propList.iterator();
     }
 
     <V> Property<V> setEdgeProperty(final TorcEdge edge, final String key, final V value) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        throw Element.Exceptions.propertyAdditionNotSupported();
     }
 
     /**
