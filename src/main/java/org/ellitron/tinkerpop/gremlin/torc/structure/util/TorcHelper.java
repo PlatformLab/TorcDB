@@ -16,6 +16,7 @@
 package org.ellitron.tinkerpop.gremlin.torc.structure.util;
 
 import edu.stanford.ramcloud.RAMCloudObject;
+import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -35,7 +36,9 @@ import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdgeDirection;
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
 public class TorcHelper {
-
+    
+    public static String DEFAULT_CHAR_ENCODING = "UTF-8";
+    
     public static void legalPropertyKeyValueArray(final Class<? extends Element> clazz, final Object... propertyKeyValues) throws IllegalArgumentException {
         if (propertyKeyValues.length % 2 != 0) {
             throw Element.Exceptions.providedKeyValuesMustBeAMultipleOfTwo();
@@ -74,14 +77,22 @@ public class TorcHelper {
         }
     }
 
-    public static ByteBuffer serializeProperties(Map<String, List<String>> propertyMap) {
+    public static byte[] serializeString(String str) throws UnsupportedEncodingException {
+        return str.getBytes(DEFAULT_CHAR_ENCODING);
+    }
+    
+    public static String deserializeString(byte[] b) throws UnsupportedEncodingException {
+        return new String(b, DEFAULT_CHAR_ENCODING);
+    }
+    
+    public static ByteBuffer serializeProperties(Map<String, List<String>> propertyMap) throws UnsupportedEncodingException {
         int serializedLength = 0;
         for (Map.Entry<String, List<String>> property : propertyMap.entrySet()) {
             serializedLength += Integer.BYTES;
             String key = property.getKey();
-            serializedLength += Short.BYTES + key.getBytes().length;
+            serializedLength += Short.BYTES + serializeString(key).length;
             for (String value : property.getValue()) {
-                serializedLength += Short.BYTES + value.getBytes().length;
+                serializedLength += Short.BYTES + serializeString(value).length;
             }
         }
 
@@ -90,11 +101,13 @@ public class TorcHelper {
             int propLenPos = buffer.position();
             buffer.putInt(0); // will fill this in when we've got the total len
             String key = property.getKey();
-            buffer.putShort((short) key.getBytes().length);
-            buffer.put(key.getBytes());
+            byte[] keyByteArray = serializeString(key);
+            buffer.putShort((short) keyByteArray.length);
+            buffer.put(keyByteArray);
             for (String value : property.getValue()) {
-                buffer.putShort((short) value.getBytes().length);
-                buffer.put(value.getBytes());
+                byte[] valueByteArray = serializeString(value);
+                buffer.putShort((short) valueByteArray.length);
+                buffer.put(valueByteArray);
             }
             int propLen = buffer.position() - propLenPos - Integer.BYTES;
             buffer.putInt(propLenPos, propLen);
@@ -103,7 +116,7 @@ public class TorcHelper {
         return buffer;
     }
 
-    public static Map<String, List<String>> deserializeProperties(ByteBuffer buffer) {
+    public static Map<String, List<String>> deserializeProperties(ByteBuffer buffer) throws UnsupportedEncodingException {
         Map<String, List<String>> propertyMap = new HashMap<>();
         while (buffer.hasRemaining()) {
             int propLen = buffer.getInt();
@@ -117,59 +130,60 @@ public class TorcHelper {
                     short valLen = buffer.getShort();
                     byte value[] = new byte[valLen];
                     buffer.get(value);
-                    values.add(new String(value));
+                    values.add(deserializeString(value));
                 }
 
-                propertyMap.put(new String(key), values);
+                propertyMap.put(deserializeString(key), values);
             }
         }
 
         return propertyMap;
     }
 
-    public static Map<String, List<String>> deserializeProperties(RAMCloudObject obj) {
+    public static Map<String, List<String>> deserializeProperties(RAMCloudObject obj) throws UnsupportedEncodingException {
         ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
         value.put(obj.getValueBytes());
         value.rewind();
         return deserializeProperties(value);
     }
 
-    public static Map<String, List<String>> deserializeProperties(byte[] buf) {
+    public static Map<String, List<String>> deserializeProperties(byte[] buf) throws UnsupportedEncodingException {
         ByteBuffer value = ByteBuffer.allocate(buf.length);
         value.put(buf);
         value.rewind();
         return deserializeProperties(value);
     }
 
-    public static ByteBuffer serializeEdgeLabelList(List<String> edgeLabelList) {
+    public static ByteBuffer serializeEdgeLabelList(List<String> edgeLabelList) throws UnsupportedEncodingException {
         int serializedLength = 0;
         for (String label : edgeLabelList) {
-            serializedLength += Short.BYTES + label.length();
+            serializedLength += Short.BYTES + serializeString(label).length;
         }
 
         ByteBuffer buffer = ByteBuffer.allocate(serializedLength);
         for (String label : edgeLabelList) {
-            buffer.putShort((short) label.length());
-            buffer.put(label.getBytes());
+            byte[] labelByteArray = serializeString(label);
+            buffer.putShort((short) labelByteArray.length);
+            buffer.put(serializeString(label));
         }
 
         return buffer;
     }
 
-    public static List<String> deserializeEdgeLabelList(ByteBuffer buffer) {
+    public static List<String> deserializeEdgeLabelList(ByteBuffer buffer) throws UnsupportedEncodingException {
         List<String> edgeLabelList = new ArrayList<>();
         while (buffer.hasRemaining()) {
             short len = buffer.getShort();
             byte label[] = new byte[len];
             buffer.get(label);
 
-            edgeLabelList.add(new String(label));
+            edgeLabelList.add(deserializeString(label));
         }
 
         return edgeLabelList;
     }
 
-    public static List<String> deserializeEdgeLabelList(RAMCloudObject obj) {
+    public static List<String> deserializeEdgeLabelList(RAMCloudObject obj) throws UnsupportedEncodingException {
         ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
         value.put(obj.getValueBytes());
         value.rewind();
@@ -215,12 +229,13 @@ public class TorcHelper {
      * @param dir
      * @return
      */
-    public static byte[] getEdgeListKeyPrefix(UInt128 vertexId, String label, TorcEdgeDirection dir) {
-        ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES + Short.BYTES + label.getBytes().length + Byte.BYTES);
+    public static byte[] getEdgeListKeyPrefix(UInt128 vertexId, String label, TorcEdgeDirection dir) throws UnsupportedEncodingException {
+        byte[] labelByteArray = serializeString(label);
+        ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES + Short.BYTES + labelByteArray.length + Byte.BYTES);
         buffer.putLong(vertexId.getUpperLong());
         buffer.putLong(vertexId.getLowerLong());
-        buffer.putShort((short) label.getBytes().length);
-        buffer.put(label.getBytes());
+        buffer.putShort((short) labelByteArray.length);
+        buffer.put(labelByteArray);
         buffer.put((byte) dir.ordinal());
         return buffer.array();
     }
