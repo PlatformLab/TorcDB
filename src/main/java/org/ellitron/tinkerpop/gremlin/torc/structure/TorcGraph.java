@@ -31,6 +31,7 @@ import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import edu.stanford.ramcloud.*;
 import edu.stanford.ramcloud.transactions.*;
 import edu.stanford.ramcloud.ClientException.*;
+import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -47,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Property;
@@ -234,8 +236,8 @@ public final class TorcGraph implements Graph {
             long id_counter = (long) (Math.random() * NUM_ID_COUNTERS);
             RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
             
-            long id = client.incrementInt64(idTableId, Long.toString(id_counter).getBytes(), 1, null);
-
+            long id = client.incrementInt64(idTableId, TorcHelper.serializeString(Long.toString(id_counter)), 1, null);
+            
             vertexId = new UInt128((1L << 63) + id_counter, id);
             
             if (logger.isTraceEnabled()) {
@@ -276,8 +278,9 @@ public final class TorcGraph implements Graph {
         /*
          * Perform size checks on objects to be written to RAMCloud.
          */
-        if (label.getBytes().length > RAMCLOUD_OBJECT_SIZE_LIMIT) {
-            throw new IllegalArgumentException(String.format("Size of vertex label exceeds maximum allowable (size=%dB, max=%dB)", label.getBytes().length, RAMCLOUD_OBJECT_SIZE_LIMIT));
+        byte[] labelByteArray = TorcHelper.serializeString(label);
+        if (labelByteArray.length > RAMCLOUD_OBJECT_SIZE_LIMIT) {
+            throw new IllegalArgumentException(String.format("Size of vertex label exceeds maximum allowable (size=%dB, max=%dB)", labelByteArray.length, RAMCLOUD_OBJECT_SIZE_LIMIT));
         }
 
         byte[] serializedProps = TorcHelper.serializeProperties(properties).array();
@@ -295,7 +298,7 @@ public final class TorcGraph implements Graph {
             startTime = System.nanoTime();
         }
             
-        rctx.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId), label.getBytes());
+        rctx.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId), labelByteArray);
         
         if (logger.isTraceEnabled()) {
             long endTime = System.nanoTime();
