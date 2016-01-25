@@ -214,12 +214,10 @@ public final class TorcGraph implements Graph {
             if (logger.isTraceEnabled()) {
                 startTime = System.nanoTime();
             }
+            
             // Check if a vertex with this ID already exists.
-            try {
-                rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
+            if (rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId)) != null) {
                 throw Graph.Exceptions.vertexWithIdAlreadyExists(vertexId.toString());
-            } catch (ObjectDoesntExistException e) {
-                // Good!
             }
             
             if (logger.isTraceEnabled()) {
