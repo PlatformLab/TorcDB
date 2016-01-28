@@ -218,6 +218,7 @@ public final class TorcGraph implements Graph {
             // Check if a vertex with this ID already exists.
             try {
                 rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
+                throw Graph.Exceptions.vertexWithIdAlreadyExists(vertexId.toString());
             } catch (ObjectDoesntExistException e) {
                 // Good!
             }
