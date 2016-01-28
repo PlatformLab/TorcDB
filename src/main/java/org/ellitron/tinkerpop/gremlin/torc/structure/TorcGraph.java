@@ -216,9 +216,15 @@ public final class TorcGraph implements Graph {
             }
             
             // Check if a vertex with this ID already exists.
-            if (rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId)) != null) {
-                throw Graph.Exceptions.vertexWithIdAlreadyExists(vertexId.toString());
+            try {
+                rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
+            } catch (ObjectDoesntExistException e) {
+                // Good!
             }
+            
+//            if (rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId)) != null) {
+//                throw Graph.Exceptions.vertexWithIdAlreadyExists(vertexId.toString());
+//            }
             
             if (logger.isTraceEnabled()) {
                 long endTime = System.nanoTime();
