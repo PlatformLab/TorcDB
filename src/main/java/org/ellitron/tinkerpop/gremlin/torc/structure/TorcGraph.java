@@ -40,6 +40,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 
 import org.apache.commons.configuration.Configuration;
+import org.apache.commons.configuration.BaseConfiguration;
 
 import org.apache.log4j.Logger;
 
@@ -97,7 +98,7 @@ public final class TorcGraph implements Graph {
 
     private TorcGraph(final Configuration configuration) {
         this.configuration = configuration;
-        
+
         if (configuration.containsKey(CONFIG_THREADLOCALCLIENTMAP)) {
             this.threadLocalClientMap = (ConcurrentHashMap<Thread, RAMCloud>) configuration.getProperty(CONFIG_THREADLOCALCLIENTMAP);
         } else {
@@ -109,12 +110,28 @@ public final class TorcGraph implements Graph {
         graphName = configuration.getString(CONFIG_GRAPH_NAME);
         coordinatorLocator = configuration.getString(CONFIG_COORD_LOCATOR);
         totalMasterServers = configuration.getInt(CONFIG_NUM_MASTER_SERVERS);
-        
+
         logger.debug(String.format("Constructing TorcGraph (%s,%s,%d)", graphName, coordinatorLocator, totalMasterServers));
     }
 
     public static TorcGraph open(final Configuration configuration) {
         return new TorcGraph(configuration);
+    }
+    
+    public static TorcGraph open(String graphName) {
+        Map<String, String> env = System.getenv();
+        
+        BaseConfiguration config = new BaseConfiguration();
+        config.setDelimiterParsingDisabled(true);
+        config.setProperty(TorcGraph.CONFIG_GRAPH_NAME, graphName);
+        config.setProperty(TorcGraph.CONFIG_COORD_LOCATOR, env.get("RAMCLOUD_COORDINATOR_LOCATOR"));
+        config.setProperty(TorcGraph.CONFIG_NUM_MASTER_SERVERS, env.get("RAMCLOUD_SERVERS"));
+
+        return open(config);
+    }
+
+    public static TorcGraph open() {
+        return open("default");
     }
     
     @Override
