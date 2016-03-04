@@ -650,7 +650,7 @@ public final class TorcGraph implements Graph {
 
         if (logger.isDebugEnabled()) {
             long endTimeNs = System.nanoTime();
-            logger.debug(String.format("vertexEdges(vertex=%s,directions=%s,labels=%s), took %dus", vertex.id().toString(), edgeDirections.toString(), labels.toString(), (endTimeNs - startTimeNs) / 1000l));
+            logger.debug(String.format("vertexEdges(vertex=%s,directions=%s,labels=%s):(n=%d), took %dus", vertex.id().toString(), edgeDirections.toString(), labels.toString(), edges.size(), (endTimeNs - startTimeNs) / 1000l));
         }
 
         return edges.iterator();
@@ -692,7 +692,7 @@ public final class TorcGraph implements Graph {
 
         if (logger.isDebugEnabled()) {
             long endTimeNs = System.nanoTime();
-            logger.debug(String.format("vertexNeighbors(vertex=%s,directions=%s,labels=%s), took %dus", vertex.id().toString(), edgeDirections.toString(), labels.toString(), (endTimeNs - startTimeNs) / 1000l));
+            logger.debug(String.format("vertexNeighbors(vertex=%s,directions=%s,labels=%s):(n=%d), took %dus", vertex.id().toString(), edgeDirections.toString(), labels.toString(), vertices.size(), (endTimeNs - startTimeNs) / 1000l));
         }
 
         return vertices.iterator();
@@ -823,7 +823,7 @@ public final class TorcGraph implements Graph {
         if (logger.isDebugEnabled()) {
             long endTimeNs = System.nanoTime();
             // TODO: Update this when we have TorcEdgeId class to stringify
-            logger.debug(String.format("edgeVertices(edgeIdGoesHere,dir=%s), took %dus", direction.toString(), (endTimeNs - startTimeNs) / 1000l));
+            logger.debug(String.format("edgeVertices(edgeIdGoesHere,dir=%s):(n=%d), took %dus", direction.toString(), list.size(), (endTimeNs - startTimeNs) / 1000l));
         }
 
         return list.iterator();
