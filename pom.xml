@@ -4,8 +4,9 @@
     <parent>
         <groupId>org.apache.tinkerpop</groupId>
         <artifactId>tinkerpop</artifactId>
-        <version>3.1.0-incubating</version>
+        <version>3.1.1-incubating</version>
     </parent>
+    <name>torc-gremlin</name>
     <groupId>org.ellitron</groupId>
     <artifactId>torc-gremlin</artifactId>
     <version>1.0-SNAPSHOT</version>
@@ -19,18 +20,18 @@
         <dependency>
             <groupId>org.apache.tinkerpop</groupId>
             <artifactId>gremlin-core</artifactId>
-            <version>3.0.1-incubating</version>
+            <version>3.1.1-incubating</version>
         </dependency>
         <dependency>
             <groupId>org.apache.tinkerpop</groupId>
             <artifactId>gremlin-core</artifactId>
-            <version>3.0.1-incubating</version>
+            <version>3.1.1-incubating</version>
             <classifier>sources</classifier>
         </dependency>
         <dependency>
             <groupId>org.apache.tinkerpop</groupId>
             <artifactId>gremlin-test</artifactId>
-            <version>3.0.1-incubating</version>
+            <version>3.1.1-incubating</version>
         </dependency>
         <dependency>
             <groupId>edu.stanford</groupId>
@@ -72,7 +73,8 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.17</version>
                 <configuration>
-                    <redirectTestOutputToFile>true</redirectTestOutputToFile>
+                    <!-- In case we want to analyze test output for later -->
+                    <!--<redirectTestOutputToFile>true</redirectTestOutputToFile>-->
                     <systemPropertyVariables>
                         <log4j.configuration>file:${project.build.testOutputDirectory}/log4j.properties</log4j.configuration>
                     </systemPropertyVariables>
@@ -83,8 +85,9 @@
                         </property>
                     </properties>
                     <environmentVariables>
-                        <GREMLIN_TESTS>org.apache.tinkerpop.gremlin.structure.TransactionTest,org.apache.tinkerpop.gremlin.structure.GraphTest</GREMLIN_TESTS>
-                        <!--<GREMLIN_TESTS>org.apache.tinkerpop.gremlin.structure.GraphTest</GREMLIN_TESTS>-->
+                        <!-- Here is how to enable certain tests -->
+                        <!--<GREMLIN_TESTS>org.apache.tinkerpop.gremlin.structure.TransactionTest,org.apache.tinkerpop.gremlin.structure.GraphTest</GREMLIN_TESTS>-->
+                        <!--<GREMLIN_TESTS>org.ellitron.tinkerpop.gremlin.torc.structure.util.TorcVertexEdgeListTest</GREMLIN_TESTS>-->
                     </environmentVariables>
                 </configuration>
             </plugin>
@@ -95,5 +98,4 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
-    <name>torc-gremlin</name>
 </project>

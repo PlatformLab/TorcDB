@@ -16,47 +16,44 @@
 // TODO: Change license to match RAMCloud
 package org.ellitron.tinkerpop.gremlin.torc.structure;
 
-import org.ellitron.tinkerpop.gremlin.torc.structure.util.UInt128;
-import org.apache.tinkerpop.gremlin.process.computer.GraphComputer;
-
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.structure.Transaction;
-import org.apache.tinkerpop.gremlin.structure.VertexProperty;
-
-import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
-import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
-
 import edu.stanford.ramcloud.*;
 import edu.stanford.ramcloud.transactions.*;
 import edu.stanford.ramcloud.ClientException.*;
-import java.io.UnsupportedEncodingException;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
-
-import org.apache.commons.configuration.Configuration;
-import org.apache.commons.configuration.BaseConfiguration;
-
-import org.apache.log4j.Logger;
-
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.logging.Level;
+
+import org.apache.commons.configuration.Configuration;
+import org.apache.commons.configuration.BaseConfiguration;
+import org.apache.log4j.Logger;
+
+import org.apache.tinkerpop.gremlin.process.computer.GraphComputer;
+import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.structure.Transaction;
+import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
+import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Property;
-import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.util.AbstractTransaction;
+
 import org.ellitron.tinkerpop.gremlin.torc.structure.util.TorcHelper;
 import org.ellitron.tinkerpop.gremlin.torc.structure.util.TorcVertexEdgeList;
+import org.ellitron.tinkerpop.gremlin.torc.structure.util.UInt128;
 
 /**
  * TODO: Write documentation - Bidirectional edges
@@ -1115,7 +1112,14 @@ public final class TorcGraph implements Graph {
                 logger.debug(String.format("TorcGraphTransaction.doOpen(thread=%d), took %dus", us.getId(), (endTimeNs - startTimeNs) / 1000l));
             }
         }
-
+        
+        @Override
+        public boolean isOpen() {
+            boolean isOpen = (threadLocalRCTXMap.get(Thread.currentThread()) != null);
+            
+            return isOpen;
+        }
+        
         @Override
         public void doCommit() throws AbstractTransaction.TransactionException {
             long startTimeNs = 0;
@@ -1164,12 +1168,60 @@ public final class TorcGraph implements Graph {
                 logger.debug(String.format("TorcGraphTransaction.doRollback(thread=%d), took %dus", Thread.currentThread().getId(), (endTimeNs - startTimeNs) / 1000l));
             }
         }
+        
+        @Override
+        protected void fireOnCommit() {
+            // Not implemented.
+            //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
 
         @Override
-        public boolean isOpen() {
-            boolean isOpen = (threadLocalRCTXMap.get(Thread.currentThread()) != null);
-            
-            return isOpen;
+        protected void fireOnRollback() {
+            // Not implemented.
+            //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+        
+        @Override
+        protected void doReadWrite() {
+            if (!isOpen()) {
+                doOpen();
+            }
+        }
+
+        @Override
+        protected void doClose() {
+            if (isOpen()) {
+                try {
+                    doRollback();
+                } catch (TransactionException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+        }
+
+        @Override
+        public Transaction onReadWrite(Consumer<Transaction> consumer) {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+
+        @Override
+        public Transaction onClose(Consumer<Transaction> consumer) {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+
+        @Override
+        public void addTransactionListener(Consumer<Status> listener) {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+
+        @Override
+        public void removeTransactionListener(Consumer<Status> listener) {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+
+        @Override
+        public void clearTransactionListeners() {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
         }
     }
 
