@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.torc.structure.util;
+
+package net.ellitron.torc.util;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;

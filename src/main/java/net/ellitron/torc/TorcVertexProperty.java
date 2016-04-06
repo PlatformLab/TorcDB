@@ -13,15 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.torc.structure;
+package net.ellitron.torc;
 
-import java.util.Iterator;
-import java.util.NoSuchElementException;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+
+import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 /**
  *

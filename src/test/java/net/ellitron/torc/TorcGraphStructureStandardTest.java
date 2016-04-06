@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.torc.structure;
+package net.ellitron.torc;
+
+import net.ellitron.torc.TorcGraphProvider;
 
 import org.apache.tinkerpop.gremlin.GraphProviderClass;
 import org.apache.tinkerpop.gremlin.structure.StructureStandardSuite;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraph;
-import org.ellitron.tinkerpop.gremlin.torc.TorcGraphProvider;
 import org.junit.runner.RunWith;
 
 /**

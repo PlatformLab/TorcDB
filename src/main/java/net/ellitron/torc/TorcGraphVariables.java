@@ -13,48 +13,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.torc.structure;
+package net.ellitron.torc;
 
-import java.util.NoSuchElementException;
-import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.structure.Property;
+import org.apache.tinkerpop.gremlin.structure.Graph;
+
+import java.util.Optional;
+import java.util.Set;
 
 /**
  *
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
-public class TorcProperty<V> implements Property<V> {
-    private String key;
-    private V value;
-    private Element element;
-    
-    public TorcProperty(Element element, String key, V value) {
-        this.key = key;
-        this.value = value;
-    }
-    
+public class TorcGraphVariables implements Graph.Variables {
+
     @Override
-    public String key() {
-        return key;
+    public Set<String> keys() {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public V value() throws NoSuchElementException {
-        return value;
+    public <R> Optional<R> get(String key) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public boolean isPresent() {
-        return (value != null);
+    public void set(String key, Object value) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public Element element() {
-        return element;
-    }
-
-    @Override
-    public void remove() {
+    public void remove(String key) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
     

@@ -13,9 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.torc;
+package net.ellitron.torc;
+
+import net.ellitron.torc.util.UInt128;
 
 import edu.stanford.ramcloud.RAMCloud;
+
+import org.apache.commons.configuration.Configuration;
+import org.apache.tinkerpop.gremlin.AbstractGraphProvider;
+import org.apache.tinkerpop.gremlin.LoadGraphWith;
+import org.apache.tinkerpop.gremlin.structure.Element;
+import org.apache.tinkerpop.gremlin.structure.Graph;
+
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -24,19 +33,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.commons.configuration.Configuration;
-
-import org.apache.tinkerpop.gremlin.AbstractGraphProvider;
-import org.apache.tinkerpop.gremlin.LoadGraphWith;
-import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdge;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraph;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraphVariables;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcProperty;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertex;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertexProperty;
-import org.ellitron.tinkerpop.gremlin.torc.structure.util.UInt128;
 
 /**
  *

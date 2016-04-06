@@ -13,16 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.torc.structure.util;
+
+package net.ellitron.torc.util;
+
+import static org.junit.Assert.assertEquals;
+
+import net.ellitron.torc.TorcEdgeDirection;
 
 import edu.stanford.ramcloud.RAMCloud;
 import edu.stanford.ramcloud.transactions.RAMCloudTransaction;
-import java.util.List;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdgeDirection;
+
 import org.junit.After;
-import static org.junit.Assert.assertEquals;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.List;
 
 /**
  *

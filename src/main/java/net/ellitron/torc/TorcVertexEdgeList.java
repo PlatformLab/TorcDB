@@ -13,26 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.torc.structure.util;
+package net.ellitron.torc.util;
+
+import net.ellitron.torc.TorcEdge;
+import net.ellitron.torc.TorcEdgeDirection;
+import net.ellitron.torc.TorcGraph;
+import net.ellitron.torc.TorcVertex;
 
 import edu.stanford.ramcloud.ClientException;
 import edu.stanford.ramcloud.RAMCloudObject;
 import edu.stanford.ramcloud.transactions.RAMCloudTransaction;
+
+import org.apache.log4j.Logger;
+
 import java.nio.ByteBuffer;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import org.apache.log4j.Logger;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdge;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcEdgeDirection;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraph;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcVertex;
 
 /**
  * TODO: Fix comments, no longer has vertexId, direction, or label.

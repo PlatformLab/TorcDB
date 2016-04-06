@@ -14,46 +14,47 @@
  * limitations under the License.
  */
 // TODO: Change license to match RAMCloud
-package org.ellitron.tinkerpop.gremlin.torc.structure;
+package net.ellitron.torc;
+
+import net.ellitron.torc.util.TorcHelper;
+import net.ellitron.torc.util.TorcVertexEdgeList;
+import net.ellitron.torc.util.UInt128;
 
 import edu.stanford.ramcloud.*;
-import edu.stanford.ramcloud.transactions.*;
 import edu.stanford.ramcloud.ClientException.*;
+import edu.stanford.ramcloud.transactions.*;
+
+import org.apache.commons.configuration.BaseConfiguration;
+import org.apache.commons.configuration.Configuration;
+
+import org.apache.log4j.Logger;
+
+import org.apache.tinkerpop.gremlin.process.computer.GraphComputer;
+import org.apache.tinkerpop.gremlin.structure.Direction;
+import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.structure.Element;
+import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.structure.Property;
+import org.apache.tinkerpop.gremlin.structure.Transaction;
+import org.apache.tinkerpop.gremlin.structure.util.AbstractTransaction;
+import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
+import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.EnumSet;
+import java.util.function.Consumer;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
-import java.util.logging.Level;
-
-import org.apache.commons.configuration.Configuration;
-import org.apache.commons.configuration.BaseConfiguration;
-import org.apache.log4j.Logger;
-
-import org.apache.tinkerpop.gremlin.process.computer.GraphComputer;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.structure.Transaction;
-import org.apache.tinkerpop.gremlin.structure.VertexProperty;
-import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
-import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
-import org.apache.tinkerpop.gremlin.structure.Direction;
-import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.structure.Property;
-import org.apache.tinkerpop.gremlin.structure.util.AbstractTransaction;
-
-import org.ellitron.tinkerpop.gremlin.torc.structure.util.TorcHelper;
-import org.ellitron.tinkerpop.gremlin.torc.structure.util.TorcVertexEdgeList;
-import org.ellitron.tinkerpop.gremlin.torc.structure.util.UInt128;
 
 /**
  * TODO: Write documentation - Bidirectional edges

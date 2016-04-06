@@ -13,33 +13,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.ellitron.tinkerpop.gremlin.torc.measurement;
+package net.ellitron.torc.util;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import static edu.stanford.ramcloud.ClientException.*;
+import static java.lang.Thread.sleep;
+
+import net.ellitron.torc.TorcGraph;
+
+import edu.stanford.ramcloud.*;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.configuration.BaseConfiguration;
+import org.apache.commons.io.FilenameUtils;
 
-import edu.stanford.ramcloud.*;
-import static edu.stanford.ramcloud.ClientException.*;
+import org.apache.tinkerpop.gremlin.structure.T;
+
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
-import static java.lang.Thread.sleep;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.Map;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.configuration.BaseConfiguration;
-import org.apache.commons.io.FilenameUtils;
-import org.apache.tinkerpop.gremlin.structure.T;
-import org.ellitron.tinkerpop.gremlin.torc.structure.TorcGraph;
-
 
 /**
  *
