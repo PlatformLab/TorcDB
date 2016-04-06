@@ -14,6 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# torc-gremlin
-
-Torc: TinkerPop On RAMCloud
+Torc: TinkerPop on RAMCloud
+===========================
