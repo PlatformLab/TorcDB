@@ -52,7 +52,6 @@ import java.util.function.Consumer;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.logging.Level;
 import java.util.Map;
 import java.util.Objects;
 
@@ -69,11 +68,16 @@ public final class TorcGraph implements Graph {
     private static final Logger logger = Logger.getLogger(TorcGraph.class);
 
     // Configuration keys.
-    public static final String CONFIG_GRAPH_NAME = "gremlin.torc.graphName";
-    public static final String CONFIG_COORD_LOCATOR = "gremlin.torc.coordinatorLocator";
-    public static final String CONFIG_NUM_MASTER_SERVERS = "gremlin.torc.numMasterServers";
-    public static final String CONFIG_LOG_LEVEL = "gremlin.torc.logLevel";
-    public static final String CONFIG_THREADLOCALCLIENTMAP = "gremlin.torc.threadLocalClientMap";
+    public static final String CONFIG_GRAPH_NAME = 
+        "gremlin.torc.graphName";
+    public static final String CONFIG_COORD_LOCATOR = 
+        "gremlin.torc.coordinatorLocator";
+    public static final String CONFIG_NUM_MASTER_SERVERS = 
+        "gremlin.torc.numMasterServers";
+    public static final String CONFIG_LOG_LEVEL = 
+        "gremlin.torc.logLevel";
+    public static final String CONFIG_THREADLOCALCLIENTMAP = 
+        "gremlin.torc.threadLocalClientMap";
 
     // Constants.
     private static final String ID_TABLE_NAME = "idTable";
@@ -98,7 +102,9 @@ public final class TorcGraph implements Graph {
         this.configuration = configuration;
 
         if (configuration.containsKey(CONFIG_THREADLOCALCLIENTMAP)) {
-            this.threadLocalClientMap = (ConcurrentHashMap<Thread, RAMCloud>) configuration.getProperty(CONFIG_THREADLOCALCLIENTMAP);
+            this.threadLocalClientMap = 
+                (ConcurrentHashMap<Thread, RAMCloud>) configuration
+                    .getProperty(CONFIG_THREADLOCALCLIENTMAP);
         } else {
             this.threadLocalClientMap = new ConcurrentHashMap<>();
         }
@@ -107,9 +113,15 @@ public final class TorcGraph implements Graph {
         
         graphName = configuration.getString(CONFIG_GRAPH_NAME);
         coordinatorLocator = configuration.getString(CONFIG_COORD_LOCATOR);
-        totalMasterServers = configuration.getInt(CONFIG_NUM_MASTER_SERVERS);
+        
+        if (configuration.containsKey(CONFIG_NUM_MASTER_SERVERS)) {
+          totalMasterServers = configuration.getInt(CONFIG_NUM_MASTER_SERVERS);
+        } else {
+          totalMasterServers = 1;
+        }
 
-        logger.debug(String.format("Constructing TorcGraph (%s,%s,%d)", graphName, coordinatorLocator, totalMasterServers));
+        logger.debug(String.format("Constructing TorcGraph (%s,%s)", 
+            graphName, coordinatorLocator));
     }
 
     public static TorcGraph open(final Configuration configuration) {
@@ -122,8 +134,13 @@ public final class TorcGraph implements Graph {
         BaseConfiguration config = new BaseConfiguration();
         config.setDelimiterParsingDisabled(true);
         config.setProperty(TorcGraph.CONFIG_GRAPH_NAME, graphName);
-        config.setProperty(TorcGraph.CONFIG_COORD_LOCATOR, env.get("RAMCLOUD_COORDINATOR_LOCATOR"));
-        config.setProperty(TorcGraph.CONFIG_NUM_MASTER_SERVERS, env.get("RAMCLOUD_SERVERS"));
+        config.setProperty(TorcGraph.CONFIG_COORD_LOCATOR, 
+            env.get("RAMCLOUD_COORDINATOR_LOCATOR"));
+        
+        if (env.containsKey("RAMCLOUD_SERVERS")) {
+          config.setProperty(TorcGraph.CONFIG_NUM_MASTER_SERVERS, 
+              env.get("RAMCLOUD_SERVERS"));
+        } 
 
         return open(config);
     }
