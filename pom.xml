@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>net.ellitron.torc</groupId>
     <artifactId>torc</artifactId>
-    <name>Torc: TinkerPop on RAMCloud</name>
+    <name>TorcDB: TinkerPop on RAMCloud</name>
     <version>1.0.0</version>
     <packaging>jar</packaging>
     <dependencies>
