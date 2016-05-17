@@ -124,6 +124,17 @@ public final class TorcGraph implements Graph {
         graphName, coordinatorLocator));
   }
 
+  public static TorcGraph open(Map<String, String> configuration) {
+    BaseConfiguration config = new BaseConfiguration();
+    config.setDelimiterParsingDisabled(true);
+    
+    for (String key : configuration.keySet()) {
+      config.setProperty(key, configuration.get(key));
+    }
+    
+    return new TorcGraph(config);
+  }
+
   public static TorcGraph open(final Configuration configuration) {
     return new TorcGraph(configuration);
   }
