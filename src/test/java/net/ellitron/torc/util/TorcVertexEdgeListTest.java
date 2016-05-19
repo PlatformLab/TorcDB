@@ -18,8 +18,6 @@ package net.ellitron.torc.util;
 
 import static org.junit.Assert.assertEquals;
 
-import net.ellitron.torc.TorcEdgeDirection;
-
 import edu.stanford.ramcloud.RAMCloud;
 import edu.stanford.ramcloud.transactions.RAMCloudTransaction;
 
@@ -28,6 +26,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.List;
+import net.ellitron.torc.TorcVertexEdgeList;
 
 /**
  *
