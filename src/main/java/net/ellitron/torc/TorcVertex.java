@@ -15,7 +15,11 @@
  */
 package net.ellitron.torc;
 
+import net.ellitron.torc.util.TorcHelper;
 import net.ellitron.torc.util.UInt128;
+
+import edu.stanford.ramcloud.RAMCloudObject;
+import edu.stanford.ramcloud.transactions.RAMCloudTransaction;
 
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
@@ -43,6 +47,10 @@ public class TorcVertex implements Vertex, Element {
     this.label = label;
   }
 
+  public TorcVertex(final TorcGraph graph, final UInt128 id) {
+    this(graph, id, null);
+  }
+  
   /**
    * {@inheritDoc}
    */
@@ -56,7 +64,12 @@ public class TorcVertex implements Vertex, Element {
    */
   @Override
   public String label() {
-    return label;
+    if (label != null) {
+      return label;
+    } else {
+      this.label = graph.getLabel(this);
+      return label;
+    }
   }
 
   /**

@@ -185,6 +185,13 @@ public final class TorcGraph implements Graph {
     return torcGraphTx;
   }
 
+  String getLabel(TorcVertex v) {
+    RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    RAMCloudObject neighborLabelRCObj =
+        rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(v.id()));
+    return neighborLabelRCObj.getValue();
+  }
+
   /**
    * This method ensures three things are true before it returns to the caller:
    *
@@ -732,9 +739,7 @@ public final class TorcGraph implements Graph {
             TorcVertexEdgeList.open(rctx, edgeListTableId, keyPrefix);
         List<UInt128> neighborIdList = edgeList.readNeighborIds();
         for (UInt128 neighborId : neighborIdList) {
-          RAMCloudObject neighborLabelRCObj =
-              rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(neighborId));
-          vertices.add(new TorcVertex(this, neighborId, neighborLabelRCObj.getValue()));
+          vertices.add(new TorcVertex(this, neighborId));
         }
       }
     }
