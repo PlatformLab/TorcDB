@@ -17,7 +17,6 @@
 package net.ellitron.torc;
 
 import net.ellitron.torc.util.TorcHelper;
-import net.ellitron.torc.util.TorcVertexEdgeList;
 import net.ellitron.torc.util.UInt128;
 
 import edu.stanford.ramcloud.*;
@@ -127,11 +126,11 @@ public final class TorcGraph implements Graph {
   public static TorcGraph open(Map<String, String> configuration) {
     BaseConfiguration config = new BaseConfiguration();
     config.setDelimiterParsingDisabled(true);
-    
+
     for (String key : configuration.keySet()) {
       config.setProperty(key, configuration.get(key));
     }
-    
+
     return new TorcGraph(config);
   }
 
@@ -777,7 +776,7 @@ public final class TorcGraph implements Graph {
       }
     } else {
       for (Map.Entry<String, List<String>> property : properties.entrySet()) {
-                // TODO: Here I am implicitly assuming that V is of type String, 
+        // TODO: Here I am implicitly assuming that V is of type String, 
         // since property.getValue() returns a string, making the new 
         // elemennt to propList TorcVertexProperty<String>
         String key = property.getKey();
@@ -1242,13 +1241,13 @@ public final class TorcGraph implements Graph {
 
     @Override
     protected void fireOnCommit() {
-            // Not implemented.
+      // Not implemented.
       //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
     protected void fireOnRollback() {
-            // Not implemented.
+      // Not implemented.
       //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 

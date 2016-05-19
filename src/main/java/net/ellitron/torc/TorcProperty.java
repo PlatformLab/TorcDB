@@ -25,38 +25,39 @@ import java.util.NoSuchElementException;
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
 public class TorcProperty<V> implements Property<V> {
-    private String key;
-    private V value;
-    private Element element;
-    
-    public TorcProperty(Element element, String key, V value) {
-        this.key = key;
-        this.value = value;
-    }
-    
-    @Override
-    public String key() {
-        return key;
-    }
 
-    @Override
-    public V value() throws NoSuchElementException {
-        return value;
-    }
+  private String key;
+  private V value;
+  private Element element;
 
-    @Override
-    public boolean isPresent() {
-        return (value != null);
-    }
+  public TorcProperty(Element element, String key, V value) {
+    this.key = key;
+    this.value = value;
+  }
 
-    @Override
-    public Element element() {
-        return element;
-    }
+  @Override
+  public String key() {
+    return key;
+  }
 
-    @Override
-    public void remove() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-    
+  @Override
+  public V value() throws NoSuchElementException {
+    return value;
+  }
+
+  @Override
+  public boolean isPresent() {
+    return (value != null);
+  }
+
+  @Override
+  public Element element() {
+    return element;
+  }
+
+  @Override
+  public void remove() {
+    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+  }
+
 }

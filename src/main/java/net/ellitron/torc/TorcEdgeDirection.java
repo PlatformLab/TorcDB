@@ -16,24 +16,22 @@
 package net.ellitron.torc;
 
 /**
- *
  * Direction categories for incident edges to a vertex.
- * 
+ *
  * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
  */
 public enum TorcEdgeDirection {
-    /**
-     * Outgoing edge category.
-     */
-    DIRECTED_OUT,
-    
-    /**
-     * Incoming edge category.
-     */
-    DIRECTED_IN,
-    
-    /**
-     * Undirected edge category.
-     */
-    UNDIRECTED;
+
+  /**
+   * Outgoing edge category.
+   */
+  DIRECTED_OUT,
+  /**
+   * Incoming edge category.
+   */
+  DIRECTED_IN,
+  /**
+   * Undirected edge category.
+   */
+  UNDIRECTED;
 }
