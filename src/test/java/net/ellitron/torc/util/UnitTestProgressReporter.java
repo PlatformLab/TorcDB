@@ -21,33 +21,34 @@ import org.junit.runner.notification.RunListener;
 
 /**
  *
- * @author ellitron
+ * @author Jonathan Ellithorpe (jde@cs.stanford.edu)
  */
 public class UnitTestProgressReporter extends RunListener {
-    private static String lastClassName = "";
-    
-    @Override
-    public void testStarted(Description description) throws Exception {
-        if (!description.getClassName().equals(lastClassName)) {
-            lastClassName = description.getClassName();
-            System.out.println("Test Class: " + lastClassName);
-        }
-        
-        System.out.println("Test Method: " + description.getMethodName());
+
+  private static String lastClassName = "";
+
+  @Override
+  public void testStarted(Description description) throws Exception {
+    if (!description.getClassName().equals(lastClassName)) {
+      lastClassName = description.getClassName();
+      System.out.println("Test Class: " + lastClassName);
     }
-    
-    @Override
-    public void testAssumptionFailure(Failure failure) {
-        System.out.println("Test Assumption Failure: " + failure.getMessage());
-    }
-    
-    @Override
-    public void testFailure(Failure failure) throws Exception {
-        System.out.println("Test Failed: " + failure.getMessage());
-    }
-    
-    @Override
-    public void testIgnored(Description description) throws Exception {
-        System.out.println("Test Ignored: " + description.getDisplayName());
-    }
+
+    System.out.println("Test Method: " + description.getMethodName());
+  }
+
+  @Override
+  public void testAssumptionFailure(Failure failure) {
+    System.out.println("Test Assumption Failure: " + failure.getMessage());
+  }
+
+  @Override
+  public void testFailure(Failure failure) throws Exception {
+    System.out.println("Test Failed: " + failure.getMessage());
+  }
+
+  @Override
+  public void testIgnored(Description description) throws Exception {
+    System.out.println("Test Ignored: " + description.getDisplayName());
+  }
 }

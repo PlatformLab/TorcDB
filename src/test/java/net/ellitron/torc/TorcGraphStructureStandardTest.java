@@ -23,9 +23,10 @@ import org.junit.runner.RunWith;
 
 /**
  *
- * @author ellitron
+ * @author Jonathan Ellithorpe (jde@cs.stanford.edu)
  */
 @RunWith(StructureStandardSuite.class)
-@GraphProviderClass(provider = TorcGraphProvider.class, graph = TorcGraph.class)
+@GraphProviderClass(provider = TorcGraphProvider.class,
+    graph = TorcGraph.class)
 public class TorcGraphStructureStandardTest {
 }

@@ -36,68 +36,85 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  *
- * @author ellitron
+ * @author Jonathan Ellithorpe (jde@cs.stanford.edu)
  */
 public class TorcGraphProvider extends AbstractGraphProvider {
-    private final String graphNamePrefix;
-    private ConcurrentHashMap<Thread, RAMCloud> cachedThreadLocalClientMap;
-    
-    public TorcGraphProvider() {
-        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss");
-        Date date = new Date();
-        this.graphNamePrefix = dateFormat.format(date);
-        cachedThreadLocalClientMap = new ConcurrentHashMap<>();
+
+  private final String graphNamePrefix;
+  private ConcurrentHashMap<Thread, RAMCloud> cachedThreadLocalClientMap;
+
+  public TorcGraphProvider() {
+    DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss");
+    Date date = new Date();
+    this.graphNamePrefix = dateFormat.format(date);
+    cachedThreadLocalClientMap = new ConcurrentHashMap<>();
+  }
+
+  private static final Set<Class> IMPLEMENTATIONS = new HashSet<Class>() {
+    {
+      add(TorcEdge.class);
+      add(TorcGraph.class);
+      add(TorcGraphVariables.class);
+      add(TorcProperty.class);
+      add(TorcVertex.class);
+      add(TorcVertexProperty.class);
     }
-    
-    private static final Set<Class> IMPLEMENTATIONS = new HashSet<Class>() {{
-        add(TorcEdge.class);
-        add(TorcGraph.class);
-        add(TorcGraphVariables.class);
-        add(TorcProperty.class);
-        add(TorcVertex.class);
-        add(TorcVertexProperty.class);
-    }};
-    
-    /**
-     * TODO: Use environment variables for the source of configuration
-     * information.
-     */
-    @Override
-    public Map<String, Object> getBaseConfiguration(String graphName, Class<?> test, String testMethodName, LoadGraphWith.GraphData loadGraphWith) {
-        Map<String, Object> config = new HashMap<>();
-        config.put(Graph.GRAPH, TorcGraph.class.getName());
-        config.put(TorcGraph.CONFIG_GRAPH_NAME, graphNamePrefix + "_" + test.getSimpleName() + "_" + testMethodName);
-        
-        config.put(TorcGraph.CONFIG_THREADLOCALCLIENTMAP, cachedThreadLocalClientMap);
-        
-        String ramcloudCoordinatorLocator = System.getenv("RAMCLOUD_COORDINATOR_LOCATOR");
-        if (ramcloudCoordinatorLocator == null) 
-            throw new RuntimeException("RAMCLOUD_COORDINATOR_LOCATOR environment variable not set. Please set this to your RAMCloud cluster's coordinator locator string (e.g. infrc:host=192.168.1.1,port=12246).");
-        
-        String ramcloudServers = System.getenv("RAMCLOUD_SERVERS");
-        if (ramcloudServers == null)
-            throw new RuntimeException("RAMCLOUD_SERVERS environment variable not set. Please set this to the number of master servers in your RAMCloud cluster.");
-        
-        config.put(TorcGraph.CONFIG_COORD_LOCATOR, ramcloudCoordinatorLocator.replace(",", "\\,"));
-        config.put(TorcGraph.CONFIG_NUM_MASTER_SERVERS, ramcloudServers);
-        return config;
+  };
+
+  /**
+   * TODO: Use environment variables for the source of configuration
+   * information.
+   */
+  @Override
+  public Map<String, Object> getBaseConfiguration(String graphName,
+      Class<?> test, String testMethodName,
+      LoadGraphWith.GraphData loadGraphWith) {
+    Map<String, Object> config = new HashMap<>();
+    config.put(Graph.GRAPH, TorcGraph.class.getName());
+    config.put(TorcGraph.CONFIG_GRAPH_NAME, graphNamePrefix + "_"
+        + test.getSimpleName() + "_" + testMethodName);
+
+    config.put(TorcGraph.CONFIG_THREADLOCALCLIENTMAP,
+        cachedThreadLocalClientMap);
+
+    String ramcloudCoordinatorLocator =
+        System.getenv("RAMCLOUD_COORDINATOR_LOCATOR");
+    if (ramcloudCoordinatorLocator == null) {
+      throw new RuntimeException("RAMCLOUD_COORDINATOR_LOCATOR environment "
+          + "variable not set. Please set this to your RAMCloud cluster's "
+          + "coordinator locator string (e.g. "
+          + "infrc:host=192.168.1.1,port=12246).");
     }
 
-    @Override
-    public void clear(Graph graph, Configuration configuration) throws Exception {
-        if (graph != null) {
-            TorcGraph g = (TorcGraph) graph;
-            g.rollbackAllThreads();
-        }
+    String ramcloudServers = System.getenv("RAMCLOUD_SERVERS");
+    if (ramcloudServers == null) {
+      throw new RuntimeException("RAMCLOUD_SERVERS environment variable not "
+          + "set. Please set this to the number of master servers in your "
+          + "RAMCloud cluster.");
     }
 
-    @Override
-    public Set<Class> getImplementations() {
-        return IMPLEMENTATIONS;
-    }
+    config.put(TorcGraph.CONFIG_COORD_LOCATOR,
+        ramcloudCoordinatorLocator.replace(",", "\\,"));
+    config.put(TorcGraph.CONFIG_NUM_MASTER_SERVERS, ramcloudServers);
+    return config;
+  }
 
-    @Override
-    public Object convertId(final Object id, final Class<? extends Element> c) {
-        return UInt128.decode(id);
+  @Override
+  public void clear(Graph graph, Configuration configuration)
+      throws Exception {
+    if (graph != null) {
+      TorcGraph g = (TorcGraph) graph;
+      g.rollbackAllThreads();
     }
+  }
+
+  @Override
+  public Set<Class> getImplementations() {
+    return IMPLEMENTATIONS;
+  }
+
+  @Override
+  public Object convertId(final Object id, final Class<? extends Element> c) {
+    return UInt128.decode(id);
+  }
 }
