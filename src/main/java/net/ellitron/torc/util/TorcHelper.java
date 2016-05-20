@@ -33,13 +33,15 @@ import java.util.Map;
 
 /**
  *
- * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
+ * @author Jonathan Ellithorpe (jde@cs.stanford.edu)
  */
 public class TorcHelper {
 
   public static Charset DEFAULT_CHAR_ENCODING = Charset.forName("UTF-8");
 
-  public static void legalPropertyKeyValueArray(final Class<? extends Element> clazz, final Object... propertyKeyValues) throws IllegalArgumentException {
+  public static void legalPropertyKeyValueArray(
+      final Class<? extends Element> clazz,
+      final Object... propertyKeyValues) throws IllegalArgumentException {
     if (propertyKeyValues.length % 2 != 0) {
       throw Element.Exceptions.providedKeyValuesMustBeAMultipleOfTwo();
     }
@@ -47,8 +49,10 @@ public class TorcHelper {
       if (propertyKeyValues[i] == null) {
         throw Property.Exceptions.propertyKeyCanNotBeNull();
       }
-      if (!(propertyKeyValues[i] instanceof String) && !(propertyKeyValues[i] instanceof T)) {
-        throw Element.Exceptions.providedKeyValuesMustHaveALegalKeyOnEvenIndices();
+      if (!(propertyKeyValues[i] instanceof String)
+          && !(propertyKeyValues[i] instanceof T)) {
+        throw Element.Exceptions
+            .providedKeyValuesMustHaveALegalKeyOnEvenIndices();
       }
       if (propertyKeyValues[i] instanceof T) {
         if ((propertyKeyValues[i].equals(T.label))) {
@@ -71,7 +75,8 @@ public class TorcHelper {
           throw Property.Exceptions.propertyValueCanNotBeNull();
         }
         if (!(propertyKeyValues[i + 1] instanceof String)) {
-          throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(propertyKeyValues[i + 1]);
+          throw Property.Exceptions
+              .dataTypeOfPropertyValueNotSupported(propertyKeyValues[i + 1]);
         }
       }
     }
@@ -85,7 +90,8 @@ public class TorcHelper {
     return new String(b, DEFAULT_CHAR_ENCODING);
   }
 
-  public static ByteBuffer serializeProperties(Map<String, List<String>> propertyMap) {
+  public static ByteBuffer serializeProperties(
+      Map<String, List<String>> propertyMap) {
     int serializedLength = 0;
     for (Map.Entry<String, List<String>> property : propertyMap.entrySet()) {
       serializedLength += Integer.BYTES;
@@ -116,7 +122,8 @@ public class TorcHelper {
     return buffer;
   }
 
-  public static Map<String, List<String>> deserializeProperties(ByteBuffer buffer) {
+  public static Map<String, List<String>> deserializeProperties(
+      ByteBuffer buffer) {
     Map<String, List<String>> propertyMap = new HashMap<>();
     while (buffer.hasRemaining()) {
       int propLen = buffer.getInt();
@@ -140,7 +147,8 @@ public class TorcHelper {
     return propertyMap;
   }
 
-  public static Map<String, List<String>> deserializeProperties(RAMCloudObject obj) {
+  public static Map<String, List<String>> deserializeProperties(
+      RAMCloudObject obj) {
     ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
     value.put(obj.getValueBytes());
     value.rewind();
@@ -230,10 +238,12 @@ public class TorcHelper {
    *
    * @return
    */
-  public static byte[] getEdgeListKeyPrefix(UInt128 vertexId, String label, TorcEdgeDirection dir) {
+  public static byte[] getEdgeListKeyPrefix(UInt128 vertexId, String label,
+      TorcEdgeDirection dir) {
     byte[] labelByteArray = serializeString(label);
     ByteBuffer buffer =
-        ByteBuffer.allocate(UInt128.BYTES + Short.BYTES + labelByteArray.length + Byte.BYTES);
+        ByteBuffer.allocate(UInt128.BYTES + Short.BYTES + labelByteArray.length
+            + Byte.BYTES);
     buffer.putLong(vertexId.getUpperLong());
     buffer.putLong(vertexId.getLowerLong());
     buffer.putShort((short) labelByteArray.length);

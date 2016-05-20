@@ -22,28 +22,28 @@ import java.util.Set;
 
 /**
  *
- * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
+ * @author Jonathan Ellithorpe (jde@cs.stanford.edu)
  */
 public class TorcGraphVariables implements Graph.Variables {
 
   @Override
   public Set<String> keys() {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    throw new UnsupportedOperationException("Not supported yet.");
   }
 
   @Override
   public <R> Optional<R> get(String key) {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    throw new UnsupportedOperationException("Not supported yet.");
   }
 
   @Override
   public void set(String key, Object value) {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    throw new UnsupportedOperationException("Not supported yet.");
   }
 
   @Override
   public void remove(String key) {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    throw new UnsupportedOperationException("Not supported yet.");
   }
 
 }

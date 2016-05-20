@@ -15,11 +15,7 @@
  */
 package net.ellitron.torc;
 
-import net.ellitron.torc.util.TorcHelper;
 import net.ellitron.torc.util.UInt128;
-
-import edu.stanford.ramcloud.RAMCloudObject;
-import edu.stanford.ramcloud.transactions.RAMCloudTransaction;
 
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
@@ -33,7 +29,7 @@ import java.util.Iterator;
 
 /**
  *
- * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
+ * @author Jonathan Ellithorpe (jde@cs.stanford.edu)
  */
 public class TorcVertex implements Vertex, Element {
 
@@ -41,7 +37,8 @@ public class TorcVertex implements Vertex, Element {
   private UInt128 id;
   private String label;
 
-  public TorcVertex(final TorcGraph graph, final UInt128 id, final String label) {
+  public TorcVertex(final TorcGraph graph, final UInt128 id,
+      final String label) {
     this.graph = graph;
     this.id = id;
     this.label = label;
@@ -50,7 +47,7 @@ public class TorcVertex implements Vertex, Element {
   public TorcVertex(final TorcGraph graph, final UInt128 id) {
     this(graph, id, null);
   }
-  
+
   /**
    * {@inheritDoc}
    */
@@ -93,7 +90,8 @@ public class TorcVertex implements Vertex, Element {
    */
   @Override
   public Edge addEdge(String label, Vertex inVertex, Object... keyValues) {
-    return graph.addEdge(this, (TorcVertex) inVertex, label, TorcEdge.Type.DIRECTED, keyValues);
+    return graph.addEdge(this, (TorcVertex) inVertex, label,
+        TorcEdge.Type.DIRECTED, keyValues);
   }
 
   /**
@@ -101,8 +99,10 @@ public class TorcVertex implements Vertex, Element {
    *
    * See {@link Vertex#addEdge}.
    */
-  public Edge addUndirectedEdge(String label, Vertex otherVertex, Object... keyValues) {
-    return graph.addEdge(this, (TorcVertex) otherVertex, label, TorcEdge.Type.UNDIRECTED, keyValues);
+  public Edge addUndirectedEdge(String label, Vertex otherVertex,
+      Object... keyValues) {
+    return graph.addEdge(this, (TorcVertex) otherVertex, label,
+        TorcEdge.Type.UNDIRECTED, keyValues);
   }
 
   /**
@@ -112,17 +112,23 @@ public class TorcVertex implements Vertex, Element {
   public Iterator<Edge> edges(Direction direction, String... edgeLabels) {
     switch (direction) {
       case OUT:
-        return graph.vertexEdges(this, EnumSet.of(TorcEdgeDirection.DIRECTED_OUT), edgeLabels);
+        return graph.vertexEdges(this,
+            EnumSet.of(TorcEdgeDirection.DIRECTED_OUT), edgeLabels);
       case IN:
-        return graph.vertexEdges(this, EnumSet.of(TorcEdgeDirection.DIRECTED_IN), edgeLabels);
+        return graph.vertexEdges(this,
+            EnumSet.of(TorcEdgeDirection.DIRECTED_IN), edgeLabels);
       case BOTH:
-        return graph.vertexEdges(this, EnumSet.of(TorcEdgeDirection.DIRECTED_OUT, TorcEdgeDirection.DIRECTED_IN), edgeLabels);
+        return graph.vertexEdges(this,
+            EnumSet.of(TorcEdgeDirection.DIRECTED_OUT,
+                TorcEdgeDirection.DIRECTED_IN), edgeLabels);
       default:
-        throw new UnsupportedOperationException("Unrecognized direction value: " + direction);
+        throw new UnsupportedOperationException("Unrecognized direction "
+            + "value: " + direction);
     }
   }
 
-  public Iterator<Edge> edges(EnumSet<TorcEdgeDirection> edgeDirections, String... edgeLabels) {
+  public Iterator<Edge> edges(EnumSet<TorcEdgeDirection> edgeDirections,
+      String... edgeLabels) {
     return graph.vertexEdges(this, edgeDirections, edgeLabels);
   }
 
@@ -133,20 +139,26 @@ public class TorcVertex implements Vertex, Element {
   public Iterator<Vertex> vertices(Direction direction, String... edgeLabels) {
     switch (direction) {
       case OUT:
-        return graph.vertexNeighbors(this, EnumSet.of(TorcEdgeDirection.DIRECTED_OUT), edgeLabels);
+        return graph.vertexNeighbors(this,
+            EnumSet.of(TorcEdgeDirection.DIRECTED_OUT), edgeLabels);
       case IN:
-        return graph.vertexNeighbors(this, EnumSet.of(TorcEdgeDirection.DIRECTED_IN), edgeLabels);
+        return graph.vertexNeighbors(this,
+            EnumSet.of(TorcEdgeDirection.DIRECTED_IN), edgeLabels);
       case BOTH:
-        return graph.vertexNeighbors(this, EnumSet.of(TorcEdgeDirection.DIRECTED_OUT, TorcEdgeDirection.DIRECTED_IN), edgeLabels);
+        return graph.vertexNeighbors(this,
+            EnumSet.of(TorcEdgeDirection.DIRECTED_OUT,
+                TorcEdgeDirection.DIRECTED_IN), edgeLabels);
       default:
-        throw new UnsupportedOperationException("Unrecognized direction value: " + direction);
+        throw new UnsupportedOperationException("Unrecognized direction "
+            + "value: " + direction);
     }
   }
 
   /**
    * {@inheritDoc}
    */
-  public Iterator<Vertex> vertices(EnumSet<TorcEdgeDirection> edgeDirections, String... edgeLabels) {
+  public Iterator<Vertex> vertices(EnumSet<TorcEdgeDirection> edgeDirections,
+      String... edgeLabels) {
     return graph.vertexNeighbors(this, edgeDirections, edgeLabels);
   }
 
@@ -170,7 +182,8 @@ public class TorcVertex implements Vertex, Element {
    * {@inheritDoc}
    */
   @Override
-  public <V> VertexProperty<V> property(VertexProperty.Cardinality cardinality, String key, V value, Object... keyValues) {
+  public <V> VertexProperty<V> property(VertexProperty.Cardinality cardinality,
+      String key, V value, Object... keyValues) {
     return graph.setVertexProperty(this, cardinality, key, value, keyValues);
   }
 

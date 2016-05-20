@@ -26,7 +26,7 @@ import java.util.NoSuchElementException;
 
 /**
  *
- * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
+ * @author Jonathan Ellithorpe (jde@cs.stanford.edu)
  * @param <V>
  */
 public class TorcVertexProperty<V> implements VertexProperty<V>, Element {
@@ -35,7 +35,8 @@ public class TorcVertexProperty<V> implements VertexProperty<V>, Element {
   private final String key;
   private final V value;
 
-  public TorcVertexProperty(final TorcVertex vertex, final String key, V value) {
+  public TorcVertexProperty(final TorcVertex vertex, final String key,
+      V value) {
     this.vertex = vertex;
     this.key = key;
     this.value = value;
@@ -58,7 +59,7 @@ public class TorcVertexProperty<V> implements VertexProperty<V>, Element {
 
   @Override
   public void remove() {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    throw new UnsupportedOperationException("Not supported yet.");
   }
 
   @Override
@@ -68,7 +69,7 @@ public class TorcVertexProperty<V> implements VertexProperty<V>, Element {
 
   @Override
   public <U> Iterator<Property<U>> properties(String... propertyKeys) {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    throw new UnsupportedOperationException("Not supported yet.");
   }
 
   @Override
@@ -88,7 +89,7 @@ public class TorcVertexProperty<V> implements VertexProperty<V>, Element {
 
   @Override
   public <V> Property<V> property(String key, V value) {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    throw new UnsupportedOperationException("Not supported yet.");
   }
 
 }

@@ -18,7 +18,7 @@ package net.ellitron.torc;
 /**
  * Direction categories for incident edges to a vertex.
  *
- * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
+ * @author Jonathan Ellithorpe (jde@cs.stanford.edu)
  */
 public enum TorcEdgeDirection {
 

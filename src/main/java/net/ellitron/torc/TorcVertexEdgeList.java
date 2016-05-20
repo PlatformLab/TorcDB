@@ -32,7 +32,7 @@ import java.util.Map;
 
 /**
  * TODO: Fix comments, no longer has vertexId, direction, or label.
- *
+ * <p>
  * A TorcVertexEdgeList is a RAMCloud-resident data structure representing a
  * list of edges of a certain TorcVertex that have the same label and direction
  * from the vertex. It abstracts details of the RAMCloud storage layer, and
@@ -41,14 +41,14 @@ import java.util.Map;
  * context, and therefore writes to this data structure are only externally
  * visible after a successful commit of the transaction. The implementation has
  * been performance tuned to make optimal use of the RAMCloud storage layer.
- *
+ * <p>
  * The storage location in RAMCloud for this object is uniquely defined by a
  * RAMCloud table and object key-prefix combination. The data structure assumes
  * exclusive access to all objects that have a key with the given key-prefix.
  * Thus, to allow multiple objects to share the same table, it is necessary to
  * assign them key-prefixes such that for all pairs of prefixes p1 and p2, p1
  * is never itself a prefix of p2.
- *
+ * <p>
  * Internally, an edge list is composed of multiple segments, where each
  * segment is stored in its own RAMCloud object. When a segment exceeds a
  * certain size limit (see EDGE_LIST_SIZE_LIMIT) due to edge list insertions or
@@ -73,7 +73,7 @@ import java.util.Map;
  * 1 RAMCloud read and 2 multi-reads need to be performed to fetch the entire
  * list, in the worst case.
  *
- * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
+ * @author Jonathan Ellithorpe (jde@cs.stanford.edu)
  */
 public class TorcVertexEdgeList {
 
@@ -143,12 +143,13 @@ public class TorcVertexEdgeList {
       RAMCloudTransaction rctx,
       long rcTableId,
       byte[] keyPrefix) {
-    return new TorcVertexEdgeList(rctx, rcTableId, keyPrefix, DEFAULT_SEGMENT_SIZE_LIMIT, DEFAULT_SEGMENT_TARGET_SPLIT_POINT);
+    return new TorcVertexEdgeList(rctx, rcTableId, keyPrefix,
+        DEFAULT_SEGMENT_SIZE_LIMIT, DEFAULT_SEGMENT_TARGET_SPLIT_POINT);
   }
 
   /**
-   * See
-   * {@link #open(RAMCloudTransaction, long, byte[], UInt128, TorcEdgeDirection, String)}
+   * See {@link #open(RAMCloudTransaction, long, byte[], UInt128,
+   * TorcEdgeDirection, String)}.
    *
    * Has two additional parameters specifying the size limits for edge lists.
    *
@@ -164,7 +165,8 @@ public class TorcVertexEdgeList {
       byte[] keyPrefix,
       int segmentSizeLimit,
       int segmentTargetSplitPoint) {
-    return new TorcVertexEdgeList(rctx, rcTableId, keyPrefix, segmentSizeLimit, segmentTargetSplitPoint);
+    return new TorcVertexEdgeList(rctx, rcTableId, keyPrefix, segmentSizeLimit,
+        segmentTargetSplitPoint);
   }
 
   /**
@@ -223,8 +225,8 @@ public class TorcVertexEdgeList {
     boolean newList = false;
     try {
       RAMCloudObject headSegObj = rctx.read(rcTableId, headSegKey);
-      headSeg =
-          ByteBuffer.allocate(headSegObj.getValueBytes().length).put(headSegObj.getValueBytes());
+      headSeg = ByteBuffer.allocate(headSegObj.getValueBytes().length)
+          .put(headSegObj.getValueBytes());
       headSeg.flip();
     } catch (ClientException.ObjectDoesntExistException e) {
       headSeg = ByteBuffer.allocate(Integer.BYTES).putInt(0);
@@ -232,7 +234,8 @@ public class TorcVertexEdgeList {
       newList = true;
     }
 
-    ByteBuffer serializedEdge = serializeEdge(neighborId, serializedProperties);
+    ByteBuffer serializedEdge = serializeEdge(neighborId,
+        serializedProperties);
 
     // Create fancy new segment with the edge we want to prepend.
     ByteBuffer prependedSeg =
@@ -247,7 +250,7 @@ public class TorcVertexEdgeList {
     if (prependedSeg.capacity() <= segmentSizeLimit) {
       rctx.write(rcTableId, headSegKey, prependedSeg.array());
     } else {
-            // The edge list is in violation of our size policy, find a point at
+      // The edge list is in violation of our size policy, find a point at
       // which to split the list. In some special cases we may choose not 
       // to split (like in the case of this segment containing only a 
       // singe edge... in this case we choose not to split).
@@ -263,18 +266,18 @@ public class TorcVertexEdgeList {
           int right = nextEdgeStartPos - segmentTargetSplitPoint;
 
           if (edgeStartPos == Integer.BYTES) {
-                        // Always keep at least the first edge, even if the 
+            // Always keep at least the first edge, even if the 
             // first edge extends beyond the size limit. It doesn't
             // make sense to leave this segment totally empty.
             splitIndex = nextEdgeStartPos;
             break;
           } else if (right < left) {
-                        // Target split point is closer to the start of the next
+            // Target split point is closer to the start of the next
             // edge in the list than the start of this edge. In this 
             // case we want to split at the start of the next edge,
             // barring a special case.
             if (nextEdgeStartPos > segmentSizeLimit) {
-                            // The current edge extends beyond the size limit, 
+              // The current edge extends beyond the size limit, 
               // so to comply with the specified size limitations
               // we choose to split at the start of this edge.
               splitIndex = edgeStartPos;
@@ -284,7 +287,7 @@ public class TorcVertexEdgeList {
               break;
             }
           } else {
-                        // Target split point is closer to the start of this 
+            // Target split point is closer to the start of this 
             // edge than the next. In this case we choose to make 
             // this edge part of the newly created segment.
             splitIndex = edgeStartPos;
@@ -302,8 +305,8 @@ public class TorcVertexEdgeList {
         rctx.write(rcTableId, headSegKey, prependedSeg.array());
       } else {
         ByteBuffer newHeadSeg = ByteBuffer.allocate(splitIndex);
-        ByteBuffer newMajorSeg =
-            ByteBuffer.allocate(Integer.BYTES + prependedSeg.capacity() - splitIndex);
+        ByteBuffer newMajorSeg = ByteBuffer.allocate(Integer.BYTES
+            + prependedSeg.capacity() - splitIndex);
         int newMajorSegments = curMajorSegments + 1;
 
         newHeadSeg.put(prependedSeg.array(), 0, splitIndex);
@@ -311,7 +314,8 @@ public class TorcVertexEdgeList {
         newHeadSeg.putInt(newMajorSegments);
 
         newMajorSeg.putInt(0);
-        newMajorSeg.put(prependedSeg.array(), splitIndex, prependedSeg.capacity() - splitIndex);
+        newMajorSeg.put(prependedSeg.array(), splitIndex,
+            prependedSeg.capacity() - splitIndex);
 
         rctx.write(rcTableId, headSegKey, newHeadSeg.array());
 
@@ -335,17 +339,21 @@ public class TorcVertexEdgeList {
    *
    * @return List of all the TorcEdges contained in this edge list.
    */
-  public List<TorcEdge> readEdges(TorcGraph graph, UInt128 baseVertexId, String label, TorcEdgeDirection direction) {
+  public List<TorcEdge> readEdges(TorcGraph graph, UInt128 baseVertexId,
+      String label, TorcEdgeDirection direction) {
     List<TorcEdge> edgeList = new ArrayList<>();
     parseSegments((segBuf) -> {
       while (segBuf.hasRemaining()) {
         UInt128 neighborId = getNeighborIdOfCurrentEdge(segBuf);
         if (direction == TorcEdgeDirection.DIRECTED_OUT) {
-          edgeList.add(new TorcEdge(graph, baseVertexId, neighborId, TorcEdge.Type.DIRECTED, label));
+          edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
+              TorcEdge.Type.DIRECTED, label));
         } else if (direction == TorcEdgeDirection.DIRECTED_IN) {
-          edgeList.add(new TorcEdge(graph, neighborId, baseVertexId, TorcEdge.Type.DIRECTED, label));
+          edgeList.add(new TorcEdge(graph, neighborId, baseVertexId,
+              TorcEdge.Type.DIRECTED, label));
         } else {
-          edgeList.add(new TorcEdge(graph, baseVertexId, neighborId, TorcEdge.Type.UNDIRECTED, label));
+          edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
+              TorcEdge.Type.UNDIRECTED, label));
         }
         segBuf.position(segBuf.position() + getLengthOfCurrentEdge(segBuf));
       }
@@ -416,7 +424,8 @@ public class TorcVertexEdgeList {
       return;
     }
 
-    ByteBuffer headSeg = ByteBuffer.allocate(headSegObj.getValueBytes().length);
+    ByteBuffer headSeg =
+        ByteBuffer.allocate(headSegObj.getValueBytes().length);
     headSeg.put(headSegObj.getValueBytes());
     headSeg.flip();
 
@@ -477,7 +486,8 @@ public class TorcVertexEdgeList {
    *
    * @return Byte array representing the RAMCloud key.
    */
-  private byte[] getSegmentKey(int majorSegmentNumber, int minorSegmentNumber) {
+  private byte[] getSegmentKey(int majorSegmentNumber,
+      int minorSegmentNumber) {
     ByteBuffer buffer =
         ByteBuffer.allocate(keyPrefix.length + Integer.BYTES * 2);
     buffer.put(keyPrefix);
@@ -506,7 +516,10 @@ public class TorcVertexEdgeList {
     }
 
     if (edgeListBuf.remaining() < UInt128.BYTES + Short.BYTES) {
-      throw new RuntimeException(String.format("Incomplete serialized edge found in edge list. Should be at least %d bytes, but only %d bytes are remaining in the buffer.", UInt128.BYTES + Short.BYTES, edgeListBuf.remaining()));
+      throw new RuntimeException(String.format("Incomplete serialized edge "
+          + "found in edge list. Should be at least %d bytes, but only %d "
+          + "bytes are remaining in the buffer.", UInt128.BYTES + Short.BYTES,
+          edgeListBuf.remaining()));
     }
 
     byte[] neighborIdBytes = new byte[UInt128.BYTES];
@@ -534,7 +547,10 @@ public class TorcVertexEdgeList {
     }
 
     if (edgeListBuf.remaining() < UInt128.BYTES + Short.BYTES) {
-      throw new RuntimeException(String.format("Incomplete serialized edge found in edge list. Should be at least %d bytes, but only %d bytes are remaining in the buffer.", UInt128.BYTES + Short.BYTES, edgeListBuf.remaining()));
+      throw new RuntimeException(String.format("Incomplete serialized edge "
+          + "found in edge list. Should be at least %d bytes, but only %d "
+          + "bytes are remaining in the buffer.", UInt128.BYTES + Short.BYTES,
+          edgeListBuf.remaining()));
     }
 
     edgeListBuf.mark();
@@ -543,7 +559,10 @@ public class TorcVertexEdgeList {
 
     if (edgeListBuf.remaining() < propLen) {
       edgeListBuf.reset();
-      throw new RuntimeException(String.format("Incomplete serialized edge found in edge list. Should be at least %d bytes, but only %d bytes are remaining in the buffer.", UInt128.BYTES + Short.BYTES + propLen, edgeListBuf.remaining()));
+      throw new RuntimeException(String.format("Incomplete serialized edge "
+          + "found in edge list. Should be at least %d bytes, but only %d "
+          + "bytes are remaining in the buffer.", UInt128.BYTES + Short.BYTES
+          + propLen, edgeListBuf.remaining()));
     }
 
     byte[] serializedProperties = new byte[propLen];
@@ -574,7 +593,10 @@ public class TorcVertexEdgeList {
     }
 
     if (edgeListBuf.remaining() < UInt128.BYTES + Short.BYTES) {
-      throw new RuntimeException(String.format("Incomplete serialized edge found in edge list. Should be at least %d bytes, but only %d bytes are remaining in the buffer.", UInt128.BYTES + Short.BYTES, edgeListBuf.remaining()));
+      throw new RuntimeException(String.format("Incomplete serialized edge "
+          + "found in edge list. Should be at least %d bytes, but only %d "
+          + "bytes are remaining in the buffer.", UInt128.BYTES + Short.BYTES,
+          edgeListBuf.remaining()));
     }
 
     short propLen =
@@ -582,7 +604,9 @@ public class TorcVertexEdgeList {
     int edgeLength = UInt128.BYTES + Short.BYTES + propLen;
 
     if (edgeListBuf.remaining() < edgeLength) {
-      throw new RuntimeException(String.format("Incomplete serialized edge found in edge list. Should be %d bytes, but only %d bytes are remaining in the buffer.", edgeLength, edgeListBuf.remaining()));
+      throw new RuntimeException(String.format("Incomplete serialized edge "
+          + "found in edge list. Should be %d bytes, but only %d bytes are "
+          + "remaining in the buffer.", edgeLength, edgeListBuf.remaining()));
     }
 
     return edgeLength;
@@ -596,7 +620,8 @@ public class TorcVertexEdgeList {
    *
    * @return ByteBuffer containing the serialized edge.
    */
-  private ByteBuffer serializeEdge(UInt128 neighborId, byte[] serializedProperties) {
+  private ByteBuffer serializeEdge(UInt128 neighborId,
+      byte[] serializedProperties) {
     int serializedEdgeLength =
         UInt128.BYTES + Short.BYTES + serializedProperties.length;
     ByteBuffer buf = ByteBuffer.allocate(serializedEdgeLength);

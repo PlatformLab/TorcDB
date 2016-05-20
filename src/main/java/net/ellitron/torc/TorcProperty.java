@@ -22,7 +22,7 @@ import java.util.NoSuchElementException;
 
 /**
  *
- * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
+ * @author Jonathan Ellithorpe (jde@cs.stanford.edu)
  */
 public class TorcProperty<V> implements Property<V> {
 
@@ -57,7 +57,7 @@ public class TorcProperty<V> implements Property<V> {
 
   @Override
   public void remove() {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    throw new UnsupportedOperationException("Not supported yet.");
   }
 
 }

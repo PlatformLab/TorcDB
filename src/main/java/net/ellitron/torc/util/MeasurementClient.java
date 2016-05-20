@@ -46,7 +46,7 @@ import java.util.Map;
 
 /**
  *
- * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
+ * @author Jonathan Ellithorpe (jde@cs.stanford.edu)
  */
 public class MeasurementClient {
 
@@ -126,7 +126,8 @@ public class MeasurementClient {
   /**
    * Helper methods used by masters.
    */
-  private void issueCommandToSlaves(CommandCode cmd, String args, int firstSlave, int numSlaves) {
+  private void issueCommandToSlaves(CommandCode cmd, String args,
+      int firstSlave, int numSlaves) {
     // Clear status and return value registers.
     for (int i = 0; i < numSlaves; ++i) {
       String regKey =
@@ -152,7 +153,8 @@ public class MeasurementClient {
     }
   }
 
-  private void pollSlaves(int firstSlave, int numSlaves, double timeoutSeconds) throws Exception {
+  private void pollSlaves(int firstSlave, int numSlaves,
+      double timeoutSeconds) throws Exception {
     for (int i = 0; i < numSlaves; ++i) {
       String regKey =
           getRegisterKey(firstSlave + i, ControlRegister.RETURN_CODE);
@@ -243,7 +245,8 @@ public class MeasurementClient {
     return null;
   }
 
-  private void setStatusAndReturnValue(ReturnStatus status, String returnValue) {
+  private void setStatusAndReturnValue(ReturnStatus status,
+      String returnValue) {
     // Clear command register.
     String regKey = getRegisterKey(clientIndex, ControlRegister.COMMAND);
     cluster.remove(controlTableId, regKey);
@@ -266,8 +269,10 @@ public class MeasurementClient {
   public void testAddVertexThroughput() {
     BaseConfiguration ramCloudGraphConfig = new BaseConfiguration();
     ramCloudGraphConfig.setDelimiterParsingDisabled(true);
-    ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_COORD_LOCATOR, coordinatorLocator);
-    ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_NUM_MASTER_SERVERS, numMasters);
+    ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_COORD_LOCATOR,
+        coordinatorLocator);
+    ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_NUM_MASTER_SERVERS,
+        numMasters);
 
     TorcGraph graph = TorcGraph.open(ramCloudGraphConfig);
 
@@ -281,12 +286,15 @@ public class MeasurementClient {
         return;
       }
 
-      dataFile.println("## testAddVertexThroughput(): testDuration=" + testDuration + ", numMasters=" + numMasters);
+      dataFile.println("## testAddVertexThroughput(): testDuration="
+          + testDuration + ", numMasters=" + numMasters);
       dataFile.println("## clients      operations per second");
       dataFile.println("## ----------------------------------");
 
       for (int slaves = 1; slaves < numClients; ++slaves) {
-        System.out.println("testAddVertexThroughput(): testDuration=" + testDuration + ", numMasters=" + numMasters + ", clients=" + slaves);
+        System.out.println("testAddVertexThroughput(): testDuration="
+            + testDuration + ", numMasters=" + numMasters + ", clients="
+            + slaves);
         try {
           pollSlaves(1, slaves, 10.0);
         } catch (Exception ex) {
@@ -314,7 +322,8 @@ public class MeasurementClient {
           totalOps += Long.decode(retVals[i]);
         }
 
-        dataFile.println(String.format("%8d\t%d", slaves, totalOps / elapsedTime));
+        dataFile.println(String.format("%8d\t%d", slaves,
+            totalOps / elapsedTime));
         dataFile.flush();
       }
 
@@ -345,13 +354,15 @@ public class MeasurementClient {
             graph.addVertex(T.label, "Person", "name", "Raggles");
             opCount++;
             if (opCount % 1000 == 0) {
-              if ((System.nanoTime() - startTime) / 1000000000L > testDuration) {
+              if ((System.nanoTime() - startTime) / 1000000000L
+                  > testDuration) {
                 break;
               }
             }
           }
 
-          setStatusAndReturnValue(ReturnStatus.STATUS_OK, Long.toString(opCount));
+          setStatusAndReturnValue(ReturnStatus.STATUS_OK,
+              Long.toString(opCount));
         } else if (cmd == CommandCode.DIE) {
           setStatusAndReturnValue(ReturnStatus.STATUS_OK, null);
           graph.close();
@@ -369,25 +380,30 @@ public class MeasurementClient {
   public void testAddVertexLatency() {
     BaseConfiguration ramCloudGraphConfig = new BaseConfiguration();
     ramCloudGraphConfig.setDelimiterParsingDisabled(true);
-    ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_COORD_LOCATOR, coordinatorLocator);
-    ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_NUM_MASTER_SERVERS, numMasters);
+    ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_COORD_LOCATOR,
+        coordinatorLocator);
+    ramCloudGraphConfig.setProperty(TorcGraph.CONFIG_NUM_MASTER_SERVERS,
+        numMasters);
 
     TorcGraph graph = TorcGraph.open(ramCloudGraphConfig);
 
     if (clientIndex == 0) {
       for (int slaves = 0; slaves < numClients; ++slaves) {
         int clients = slaves + 1;
-        System.out.println("testAddVertexLatency(): numSamples=" + numSamples + ", numMasters=" + numMasters + ", clients=" + clients);
+        System.out.println("testAddVertexLatency(): numSamples=" + numSamples
+            + ", numMasters=" + numMasters + ", clients=" + clients);
         PrintWriter dataFile;
         try {
           dataFile =
-              new PrintWriter(logDir + "/testAddVertexLatency" + clients + ".data", "UTF-8");
+              new PrintWriter(logDir + "/testAddVertexLatency" + clients
+                  + ".data", "UTF-8");
         } catch (FileNotFoundException | UnsupportedEncodingException ex) {
           logger.log(Level.SEVERE, null, ex);
           return;
         }
 
-        dataFile.println("## testAddVertexLatency(): numSamples=" + numSamples + ", numMasters=" + numMasters + ", clients=" + clients);
+        dataFile.println("## testAddVertexLatency(): numSamples=" + numSamples
+            + ", numMasters=" + numMasters + ", clients=" + clients);
         dataFile.println("## latency (us)      % Samples > X");
         dataFile.println("## ----------------------------------");
 
@@ -427,7 +443,8 @@ public class MeasurementClient {
 
         for (int i = 0; i < numSamples; ++i) {
           double percentile = (double) i / (double) numSamples;
-          dataFile.println(String.format("%8.1f\t%.6f", latencyTimesUs.get(i), 1.0 - percentile));
+          dataFile.println(String.format("%8.1f\t%.6f", latencyTimesUs.get(i),
+              1.0 - percentile));
         }
 
         dataFile.flush();
@@ -515,9 +532,11 @@ public class MeasurementClient {
     int threads;
     String testName;
 
-    options.addOption("C", "coordinator", true, "Service locator where the coordinator can be contacted.");
+    options.addOption("C", "coordinator", true, "Service locator where the "
+        + "coordinator can be contacted.");
     options.addOption(null, "numClients", true, "Total number of clients.");
-    options.addOption(null, "clientIndex", true, "This client's index number in total clients.");
+    options.addOption(null, "clientIndex", true, "This client's index number "
+        + "in total clients.");
     options.addOption(null, "logFile", true, "File to use as the log.");
     options.addOption(null, "numMasters", true, "Total master servers.");
     options.addOption(null, "testDuration", true, "Duration of each test.");

@@ -15,8 +15,6 @@
  */
 package net.ellitron.torc;
 
-import net.ellitron.torc.TorcGraphProvider;
-
 import org.apache.tinkerpop.gremlin.GraphProviderClass;
 import org.apache.tinkerpop.gremlin.structure.StructureStandardSuite;
 import org.junit.runner.RunWith;

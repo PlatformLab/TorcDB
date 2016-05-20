@@ -29,7 +29,7 @@ import java.util.UUID;
  * and BigIntegers, and return a byte array of length 16 that contains the
  * unsigned representation.
  *
- * @author Jonathan Ellithorpe <jde@cs.stanford.edu>
+ * @author Jonathan Ellithorpe (jde@cs.stanford.edu)
  */
 public class UInt128 implements Comparable<UInt128> {
 
@@ -121,7 +121,8 @@ public class UInt128 implements Comparable<UInt128> {
 
     if (valArray.length >= BYTES) {
       resArray =
-          Arrays.copyOfRange(valArray, valArray.length - BYTES, valArray.length);
+          Arrays.copyOfRange(valArray, valArray.length - BYTES,
+              valArray.length);
     } else {
       byte pad = 0x00;
       if (valArray[0] < 0) {
@@ -224,7 +225,8 @@ public class UInt128 implements Comparable<UInt128> {
     } else if (n instanceof UInt128) {
       return (UInt128) n;
     } else {
-      throw new NumberFormatException(String.format("Unable to decode number: [%s,%s]", n.getClass(), n.toString()));
+      throw new NumberFormatException(String.format("Unable to decode "
+          + "number: [%s,%s]", n.getClass(), n.toString()));
     }
   }
 
@@ -305,7 +307,8 @@ public class UInt128 implements Comparable<UInt128> {
         return -1;
       }
 
-      if ((this.upperLong & lower63BitMask) > (that.upperLong & lower63BitMask)) {
+      if ((this.upperLong & lower63BitMask)
+          > (that.upperLong & lower63BitMask)) {
         return 1;
       }
 
@@ -319,7 +322,8 @@ public class UInt128 implements Comparable<UInt128> {
         return -1;
       }
 
-      if ((this.lowerLong & lower63BitMask) > (that.lowerLong & lower63BitMask)) {
+      if ((this.lowerLong & lower63BitMask)
+          > (that.lowerLong & lower63BitMask)) {
         return 1;
       }
 
