@@ -14,5 +14,4 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-TorcDB: TinkerPop on RAMCloud
-=============================
+![TorcDB](graphics/TorcDBLogo_v01.svg)
