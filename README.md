@@ -14,4 +14,4 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-![TorcDB](graphics/TorcDBLogo_v01.png)
+![TorcDB](graphics/TorcDBLogo_v02.png)
