@@ -20,7 +20,7 @@ import net.ellitron.torc.util.UInt128;
 
 import edu.stanford.ramcloud.ClientException;
 import edu.stanford.ramcloud.RAMCloudObject;
-import edu.stanford.ramcloud.transactions.RAMCloudTransaction;
+import edu.stanford.ramcloud.RAMCloudTransaction;
 
 import org.apache.log4j.Logger;
 

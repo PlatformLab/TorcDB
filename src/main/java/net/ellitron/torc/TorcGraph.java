@@ -20,7 +20,6 @@ import net.ellitron.torc.util.UInt128;
 
 import edu.stanford.ramcloud.*;
 import edu.stanford.ramcloud.ClientException.*;
-import edu.stanford.ramcloud.transactions.*;
 
 import org.apache.commons.configuration.BaseConfiguration;
 import org.apache.commons.configuration.Configuration;
