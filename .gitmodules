@@ -1,0 +1,4 @@
+[submodule "RAMCloud"]
+	path = RAMCloud
+	url = git@github.com:jdellithorpe/RAMCloud.git
+	branch = java-transactions
