@@ -20,7 +20,7 @@ import static org.junit.Assert.assertEquals;
 import net.ellitron.torc.TorcVertexEdgeList;
 
 import edu.stanford.ramcloud.RAMCloud;
-import edu.stanford.ramcloud.transactions.RAMCloudTransaction;
+import edu.stanford.ramcloud.RAMCloudTransaction;
 
 import org.junit.After;
 import org.junit.Before;
