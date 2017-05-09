@@ -34,7 +34,7 @@ make -j8 DEBUG=no
 ```
 * Install ramcloud client library:
 ```
-ln -s $(pwd)/obj.java-transactions/libramcloud.so ~/local/lib/libramcloud.so
+ln -s $(pwd)/obj/libramcloud.so ~/local/lib/libramcloud.so
 ```
 * Build RAMCloud java library:
 ```
