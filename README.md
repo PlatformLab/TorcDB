@@ -74,8 +74,10 @@ cd ldbc_snb_interactive_validation/neo4j
 mkdir readwrite_neo4j--validation_set
 tar -xvzf readwrite_neo4j--validation_set.tar.gz -C readwrite_neo4j--validation_set
 ```
-* Configure validation by editing 
-  `readwrite_neo4j--ldbc_driver_config--db_validation.properties`:
+* Configure validation by editing
+  `readwrite_neo4j--ldbc_driver_config--db_validation.properties` (Pro tip: In
+  vim, use `:r!pwd` to insert path of current working directory to make editing
+  the paths easier):
 ```
 # -------------------------------------
 # -------------------------------------
