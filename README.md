@@ -48,7 +48,7 @@ mvn install:install-file -Dfile=./build/libs/ramcloud.jar -DgroupId=edu.stanford
 * Build TorcDB:
 ```
 cd ../../..
-mvn clean install -DskipTests
+mvn install -DskipTests
 ```
 * Use this in your POM file:
 ```
@@ -65,7 +65,7 @@ Running LDBC SNB Validation
 ```
 git clone git@github.com:ldbc/ldbc_driver.git
 cd ldbc_driver/
-mvn clean package -DskipTests
+mvn install -DskipTests
 ```
 * Download and extract the LDBC SNB Interactive validation dataset:
 ```
@@ -106,7 +106,7 @@ results_dir=/path/to/ldbc_driver/results
 ```
 git clone git@github.com:PlatformLab/ldbc-snb-impls.git
 cd ldbc-snb-impls/
-mvn clean install
+mvn install -DskipTests
 cd snb-interactive-torc/
 mvn compile assembly:single
 ```
