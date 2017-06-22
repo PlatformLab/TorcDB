@@ -53,10 +53,15 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * TODO: Write documentation.
- * <ul>
- * <li>Bidirectional edge support</li>
- * </ul>
+ * TorcGraph is an ACID compliant implementation of the TinkerPop Graph
+ * interface, and represents a graph stored in RAMCloud.
+ * <p>
+ * TorcGraph differs from the standard TinkerPop API in two important ways. 1)
+ * While TinkerPop supports the creation of multiple edges with the same label
+ * between two vertices, TorcGraph supports only one. In other words, vertices
+ * A and B can only have one edge labeled "knows" between them. 2) TorcGraph
+ * supports bidirectional edges, whereas standard TinkerPop specifies only the
+ * existence of directed edges.
  *
  * @author Jonathan Ellithorpe (jde@cs.stanford.edu)
  */
@@ -158,83 +163,11 @@ public final class TorcGraph implements Graph {
     return open("default");
   }
 
-  @Override
-  public Variables variables() {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
-
-  @Override
-  public Features features() {
-    return new TorcGraphFeatures();
-  }
-
-  @Override
-  public Configuration configuration() {
-    return configuration;
-  }
-
-  public boolean isInitialized() {
-    return initialized;
-  }
-
-  @Override
-  public Transaction tx() {
-    initialize();
-
-    return torcGraphTx;
-  }
-
-  String getLabel(TorcVertex v) {
-    RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
-    RAMCloudObject neighborLabelRCObj =
-        rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(v.id()));
-    return neighborLabelRCObj.getValue();
-  }
-
-  /**
-   * This method ensures three things are true before it returns to the caller.
-   * <ol>
-   * <li>This thread has an initialized thread-local RAMCloud client (its own
-   * connection to RAMCloud)</li>
-   * <li>RAMCloud tables have been created for this graph.</li>
-   * <li>RAMCloud table IDs have been fetched.</li>
-   * </ol>
-   * <p>
-   * This method is intended to be used as a way of deferring costly
-   * initialization until absolutely needed. This method should be called at
-   * the top of any public method of TorcGraph that performs operations against
-   * RAMCloud.
-   */
-  private void initialize() {
-    if (!threadLocalClientMap.containsKey(Thread.currentThread())) {
-      threadLocalClientMap.put(Thread.currentThread(),
-          new RAMCloud(coordinatorLocator));
-
-      logger.debug(String.format("initialize(): Thread %d made connection to "
-          + "RAMCloud cluster.", Thread.currentThread().getId()));
-    }
-
-    if (!initialized) {
-      RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
-      idTableId =
-          client.createTable(graphName + "_" + ID_TABLE_NAME,
-              totalMasterServers);
-      vertexTableId =
-          client.createTable(graphName + "_" + VERTEX_TABLE_NAME,
-              totalMasterServers);
-      edgeListTableId =
-          client.createTable(graphName + "_" + EDGELIST_TABLE_NAME,
-              totalMasterServers);
-
-      initialized = true;
-
-      logger.debug(String.format("initialize(): Fetched table Ids "
-          + "(%s=%d,%s=%d,%s=%d)", graphName + "_" + ID_TABLE_NAME,
-          idTableId, graphName + "_" + VERTEX_TABLE_NAME,
-          vertexTableId, graphName + "_" + EDGELIST_TABLE_NAME,
-          edgeListTableId));
-    }
-  }
+  /* **************************************************************************
+   *
+   * Standard TinkerPop Graph Interface Methods
+   *
+   * *************************************************************************/
 
   @Override
   public Vertex addVertex(final Object... keyValues) {
@@ -592,9 +525,237 @@ public final class TorcGraph implements Graph {
     return list.iterator();
   }
 
+  @Override
+  public Transaction tx() {
+    initialize();
+
+    return torcGraphTx;
+  }
+
   /**
-   * Methods called by TorcVertex.
+   * Closes the thread-local transaction (if it is open), and closes the
+   * thread-local connection to RAMCloud (if one has been made). This may
+   * affect the state of the graph in RAMCloud depending on the close behavior
+   * set for the transaction (e.g. in the case that there is an open
+   * transaction which is set to automatically commit when closed).
+   *
+   * Important: Every thread that performs any operation on this graph instance
+   * has the responsibility of calling this close method before exiting.
+   * Otherwise it is possible that state that has been created via the RAMCloud
+   * JNI library will not be cleaned up properly (for instance, although
+   * {@link RAMCloud} and {@link RAMCloudTransaction} objects have implemented
+   * finalize() methods to clean up their mirrored C++ objects, it is still
+   * possible that the garbage collector will clean up the RAMCloud object
+   * before the RAMCloudTransaction object that uses it. This *may* lead to
+   * unexpected behavior).
    */
+  @Override
+  public void close() {
+    long startTimeNs = 0;
+    if (logger.isDebugEnabled()) {
+      startTimeNs = System.nanoTime();
+    }
+
+    if (threadLocalClientMap.containsKey(Thread.currentThread())) {
+      torcGraphTx.close();
+      RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
+      client.disconnect();
+      threadLocalClientMap.remove(Thread.currentThread());
+    }
+
+    if (logger.isDebugEnabled()) {
+      long endTimeNs = System.nanoTime();
+      logger.debug(String.format("close(), took %dus",
+          (endTimeNs - startTimeNs) / 1000l));
+    }
+  }
+
+  @Override
+  public Variables variables() {
+    throw new UnsupportedOperationException("Not supported yet.");
+  }
+
+  @Override
+  public Configuration configuration() {
+    return configuration;
+  }
+
+  @Override
+  public Features features() {
+    return new TorcGraphFeatures();
+  }
+
+
+  /* **************************************************************************
+   *
+   * TorcGraph Specific Public Facing Methods
+   *
+   * *************************************************************************/
+
+  public boolean isInitialized() {
+    return initialized;
+  }
+
+  /**
+   * This method closes all open transactions on all threads (using rollback),
+   * and closes all open client connections to RAMCloud on all threads. Since
+   * this method uses rollback as the close mechanism for open transactions,
+   * and RAMCloud transactions keep no server-side state until commit, it is
+   * safe to execute this method even after the graph has been deleted with
+   * {@link #deleteAll()}. Its intended use is primarily for unit tests to
+   * ensure the freeing of all client-side state remaining across JNI (i.e. C++
+   * RAMCloud client objects, C++ RAMCloud Transaction objects) before
+   * finishing the current test and moving on to the next.
+   */
+  public void closeAllThreads() {
+    long startTimeNs = 0;
+    if (logger.isDebugEnabled()) {
+      startTimeNs = System.nanoTime();
+    }
+
+    torcGraphTx.doRollbackAllThreads();
+
+    threadLocalClientMap.forEach((thread, client) -> {
+      try {
+        client.disconnect();
+      } catch (Exception e) {
+        logger.error("closeAllThreads(): could not close transaction of "
+            + "thread " + thread.getId());
+      }
+
+      logger.debug(String.format("closeAllThreads(): closed client connection "
+          + "of %d", thread.getId()));
+    });
+
+    threadLocalClientMap.clear();
+
+    if (logger.isDebugEnabled()) {
+      long endTimeNs = System.nanoTime();
+      logger.debug(String.format("closeAllThreads(), took %dus",
+          (endTimeNs - startTimeNs) / 1000l));
+    }
+  }
+
+  /**
+   * This method closes all open client connections to RAMCloud on all threads.
+   * Since this method uses rollback as the close mechanism for open
+   * transactions, and RAMCloud transactions keep no server-side state until
+   * commit, it is safe to execute this method even after the graph has been
+   * deleted with {@link #deleteAll()}. Its intended use is primarily for unit
+   * tests to reset all transaction state before executing the next test .
+   */
+  public void rollbackAllThreads() {
+    long startTimeNs = 0;
+    if (logger.isDebugEnabled()) {
+      startTimeNs = System.nanoTime();
+    }
+
+    torcGraphTx.doRollbackAllThreads();
+
+    if (logger.isDebugEnabled()) {
+      long endTimeNs = System.nanoTime();
+      logger.debug(String.format("rollbackAllThreads(), took %dus",
+          (endTimeNs - startTimeNs) / 1000l));
+    }
+  }
+
+  /**
+   * Deletes all graph data for the graph represented by this TorcGraph
+   * instance in RAMCloud.
+   *
+   * This method's intended use is for the reset phase of unit tests (see also
+   * {@link #closeAllThreads()}). To delete all RAMCloud state representing
+   * this graph as well as clear up all client-side state, one would execute
+   * the following in sequence:
+   *
+   * graph.deleteGraph();
+   *
+   * graph.closeAllThreads();
+   */
+  public void deleteGraph() {
+    long startTimeNs = 0;
+    if (logger.isDebugEnabled()) {
+      startTimeNs = System.nanoTime();
+    }
+
+    initialize();
+
+    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
+    client.dropTable(graphName + "_" + ID_TABLE_NAME);
+    client.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
+    client.dropTable(graphName + "_" + EDGELIST_TABLE_NAME);
+    idTableId = client.createTable(graphName + "_" + ID_TABLE_NAME,
+        totalMasterServers);
+    vertexTableId = client.createTable(graphName + "_" + VERTEX_TABLE_NAME,
+        totalMasterServers);
+    edgeListTableId = client.createTable(graphName + "_" + EDGELIST_TABLE_NAME,
+        totalMasterServers);
+
+    if (logger.isDebugEnabled()) {
+      long endTimeNs = System.nanoTime();
+      logger.debug(String.format("deleteGraph(), took %dus",
+          (endTimeNs - startTimeNs) / 1000l));
+    }
+  }
+
+  /* **************************************************************************
+   *
+   * TorcGraph Specific Internal Methods
+   *
+   * *************************************************************************/
+
+  /**
+   * This method ensures three things are true before it returns to the caller.
+   * <ol>
+   * <li>This thread has an initialized thread-local RAMCloud client (its own
+   * connection to RAMCloud)</li>
+   * <li>RAMCloud tables have been created for this graph.</li>
+   * <li>RAMCloud table IDs have been fetched.</li>
+   * </ol>
+   * <p>
+   * This method is intended to be used as a way of deferring costly
+   * initialization until absolutely needed. This method should be called at
+   * the top of any public method of TorcGraph that performs operations against
+   * RAMCloud.
+   */
+  private void initialize() {
+    if (!threadLocalClientMap.containsKey(Thread.currentThread())) {
+      threadLocalClientMap.put(Thread.currentThread(),
+          new RAMCloud(coordinatorLocator));
+
+      logger.debug(String.format("initialize(): Thread %d made connection to "
+          + "RAMCloud cluster.", Thread.currentThread().getId()));
+    }
+
+    if (!initialized) {
+      RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
+      idTableId =
+          client.createTable(graphName + "_" + ID_TABLE_NAME,
+              totalMasterServers);
+      vertexTableId =
+          client.createTable(graphName + "_" + VERTEX_TABLE_NAME,
+              totalMasterServers);
+      edgeListTableId =
+          client.createTable(graphName + "_" + EDGELIST_TABLE_NAME,
+              totalMasterServers);
+
+      initialized = true;
+
+      logger.debug(String.format("initialize(): Fetched table Ids "
+          + "(%s=%d,%s=%d,%s=%d)", graphName + "_" + ID_TABLE_NAME,
+          idTableId, graphName + "_" + VERTEX_TABLE_NAME,
+          vertexTableId, graphName + "_" + EDGELIST_TABLE_NAME,
+          edgeListTableId));
+    }
+  }
+
+  String getLabel(TorcVertex v) {
+    RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    RAMCloudObject neighborLabelRCObj =
+        rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(v.id()));
+    return neighborLabelRCObj.getValue();
+  }
+
   void removeVertex(final TorcVertex vertex) {
     throw Vertex.Exceptions.vertexRemovalNotSupported();
   }
@@ -911,9 +1072,6 @@ public final class TorcGraph implements Graph {
     return new TorcVertexProperty(vertex, key, value);
   }
 
-  /**
-   * Methods called by TorcEdge.
-   */
   void removeEdge(final TorcEdge edge) {
     throw Edge.Exceptions.edgeRemovalNotSupported();
   }
@@ -1030,146 +1188,6 @@ public final class TorcGraph implements Graph {
   <V> Property<V> setEdgeProperty(final TorcEdge edge, final String key,
       final V value) {
     throw Element.Exceptions.propertyAdditionNotSupported();
-  }
-
-  /**
-   * Closes the thread-local transaction (if it is open), and closes the
-   * thread-local connection to RAMCloud (if one has been made). This may
-   * affect the state of the graph in RAMCloud depending on the close behavior
-   * set for the transaction (e.g. in the case that there is an open
-   * transaction which is set to automatically commit when closed).
-   *
-   * Important: Every thread that performs any operation on this graph instance
-   * has the responsibility of calling this close method before exiting.
-   * Otherwise it is possible that state that has been created via the RAMCloud
-   * JNI library will not be cleaned up properly (for instance, although
-   * {@link RAMCloud} and {@link RAMCloudTransaction} objects have implemented
-   * finalize() methods to clean up their mirrored C++ objects, it is still
-   * possible that the garbage collector will clean up the RAMCloud object
-   * before the RAMCloudTransaction object that uses it. This *may* lead to
-   * unexpected behavior).
-   */
-  @Override
-  public void close() {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
-    if (threadLocalClientMap.containsKey(Thread.currentThread())) {
-      torcGraphTx.close();
-      RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
-      client.disconnect();
-      threadLocalClientMap.remove(Thread.currentThread());
-    }
-
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      logger.debug(String.format("close(), took %dus",
-          (endTimeNs - startTimeNs) / 1000l));
-    }
-  }
-
-  /**
-   * This method closes all open transactions on all threads (using rollback),
-   * and closes all open client connections to RAMCloud on all threads. Since
-   * this method uses rollback as the close mechanism for open transactions,
-   * and RAMCloud transactions keep no server-side state until commit, it is
-   * safe to execute this method even after the graph has been deleted with
-   * {@link #deleteAll()}. Its intended use is primarily for unit tests to
-   * ensure the freeing of all client-side state remaining across JNI (i.e. C++
-   * RAMCloud client objects, C++ RAMCloud Transaction objects) before
-   * finishing the current test and moving on to the next.
-   */
-  public void closeAllThreads() {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
-    torcGraphTx.doRollbackAllThreads();
-
-    threadLocalClientMap.forEach((thread, client) -> {
-      try {
-        client.disconnect();
-      } catch (Exception e) {
-        logger.error("closeAllThreads(): could not close transaction of "
-            + "thread " + thread.getId());
-      }
-
-      logger.debug(String.format("closeAllThreads(): closed client connection "
-          + "of %d", thread.getId()));
-    });
-
-    threadLocalClientMap.clear();
-
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      logger.debug(String.format("closeAllThreads(), took %dus",
-          (endTimeNs - startTimeNs) / 1000l));
-    }
-  }
-
-  /**
-   * This method closes all open client connections to RAMCloud on all threads.
-   * Since this method uses rollback as the close mechanism for open
-   * transactions, and RAMCloud transactions keep no server-side state until
-   * commit, it is safe to execute this method even after the graph has been
-   * deleted with {@link #deleteAll()}. Its intended use is primarily for unit
-   * tests to reset all transaction state before executing the next test .
-   */
-  public void rollbackAllThreads() {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
-    torcGraphTx.doRollbackAllThreads();
-
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      logger.debug(String.format("rollbackAllThreads(), took %dus",
-          (endTimeNs - startTimeNs) / 1000l));
-    }
-  }
-
-  /**
-   * Deletes all graph data for the graph represented by this TorcGraph
-   * instance in RAMCloud.
-   *
-   * This method's intended use is for the reset phase of unit tests (see also
-   * {@link #closeAllThreads()}). To delete all RAMCloud state representing
-   * this graph as well as clear up all client-side state, one would execute
-   * the following in sequence:
-   *
-   * graph.deleteGraph();
-   *
-   * graph.closeAllThreads();
-   */
-  public void deleteGraph() {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
-    initialize();
-
-    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
-    client.dropTable(graphName + "_" + ID_TABLE_NAME);
-    client.dropTable(graphName + "_" + VERTEX_TABLE_NAME);
-    client.dropTable(graphName + "_" + EDGELIST_TABLE_NAME);
-    idTableId = client.createTable(graphName + "_" + ID_TABLE_NAME,
-        totalMasterServers);
-    vertexTableId = client.createTable(graphName + "_" + VERTEX_TABLE_NAME,
-        totalMasterServers);
-    edgeListTableId = client.createTable(graphName + "_" + EDGELIST_TABLE_NAME,
-        totalMasterServers);
-
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      logger.debug(String.format("deleteGraph(), took %dus",
-          (endTimeNs - startTimeNs) / 1000l));
-    }
   }
 
   @Override
