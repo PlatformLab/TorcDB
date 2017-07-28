@@ -162,40 +162,40 @@ public class TorcHelper {
     return deserializeProperties(value);
   }
 
-  public static ByteBuffer serializeEdgeLabelList(List<String> edgeLabelList) {
+  public static ByteBuffer serializeStringList(List<String> list) {
     int serializedLength = 0;
-    for (String label : edgeLabelList) {
-      serializedLength += Short.BYTES + serializeString(label).length;
+    for (String s : list) {
+      serializedLength += Short.BYTES + serializeString(s).length;
     }
 
     ByteBuffer buffer = ByteBuffer.allocate(serializedLength);
-    for (String label : edgeLabelList) {
-      byte[] labelByteArray = serializeString(label);
-      buffer.putShort((short) labelByteArray.length);
-      buffer.put(serializeString(label));
+    for (String s : list) {
+      byte[] byteArray = serializeString(s);
+      buffer.putShort((short) byteArray.length);
+      buffer.put(byteArray);
     }
 
     return buffer;
   }
 
-  public static List<String> deserializeEdgeLabelList(ByteBuffer buffer) {
-    List<String> edgeLabelList = new ArrayList<>();
+  public static List<String> deserializeStringList(ByteBuffer buffer) {
+    List<String> list = new ArrayList<>();
     while (buffer.hasRemaining()) {
       short len = buffer.getShort();
-      byte label[] = new byte[len];
-      buffer.get(label);
+      byte byteArray[] = new byte[len];
+      buffer.get(byteArray);
 
-      edgeLabelList.add(deserializeString(label));
+      list.add(deserializeString(byteArray));
     }
 
-    return edgeLabelList;
+    return list;
   }
 
-  public static List<String> deserializeEdgeLabelList(RAMCloudObject obj) {
+  public static List<String> deserializeStringList(RAMCloudObject obj) {
     ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
     value.put(obj.getValueBytes());
     value.rewind();
-    return deserializeEdgeLabelList(value);
+    return deserializeStringList(value);
   }
 
   public static enum VertexKeyType {
@@ -226,21 +226,41 @@ public class TorcHelper {
     return VertexKeyType.values()[key[UInt128.BYTES]];
   }
 
+
   /**
-   * Generates a key prefix that defines an exclusive key-space for this
-   * combination of vertex ID, edge label, and edge direction. No other (vertex
-   * ID, label, direction) combination will have a key prefix that is a prefix
-   * of this key, or for which this key is a prefix of.
+   * Generates the key for the RAMCloud object that stores the list of edge
+   * labels of all incident edges to the given vertex. This is useful
+   * because edges are stored by edge label, direction, and neighbor vertex
+   * label. Therefore, to get all the edges incident to a vertex, one must know
+   * the incident edge labels (as well as the neighbor labels for each of those
+   * edge labels). In normal queries, however, the edge label is specified and
+   * there's no need to read this list.
    *
    * @param vertexId
-   * @param label
+   *
+   * @return RAMCloud Key.
+   */
+  public static byte[] getIncidentEdgeLabelListKey(UInt128 vertexId) {
+    return vertexId.toByteArray();
+  }
+
+  /**
+   * Generates the key for the RAMCloud object that stores the list of vertex
+   * labels of vertices that lie on the other side of edges with label
+   * edgeLabel for vertex with ID vertexId and in direction dir. This is useful
+   * because edges are stored by edge label, direction, and neighbor vertex
+   * label. Therefore, to get all the edges given an edge label, one must know
+   * all the vertex labels that lie on the other side of those edges.
+   *
+   * @param vertexId
+   * @param edgeLabel
    * @param dir
    *
-   * @return
+   * @return RAMCloud Key.
    */
-  public static byte[] getEdgeListKeyPrefix(UInt128 vertexId, String label,
-      TorcEdgeDirection dir) {
-    byte[] labelByteArray = serializeString(label);
+  public static byte[] getNeighborLabelListKey(UInt128 vertexId, String
+      edgeLabel, TorcEdgeDirection dir) {
+    byte[] labelByteArray = serializeString(edgeLabel);
     ByteBuffer buffer =
         ByteBuffer.allocate(UInt128.BYTES + Short.BYTES + labelByteArray.length
             + Byte.BYTES);
@@ -252,7 +272,37 @@ public class TorcHelper {
     return buffer.array();
   }
 
-  public static byte[] getEdgeLabelListKey(UInt128 vertexId) {
-    return vertexId.toByteArray();
+  /**
+   * Generates a key prefix that defines an exclusive key-space for this
+   * combination of vertex ID, edge label, edge direction, and vertex label. No
+   * other (vertex ID, elabel, direction, vlabel) combination will have a key
+   * prefix that is a prefix of this key, or for which this key is a prefix of.
+   * This key-prefix is used to generate unique keys for RAMCloud objects that
+   * store the potentially multiple segments that make up an edge list.
+   *
+   * @param vertexId
+   * @param edgeLabel
+   * @param dir
+   * @param vertexLabel
+   *
+   * @return RAMCloud Key.
+   */
+  public static byte[] getEdgeListKeyPrefix(UInt128 vertexId, String edgeLabel,
+      TorcEdgeDirection dir, String vertexLabel) {
+    byte[] edgeLabelByteArray = serializeString(edgeLabel);
+    byte[] vertexLabelByteArray = serializeString(vertexLabel);
+    ByteBuffer buffer =
+        ByteBuffer.allocate(UInt128.BYTES 
+            + Short.BYTES + edgeLabelByteArray.length
+            + Byte.BYTES 
+            + Short.BYTES + vertexLabelByteArray.length);
+    buffer.putLong(vertexId.getUpperLong());
+    buffer.putLong(vertexId.getLowerLong());
+    buffer.putShort((short) edgeLabelByteArray.length);
+    buffer.put(edgeLabelByteArray);
+    buffer.put((byte) dir.ordinal());
+    buffer.putShort((short) vertexLabelByteArray.length);
+    buffer.put(vertexLabelByteArray);
+    return buffer.array();
   }
 }
