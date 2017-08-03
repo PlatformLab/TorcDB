@@ -596,6 +596,100 @@ public final class TorcGraph implements Graph {
     return initialized;
   }
 
+  /** 
+   * Fetches the neighbors of a whole set of vertices in bulk, given a set of
+   * edge labels and a direction. Takes advantage of TorcGraph's ability to
+   * fetch data efficiently in parallel from RAMCloud.  
+   *
+   * @param vertices Set of vertices to use as base vertices.
+   * @param direction Edge direction to traverse.
+   * @param edgeLabels Set of edge labels to traverse.
+   *
+   * @return Map of base vertex to array of neighbor vertices.
+   */
+  public Map<Vertex, Iterator<Vertex>> vertexNeighbors(
+      final List<Vertex> vertices,
+      final Direction direction,
+      final String[] edgeLabels) {
+//    System.out.println(String.format("TorcGraph.vertexNeighbors(): vertices.size = %d, direction = %s, labels = %s",
+//          vertices.size(),
+//          direction,
+//          Arrays.toString(edgeLabels)));
+    EnumSet<TorcEdgeDirection> dirs;
+    switch (direction) {
+      case OUT:
+            dirs = EnumSet.of(TorcEdgeDirection.DIRECTED_OUT);
+            break;
+      case IN:
+            dirs = EnumSet.of(TorcEdgeDirection.DIRECTED_IN);
+            break;
+      case BOTH:
+            dirs = EnumSet.of(TorcEdgeDirection.DIRECTED_OUT,
+                TorcEdgeDirection.DIRECTED_IN);
+            break;
+
+      default:
+        throw new UnsupportedOperationException("Unrecognized direction "
+            + "value: " + direction);
+    }
+
+    Map<Vertex, Iterator<Vertex>> map = new HashMap<>();
+    for (Vertex v : vertices) {
+      Iterator<Vertex> neighbors = vertexNeighbors((TorcVertex)v, dirs, 
+          edgeLabels);
+      map.put(v, neighbors);
+    }
+
+    return map;
+  }
+
+  /** 
+   * Fetches the incident edges of a whole set of vertices in bulk, given a set
+   * of edge labels and a direction. Takes advantage of TorcGraph's ability to
+   * fetch data efficiently in parallel from RAMCloud.  
+   *
+   * @param vertices Set of vertices to use as base vertices.
+   * @param direction Edge direction to traverse.
+   * @param edgeLabels Set of edge labels to traverse.
+   *
+   * @return Map of base vertex to array of incident edges.
+   */
+  public Map<Vertex, Iterator<Edge>> vertexEdges(
+      final List<Vertex> vertices,
+      final Direction direction,
+      final String[] edgeLabels) {
+//    System.out.println(String.format("vertexEdges: vertices.size = %d, direction = %s, labels = %s",
+//          vertices.size(),
+//          direction,
+//          Arrays.toString(edgeLabels)));
+    EnumSet<TorcEdgeDirection> dirs;
+    switch (direction) {
+      case OUT:
+            dirs = EnumSet.of(TorcEdgeDirection.DIRECTED_OUT);
+            break;
+      case IN:
+            dirs = EnumSet.of(TorcEdgeDirection.DIRECTED_IN);
+            break;
+      case BOTH:
+            dirs = EnumSet.of(TorcEdgeDirection.DIRECTED_OUT,
+                TorcEdgeDirection.DIRECTED_IN);
+            break;
+
+      default:
+        throw new UnsupportedOperationException("Unrecognized direction "
+            + "value: " + direction);
+    }
+
+    Map<Vertex, Iterator<Edge>> map = new HashMap<>();
+    for (Vertex v : vertices) {
+      Iterator<Edge> edges = vertexEdges((TorcVertex)v, dirs, 
+          edgeLabels);
+      map.put(v, edges);
+    }
+
+    return map;
+  }
+
   /**
    * This method closes all open transactions on all threads (using rollback),
    * and closes all open client connections to RAMCloud on all threads. Since
