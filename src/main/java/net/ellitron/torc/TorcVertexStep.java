@@ -71,7 +71,7 @@ public class TorcVertexStep<E extends Element>
 
   @Override
   protected Traverser.Admin<E> processNextStart() {
-    if (ends == null || !ends.hasNext()) {
+    if ((ends == null || !ends.hasNext()) && this.starts.hasNext()) {
       /* First fetch the complete set of starting vertices. */
       List<Vertex> startList = new ArrayList<>();
       Map<Vertex, Traverser.Admin<Vertex>> traverserMap = new HashMap<>();
@@ -104,7 +104,7 @@ public class TorcVertexStep<E extends Element>
         }
 
         ends = endList.iterator();
-        System.out.println(String.format("processNextStart(): ends was null, and have %d vertices to start with, which lead to %d neighbor vertices.", startList.size(), endList.size()));
+//        System.out.println(String.format("processNextStart(): ends was null, and have %d vertices to start with, which lead to %d neighbor vertices.", startList.size(), endList.size()));
       } else {
         /* Bulk fetch incident edges from TorcGraph. */
         Map<Vertex, Iterator<Edge>> edgeMap = 
@@ -131,7 +131,7 @@ public class TorcVertexStep<E extends Element>
       }
     }
 
-    if (ends.hasNext()) {
+    if (ends != null && ends.hasNext()) {
       return ends.next();
     } else {
       throw FastNoSuchElementException.instance();
