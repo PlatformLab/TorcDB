@@ -26,6 +26,7 @@ import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 
 import java.util.EnumSet;
 import java.util.Iterator;
+import java.util.Arrays;
 
 /**
  *

@@ -611,10 +611,10 @@ public final class TorcGraph implements Graph {
       final List<Vertex> vertices,
       final Direction direction,
       final String[] edgeLabels) {
-    System.out.println(String.format("vertexNeighbors: vertices.size = %d, direction = %s, labels = %s",
-          vertices.size(),
-          direction,
-          Arrays.toString(edgeLabels)));
+//    System.out.println(String.format("TorcGraph.vertexNeighbors(): vertices.size = %d, direction = %s, labels = %s",
+//          vertices.size(),
+//          direction,
+//          Arrays.toString(edgeLabels)));
     EnumSet<TorcEdgeDirection> dirs;
     switch (direction) {
       case OUT:
@@ -658,10 +658,10 @@ public final class TorcGraph implements Graph {
       final List<Vertex> vertices,
       final Direction direction,
       final String[] edgeLabels) {
-    System.out.println(String.format("vertexEdges: vertices.size = %d, direction = %s, labels = %s",
-          vertices.size(),
-          direction,
-          Arrays.toString(edgeLabels)));
+//    System.out.println(String.format("vertexEdges: vertices.size = %d, direction = %s, labels = %s",
+//          vertices.size(),
+//          direction,
+//          Arrays.toString(edgeLabels)));
     EnumSet<TorcEdgeDirection> dirs;
     switch (direction) {
       case OUT:

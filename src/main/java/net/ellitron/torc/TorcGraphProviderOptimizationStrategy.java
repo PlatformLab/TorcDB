@@ -50,19 +50,16 @@ public final class TorcGraphProviderOptimizationStrategy extends
 
     @Override
     public void apply(final Traversal.Admin<?, ?> traversal) {
-      System.out.println("TorcGraphProviderOptimizationStrategy.apply()!");
 
       if (TraversalHelper.onGraphComputer(traversal))
         return;
 
       for (final GraphStep originalGraphStep : 
         TraversalHelper.getStepsOfClass(GraphStep.class, traversal)) {
-        System.out.println("I found a GraphStep!");
       }
 
       for (final VertexStep originalVertexStep : 
         TraversalHelper.getStepsOfClass(VertexStep.class, traversal)) {
-        System.out.println("Replacing a VertexStep with a TorcVertexStep!");
         final TorcVertexStep<?> torcVertexStep = new
             TorcVertexStep<>(originalVertexStep);
         TraversalHelper.replaceStep(originalVertexStep, torcVertexStep,
