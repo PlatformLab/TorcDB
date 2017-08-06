@@ -73,12 +73,12 @@ public class TorcVertexStep<E extends Element>
   protected Traverser.Admin<E> processNextStart() {
     if ((ends == null || !ends.hasNext()) && this.starts.hasNext()) {
       /* First fetch the complete set of starting vertices. */
-      List<Vertex> startList = new ArrayList<>();
+      List<TorcVertex> startList = new ArrayList<>();
       Map<Vertex, Traverser.Admin<Vertex>> traverserMap = new HashMap<>();
       while(this.starts.hasNext()) {
         Traverser.Admin<Vertex> t = this.starts.next();
         traverserMap.put(t.get(), t);
-        startList.add(t.get());
+        startList.add((TorcVertex)t.get());
       }
 
       if (Vertex.class.isAssignableFrom(this.returnClass)) {
@@ -87,7 +87,8 @@ public class TorcVertexStep<E extends Element>
             ((TorcGraph)this.getTraversal().getGraph().get()).vertexNeighbors(
                 startList,
                 direction, 
-                edgeLabels);
+                edgeLabels,
+                null);
 
         /* Use results to build a complete list of ending elements. */
         List<Traverser.Admin<E>> endList = new ArrayList<>();

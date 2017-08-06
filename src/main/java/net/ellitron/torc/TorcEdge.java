@@ -16,6 +16,7 @@
 package net.ellitron.torc;
 
 import net.ellitron.torc.util.UInt128;
+import net.ellitron.torc.util.TorcHelper;
 
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
@@ -26,8 +27,8 @@ import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 
-import java.util.Iterator;
-import java.util.Objects;
+import java.nio.ByteBuffer;
+import java.util.*;
 
 /**
  *
@@ -40,6 +41,8 @@ public class TorcEdge implements Edge, Element {
   private final UInt128 v2Id;
   private final Type type;
   private String label;
+  private ByteBuffer serializedProperties = null;
+  private Map<String, List<String>> properties = null;
 
   public enum Type {
 
@@ -141,6 +144,32 @@ public class TorcEdge implements Edge, Element {
     this.label = label;
   }
 
+  public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
+      Type type, final String label, Map<String, List<String>> properties) {
+    this(graph, v1Id, v2Id, type, label);
+    this.properties = properties;
+  }
+
+  public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
+      Type type, final String label, ByteBuffer serializedProperties) {
+    this(graph, v1Id, v2Id, type, label);
+    this.serializedProperties = serializedProperties;
+  }
+
+  public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
+      Type type, final String label, byte[] serializedProperties) {
+    this(graph, v1Id, v2Id, type, label);
+    this.serializedProperties = ByteBuffer.wrap(serializedProperties);
+  }
+
+  public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
+      Type type, final String label, Map<String, List<String>> properties,
+      ByteBuffer serializedProperties) {
+    this(graph, v1Id, v2Id, type, label);
+    this.properties = properties;
+    this.serializedProperties = serializedProperties;
+  }
+
   /**
    * {@inheritDoc}
    */
@@ -194,6 +223,42 @@ public class TorcEdge implements Edge, Element {
    */
   public Type getType() {
     return type;
+  }
+
+  /**
+   * Returns the properties of this edge, if any.
+   *
+   * @return Edge properties.
+   */
+  public Map<String, List<String>> getProperties() {
+    if (properties != null) {
+      return properties;
+    } else {
+      if (serializedProperties != null) {
+        properties = TorcHelper.deserializeProperties(serializedProperties);
+        return properties;
+      } else {
+        return null;
+      }
+    }
+  }
+
+  /**
+   * Returns the serialized properties of this edge, if any.
+   *
+   * @return Edge serialized properties.
+   */
+  public ByteBuffer getSerializedProperties() {
+    if (serializedProperties != null) {
+      return serializedProperties;
+    } else {
+      if (properties != null) {
+        serializedProperties = TorcHelper.serializeProperties(properties);
+        return serializedProperties;
+      } else {
+        return null;
+      }
+    }
   }
 
   /**
