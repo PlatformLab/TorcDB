@@ -647,7 +647,12 @@ public final class TorcGraph implements Graph {
     List<String> brNeighborLabels = new ArrayList<>();
 
     for (TorcVertex vertex : vertices) {
-      List<String> eLabels = Arrays.asList(edgeLabels);
+      List<String> eLabels;
+      if (edgeLabels != null) {
+        eLabels = Arrays.asList(edgeLabels);
+      } else {
+        eLabels = new ArrayList<>();
+      }
 
       if (eLabels.isEmpty()) {
         try {
@@ -664,7 +669,12 @@ public final class TorcGraph implements Graph {
 
       for (String edgeLabel : eLabels) {
         for (TorcEdgeDirection dir : dirs) {
-          List<String> nLabels = Arrays.asList(neighborLabels);
+          List<String> nLabels; 
+          if (neighborLabels != null) {
+            nLabels = Arrays.asList(neighborLabels);
+          } else {
+            nLabels = new ArrayList<>();
+          }
 
           if (nLabels.isEmpty()) {
             try {

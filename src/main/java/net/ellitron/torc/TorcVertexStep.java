@@ -51,6 +51,7 @@ public class TorcVertexStep<E extends Element>
   private final Class<E> returnClass; 
   private Direction direction;                                                
   private final String[] edgeLabels;                                          
+  private final String[] neighborLabels;
 
   public TorcVertexStep(final Traversal.Admin traversal,
       final Class<E> returnClass,
@@ -60,6 +61,7 @@ public class TorcVertexStep<E extends Element>
     this.direction = direction;                                             
     this.edgeLabels = edgeLabels;                                           
     this.returnClass = returnClass;
+    this.neighborLabels = new String[0];
   }
 
   public TorcVertexStep(final VertexStep<E> originalVertexStep) {
@@ -88,7 +90,7 @@ public class TorcVertexStep<E extends Element>
                 startList,
                 direction, 
                 edgeLabels,
-                null);
+                neighborLabels);
 
         /* Use results to build a complete list of ending elements. */
         List<Traverser.Admin<E>> endList = new ArrayList<>();
