@@ -21,6 +21,7 @@ import net.ellitron.torc.util.UInt128;
 import edu.stanford.ramcloud.ClientException;
 import edu.stanford.ramcloud.RAMCloudObject;
 import edu.stanford.ramcloud.RAMCloudTransaction;
+import edu.stanford.ramcloud.RAMCloudTransactionReadOp;
 
 import org.apache.log4j.Logger;
 
@@ -387,15 +388,120 @@ public class TorcEdgeList {
       List<UInt128> baseVertexIds,
       List<String> edgeLabels, 
       List<TorcEdgeDirection> directions) {
-    Map<byte[], List<TorcEdge>> edgeListMap = new HashMap<>();
+    Map<byte[], LinkedList<RAMCloudTransactionReadOp>> readMap = new HashMap<>();
+    Map<byte[], List<TorcEdge>> edgeMap = new HashMap<>();
 
-    for (int i = 0; i < keyPrefixes.size(); i++) {
-      edgeListMap.put(keyPrefixes.get(i), read(rctx, rcTableId, 
-            keyPrefixes.get(i), graph, baseVertexIds.get(i), edgeLabels.get(i), 
-            directions.get(i)));
+    /* Async. read head segments. */
+    for (byte[] kp : keyPrefixes) {
+      LinkedList<RAMCloudTransactionReadOp> readOpList = new LinkedList<>();
+      byte[] headSegKey = getSegmentKey(kp, 0);
+      readOpList.addLast(new RAMCloudTransactionReadOp(rctx, rcTableId,
+            headSegKey, true));
+      readMap.put(kp, readOpList);
     }
 
-    return edgeListMap;
+    /* Process returned head segments and async. read tail segments. */
+    for (int i = 0; i < keyPrefixes.size(); i++) {
+      byte[] kp = keyPrefixes.get(i);
+      UInt128 baseVertexId = baseVertexIds.get(i);
+      String edgeLabel = edgeLabels.get(i);
+      TorcEdgeDirection direction = directions.get(i);
+
+      LinkedList<RAMCloudTransactionReadOp> readOpList = readMap.get(kp);
+      RAMCloudTransactionReadOp readOp = readOpList.removeFirst();
+      long startTime = System.nanoTime();
+      RAMCloudObject headSegObj = readOp.getValue();
+      long endTime = System.nanoTime();
+      readOp.finalize();
+
+      ByteBuffer headSeg =
+          ByteBuffer.allocate(headSegObj.getValueBytes().length);
+      headSeg.put(headSegObj.getValueBytes());
+      headSeg.flip();
+
+      int numTailSegments = headSeg.getInt();
+
+      List<TorcEdge> edgeList = new LinkedList<>();
+      edgeMap.put(kp, edgeList);
+
+      while (headSeg.hasRemaining()) {
+        byte[] neighborIdBytes = new byte[UInt128.BYTES];
+        headSeg.get(neighborIdBytes);
+
+        UInt128 neighborId = new UInt128(neighborIdBytes);
+
+        short propLen = headSeg.getShort();
+
+        byte[] serializedProperties = new byte[propLen];
+        headSeg.get(serializedProperties);
+
+        if (direction == TorcEdgeDirection.DIRECTED_OUT) {
+          edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
+              TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
+        } else if (direction == TorcEdgeDirection.DIRECTED_IN) {
+          edgeList.add(new TorcEdge(graph, neighborId, baseVertexId,
+              TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
+        } else {
+          edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
+              TorcEdge.Type.UNDIRECTED, edgeLabel, serializedProperties));
+        }
+      }
+
+      /* Queue up async. reads for tail segments. */
+      for (int j = numTailSegments; j > 0; --j) {
+        byte[] tailSegKey = getSegmentKey(kp, j);
+        readOpList.addLast(new RAMCloudTransactionReadOp(rctx, rcTableId,
+              tailSegKey, true));
+      }
+    }
+
+    /* Process returned tail segments. */
+    for (int i = 0; i < keyPrefixes.size(); i++) {
+      byte[] kp = keyPrefixes.get(i);
+      UInt128 baseVertexId = baseVertexIds.get(i);
+      String edgeLabel = edgeLabels.get(i);
+      TorcEdgeDirection direction = directions.get(i);
+
+      List<TorcEdge> edgeList = edgeMap.get(kp);
+
+      LinkedList<RAMCloudTransactionReadOp> readOpList = readMap.get(kp);
+
+      while (readOpList.size() > 0) {
+        RAMCloudTransactionReadOp readOp = readOpList.removeFirst();
+        RAMCloudObject tailSegObj = readOp.getValue();
+        readOp.finalize();
+
+        ByteBuffer tailSeg =
+            ByteBuffer.allocate(tailSegObj.getValueBytes().length);
+        tailSeg.put(tailSegObj.getValueBytes());
+        tailSeg.flip();
+
+        while (tailSeg.hasRemaining()) {
+          byte[] neighborIdBytes = new byte[UInt128.BYTES];
+          tailSeg.get(neighborIdBytes);
+
+          UInt128 neighborId = new UInt128(neighborIdBytes);
+
+          short propLen = tailSeg.getShort();
+
+          byte[] serializedProperties = new byte[propLen];
+          tailSeg.get(serializedProperties);
+
+          if (direction == TorcEdgeDirection.DIRECTED_OUT) {
+            edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
+                TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
+          } else if (direction == TorcEdgeDirection.DIRECTED_IN) {
+            edgeList.add(new TorcEdge(graph, neighborId, baseVertexId,
+                TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
+          } else {
+            edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
+                TorcEdge.Type.UNDIRECTED, edgeLabel, serializedProperties));
+          }
+        }
+      }
+    }
+
+    return edgeMap;
   }
 
   /**
