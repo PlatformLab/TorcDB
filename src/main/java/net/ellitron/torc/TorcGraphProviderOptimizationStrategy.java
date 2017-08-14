@@ -18,6 +18,7 @@
  */
 package net.ellitron.torc;
 
+import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.process.traversal.Step;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
@@ -64,6 +65,16 @@ public final class TorcGraphProviderOptimizationStrategy extends
             TorcVertexStep<>(originalVertexStep);
         TraversalHelper.replaceStep(originalVertexStep, torcVertexStep,
             traversal);
+        Step<?, ?> currentStep = torcVertexStep.getNextStep();
+        if (currentStep instanceof HasStep) {
+          for (final HasContainer hasContainer : 
+              ((HasContainerHolder) currentStep).getHasContainers()) {
+            if (hasContainer.getKey().equals(T.label.getAccessor())) {
+              String label = (String) hasContainer.getPredicate().getValue();
+              torcVertexStep.addNeighborLabel(label);
+            }
+          }
+        }
       }
     }
 

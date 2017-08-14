@@ -51,7 +51,7 @@ public class TorcVertexStep<E extends Element>
   private final Class<E> returnClass; 
   private Direction direction;                                                
   private final String[] edgeLabels;                                          
-  private final String[] neighborLabels;
+  private final List<String> neighborLabels;
 
   public TorcVertexStep(final Traversal.Admin traversal,
       final Class<E> returnClass,
@@ -61,7 +61,7 @@ public class TorcVertexStep<E extends Element>
     this.direction = direction;                                             
     this.edgeLabels = edgeLabels;                                           
     this.returnClass = returnClass;
-    this.neighborLabels = new String[0];
+    this.neighborLabels = new ArrayList<>();
   }
 
   public TorcVertexStep(final VertexStep<E> originalVertexStep) {
@@ -69,6 +69,10 @@ public class TorcVertexStep<E extends Element>
         originalVertexStep.getReturnClass(), 
         originalVertexStep.getDirection(), 
         originalVertexStep.getEdgeLabels());
+  }
+
+  public void addNeighborLabel(String label) {
+    neighborLabels.add(label);
   }
 
   @Override
