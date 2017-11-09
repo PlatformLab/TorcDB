@@ -127,11 +127,11 @@ cd /path/to/TorcDB/RAMCloud
 ```
 cd /path/to/ldbc-snb-impls/snb-interactive-torc/
 
-mvn exec:java -Dexec.mainClass="net.ellitron.ldbcsnbimpls.interactive.torc.util.GraphLoader" -Dexec.args="--coordLoc basic+udp:host=192.168.1.110,port=12246 --masters 4 --graphName ldbcsnbval01 --numLoaders 1 --loaderIdx 0 --numThreads 1 --txSize 32 --reportInt 2 --reportFmt OFDT nodes /path/to/ldbc_snb_interactive_validation/neo4j/readwrite_neo4j--validation_set/validation_set/"
+mvn exec:java -Dexec.mainClass="net.ellitron.ldbcsnbimpls.interactive.torc.util.GraphLoader" -Dexec.args="--coordLoc basic+udp:host=192.168.1.110,port=12246 --masters 4 --graphName ldbcsnbval01 --numLoaders 1 --loaderIdx 0 --numThreads 1 --txSize 32 --reportInt 2 --reportFmt LFDT nodes /path/to/ldbc_snb_interactive_validation/neo4j/readwrite_neo4j--validation_set/validation_set/"
 
-mvn exec:java -Dexec.mainClass="net.ellitron.ldbcsnbimpls.interactive.torc.util.GraphLoader" -Dexec.args="--coordLoc basic+udp:host=192.168.1.110,port=12246 --masters 4 --graphName ldbcsnbval01 --numLoaders 1 --loaderIdx 0 --numThreads 1 --txSize 32 --reportInt 2 --reportFmt OFDT edges /path/to/ldbc_snb_interactive_validation/neo4j/readwrite_neo4j--validation_set/validation_set/"
+mvn exec:java -Dexec.mainClass="net.ellitron.ldbcsnbimpls.interactive.torc.util.GraphLoader" -Dexec.args="--coordLoc basic+udp:host=192.168.1.110,port=12246 --masters 4 --graphName ldbcsnbval01 --numLoaders 1 --loaderIdx 0 --numThreads 1 --txSize 32 --reportInt 2 --reportFmt LFDT edges /path/to/ldbc_snb_interactive_validation/neo4j/readwrite_neo4j--validation_set/validation_set/"
 
-mvn exec:java -Dexec.mainClass="net.ellitron.ldbcsnbimpls.interactive.torc.util.GraphLoader" -Dexec.args="--coordLoc basic+udp:host=192.168.1.110,port=12246 --masters 4 --graphName ldbcsnbval01 --numLoaders 1 --loaderIdx 0 --numThreads 1 --txSize 32 --reportInt 2 --reportFmt OFDT props /path/to/ldbc_snb_interactive_validation/neo4j/readwrite_neo4j--validation_set/validation_set/"
+mvn exec:java -Dexec.mainClass="net.ellitron.ldbcsnbimpls.interactive.torc.util.GraphLoader" -Dexec.args="--coordLoc basic+udp:host=192.168.1.110,port=12246 --masters 4 --graphName ldbcsnbval01 --numLoaders 1 --loaderIdx 0 --numThreads 1 --txSize 32 --reportInt 2 --reportFmt LFDT props /path/to/ldbc_snb_interactive_validation/neo4j/readwrite_neo4j--validation_set/validation_set/"
 ```
 * Run validation against TorcDB:
 ```
