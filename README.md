@@ -36,6 +36,10 @@ make -j8 DEBUG=no
 ```
 ln -s $(pwd)/obj/libramcloud.so ~/local/lib/libramcloud.so
 ```
+* Ensure that library path set in `LD_LIBRARY_PATH`:
+```
+export LD_LIBRARY_PATH=~/local/lib
+```
 * Build RAMCloud java library:
 ```
 cd bindings/java/
