@@ -596,6 +596,63 @@ public final class TorcGraph implements Graph {
     return initialized;
   }
 
+  /*
+   * Specialized method for quickly loading a vertex. Method works by executing
+   * essentially a blind write of a vertex into the graph, without checking
+   * whether or not the vertex exists. Assumes that the vertex has an ID already
+   * set. Does not perform normal checks on the properties.
+   */
+  public void loadVertex(final Object... keyValues) {
+    initialize();
+
+    torcGraphTx.readWrite();
+    RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+
+    Object idValue = ElementHelper.getIdValue(keyValues).orElse(null);
+    final String label =
+        ElementHelper.getLabelValue(keyValues).orElse(Vertex.DEFAULT_LABEL);
+
+    UInt128 vertexId = UInt128.decode(idValue);
+
+    // Create property map.
+    Map<String, List<String>> properties = new HashMap<>();
+    for (int i = 0; i < keyValues.length; i = i + 2) {
+      if (keyValues[i] instanceof String) {
+        String key = (String) keyValues[i];
+        String val = (String) keyValues[i + 1];
+        if (properties.containsKey(key)) {
+          properties.get(key).add(val);
+        } else {
+          properties.put(key, new ArrayList<>(Arrays.asList(val)));
+        }
+      }
+    }
+
+    /*
+     * Perform size checks on objects to be written to RAMCloud.
+     */
+    byte[] labelByteArray = TorcHelper.serializeString(label);
+    if (labelByteArray.length > RAMCLOUD_OBJECT_SIZE_LIMIT) {
+      throw new IllegalArgumentException(String.format("Size of vertex label "
+          + "exceeds maximum allowable (size=%dB, max=%dB)",
+          labelByteArray.length, RAMCLOUD_OBJECT_SIZE_LIMIT));
+    }
+
+    byte[] serializedProps =
+        TorcHelper.serializeProperties(properties).array();
+    if (serializedProps.length > RAMCLOUD_OBJECT_SIZE_LIMIT) {
+      throw new IllegalArgumentException(String.format("Total size of "
+          + "properties exceeds maximum allowable (size=%dB, max=%dB)",
+          serializedProps.length, RAMCLOUD_OBJECT_SIZE_LIMIT));
+    }
+
+    rctx.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId),
+        labelByteArray);
+
+    rctx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertexId),
+        serializedProps);
+  }
+
   /** 
    * Fetches the neighbors of a whole set of vertices in bulk, given a set of
    * edge labels and a direction. Takes advantage of TorcGraph's ability to
