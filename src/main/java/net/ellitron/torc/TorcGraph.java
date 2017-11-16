@@ -39,6 +39,11 @@ import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 
+import java.io.BufferedOutputStream;
+import java.io.FileOutputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -81,6 +86,17 @@ public final class TorcGraph implements Graph {
       "gremlin.torc.logLevel";
   public static final String CONFIG_THREADLOCALCLIENTMAP =
       "gremlin.torc.threadLocalClientMap";
+  /*
+   * A special operating mode for directly creating RAMCloud image files while
+   * loading nodes and edges into the graph. In this mode only the loadVertex
+   * and loadEdgeList methods (coming soon) are available. When this mode is
+   * enabled, these methods write directly to RAMCloud images files on local
+   * disk, in a directory configured by the CONFIG_RC_IMAGE_DIRECTORY parameter.
+   */
+  public static final String CONFIG_RC_IMAGE_CREATION_MODE =
+      "gremlin.torc.rcImageCreationMode";
+  public static final String CONFIG_RC_IMAGE_DIRECTORY =
+      "gremlin.torc.rcImageDirectory";
 
   // Constants.
   private static final String ID_TABLE_NAME = "idTable";
@@ -91,18 +107,23 @@ public final class TorcGraph implements Graph {
   private static final int RAMCLOUD_OBJECT_SIZE_LIMIT = 1 << 20;
 
   // Normal private members.
-  private final Configuration configuration;
-  private final String coordinatorLocator;
-  private final int totalMasterServers;
-  private final ConcurrentHashMap<Thread, RAMCloud> threadLocalClientMap;
+  private Configuration configuration;
+  private String coordinatorLocator;
+  private boolean rcImageCreationMode = false;
+  private String rcImageDir;
+  private OutputStream vertexTableOS, edgeListTableOS;
+  private int totalMasterServers;
+  private ConcurrentHashMap<Thread, RAMCloud> threadLocalClientMap;
   private long idTableId, vertexTableId, edgeListTableId;
-  private final String graphName;
-  private final TorcGraphTransaction torcGraphTx;
+  private String graphName;
+  private TorcGraphTransaction torcGraphTx;
 
   boolean initialized = false;
 
   private TorcGraph(final Configuration configuration) {
     this.configuration = configuration;
+
+    graphName = configuration.getString(CONFIG_GRAPH_NAME);
 
     if (configuration.containsKey(CONFIG_THREADLOCALCLIENTMAP)) {
       this.threadLocalClientMap =
@@ -112,19 +133,39 @@ public final class TorcGraph implements Graph {
       this.threadLocalClientMap = new ConcurrentHashMap<>();
     }
 
-    this.torcGraphTx = new TorcGraphTransaction();
+    if (configuration.containsKey(CONFIG_RC_IMAGE_CREATION_MODE)) {
+      rcImageCreationMode = true;
 
-    graphName = configuration.getString(CONFIG_GRAPH_NAME);
-    coordinatorLocator = configuration.getString(CONFIG_COORD_LOCATOR);
+      rcImageDir = configuration.getString(CONFIG_RC_IMAGE_DIRECTORY);
 
-    if (configuration.containsKey(CONFIG_NUM_MASTER_SERVERS)) {
-      totalMasterServers = configuration.getInt(CONFIG_NUM_MASTER_SERVERS);
+      try {
+        vertexTableOS = new BufferedOutputStream(new FileOutputStream(
+              rcImageDir + "/" + graphName + "_" + VERTEX_TABLE_NAME + 
+              ".img"));
+
+        edgeListTableOS = new BufferedOutputStream(new FileOutputStream(
+              rcImageDir + "/" + graphName + "_" + EDGELIST_TABLE_NAME + 
+              ".img"));
+      } catch (FileNotFoundException e) {
+        throw new RuntimeException(e);
+      }
+
+      logger.debug(String.format("Constructing TorcGraph (%s,%s)",
+          graphName, rcImageDir));
     } else {
-      totalMasterServers = 1;
-    }
+      coordinatorLocator = configuration.getString(CONFIG_COORD_LOCATOR);
 
-    logger.debug(String.format("Constructing TorcGraph (%s,%s)",
-        graphName, coordinatorLocator));
+      if (configuration.containsKey(CONFIG_NUM_MASTER_SERVERS)) {
+        totalMasterServers = configuration.getInt(CONFIG_NUM_MASTER_SERVERS);
+      } else {
+        totalMasterServers = 1;
+      }
+
+      this.torcGraphTx = new TorcGraphTransaction();
+
+      logger.debug(String.format("Constructing TorcGraph (%s,%s)",
+          graphName, coordinatorLocator));
+    }
   }
 
   public static TorcGraph open(Map<String, String> configuration) {
@@ -556,11 +597,22 @@ public final class TorcGraph implements Graph {
       startTimeNs = System.nanoTime();
     }
 
-    if (threadLocalClientMap.containsKey(Thread.currentThread())) {
-      torcGraphTx.close();
-      RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
-      client.disconnect();
-      threadLocalClientMap.remove(Thread.currentThread());
+    if (rcImageCreationMode) {
+      try {
+        vertexTableOS.flush();
+        vertexTableOS.close();
+        edgeListTableOS.flush();
+        edgeListTableOS.close();
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    } else {
+      if (threadLocalClientMap.containsKey(Thread.currentThread())) {
+        torcGraphTx.close();
+        RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
+        client.disconnect();
+        threadLocalClientMap.remove(Thread.currentThread());
+      }
     }
 
     if (logger.isDebugEnabled()) {
@@ -600,14 +652,11 @@ public final class TorcGraph implements Graph {
    * Specialized method for quickly loading a vertex. Method works by executing
    * essentially a blind write of a vertex into the graph, without checking
    * whether or not the vertex exists. Assumes that the vertex has an ID already
-   * set. Does not perform normal checks on the properties.
+   * set. Does not perform normal checks on the properties. If outputFile is
+   * non-null, then instead of writing the writing the vertex into RAMCloud, the
+   * vertex's RAMCloud key-value serialization is appended to the given file.
    */
   public void loadVertex(final Object... keyValues) {
-    initialize();
-
-    torcGraphTx.readWrite();
-    RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
-
     Object idValue = ElementHelper.getIdValue(keyValues).orElse(null);
     final String label =
         ElementHelper.getLabelValue(keyValues).orElse(Vertex.DEFAULT_LABEL);
@@ -646,11 +695,42 @@ public final class TorcGraph implements Graph {
           serializedProps.length, RAMCLOUD_OBJECT_SIZE_LIMIT));
     }
 
-    rctx.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId),
-        labelByteArray);
+    byte[] vertexLabelKey = TorcHelper.getVertexLabelKey(vertexId);
+    byte[] vertexPropertiesKey = TorcHelper.getVertexPropertiesKey(vertexId);
 
-    rctx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertexId),
-        serializedProps);
+    if (rcImageCreationMode) {
+      ByteBuffer buffer = ByteBuffer.allocate(
+          Integer.BYTES * 4 +
+          vertexLabelKey.length + 
+          labelByteArray.length +
+          vertexPropertiesKey.length + 
+          serializedProps.length);
+
+      buffer.putInt(vertexLabelKey.length);
+      buffer.put(vertexLabelKey);
+      buffer.putInt(labelByteArray.length);
+      buffer.put(labelByteArray);
+
+      buffer.putInt(vertexPropertiesKey.length);
+      buffer.put(vertexPropertiesKey);
+      buffer.putInt(serializedProps.length);
+      buffer.put(serializedProps);
+
+      try {
+        vertexTableOS.write(buffer.array());
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    } else {
+      // Write vertex into RAMCloud
+      initialize();
+
+      torcGraphTx.readWrite();
+      RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+
+      rctx.write(vertexTableId, vertexLabelKey, labelByteArray);
+      rctx.write(vertexTableId, vertexPropertiesKey, serializedProps);
+    }
   }
 
   /** 
