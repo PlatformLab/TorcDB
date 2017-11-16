@@ -706,6 +706,8 @@ public final class TorcGraph implements Graph {
           vertexPropertiesKey.length + 
           serializedProps.length);
 
+      buffer.order(ByteOrder.LITTLE_ENDIAN);
+
       buffer.putInt(vertexLabelKey.length);
       buffer.put(vertexLabelKey);
       buffer.putInt(labelByteArray.length);
