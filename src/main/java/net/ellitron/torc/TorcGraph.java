@@ -735,6 +735,28 @@ public final class TorcGraph implements Graph {
     }
   }
 
+  /*
+   * Specialized method for quickly loading an edge list for a vertex in one
+   * direction. Edge lists for the neighbor vertices must be added separately.
+   */
+  public void loadEdges(final UInt128 baseVertexId, final String edgeLabel,
+      final TorcEdgeDirection dir, final String neighborLabel, 
+      final UInt128[] neighborIds, final Map<String, List<String>>[] propMaps) 
+  {
+    byte[] keyPrefix =
+        TorcHelper.getEdgeListKeyPrefix(baseVertexId, edgeLabel, direction,
+            neighborLabel);
+
+    List<byte[]> serializedPropList = new ArrayList<>(propMaps.length);
+    for (int i = 0; i < propMaps.length; i++) {
+      serializedPropList.add(
+          TorcHelper.serializeProperties(propMaps[i]).array());
+    }
+
+    TorcEdgeList.writeListToFile(edgeListTableOS, keyPrefix, neighborIds,
+        serializedPropList);
+  }
+
   /** 
    * Fetches the neighbors of a whole set of vertices in bulk, given a set of
    * edge labels and a direction. Takes advantage of TorcGraph's ability to

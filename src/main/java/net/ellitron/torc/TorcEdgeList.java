@@ -265,6 +265,151 @@ public class TorcEdgeList {
   }
 
   /**
+   * Write entire standalone edge list as serialized RAMCloud key/value objects
+   * to edge list image file.
+   *
+   * @param edgeListTableOS The image file to write to.
+   * @param keyPrefix Key prefix for the edge list.
+   * @param neighborIds Remote vertex Ids for this edge list. List is in the
+   * order these edges would have been added in (0th edge is the first edge
+   * added).
+   * @param propMaps Property maps for the edges. Same ordering as neighborIds.
+   */
+  public static void writeListToFile(
+      OutputStream edgeListTableOS,
+      byte[] keyPrefix,
+      UInt128[] neighborIds, 
+      List<byte[]> serializedPropList) {
+
+    int headSegLen = 0;
+    ArrayList<int> headSegEdgeLengths = 
+        new ArrayList<>(serializedPropList.size());
+    // Number of edges packed into each segment, starting with the tail.
+    ArrayList<int> edgesPerSegment = new ArrayList<>();
+    ArrayList<int> segmentSizes = new ArrayList<>();
+    for (int i = 0; i < neighborIds.length; i++) {
+      int edgeLength = 
+          UInt128.BYTES + Short.BYTES + serializedPropList.get(i).length;
+      headSegLen += edgeLength;
+      headSegEdgeLengths.prepend(edgeLength);
+
+      if (headSegLen >= SEGMENT_SIZE_LIMIT) {
+        int edgesInNewTailSeg;
+        int edgeStartPos = 0;
+        int nextEdgeStartPos = 0;
+        for (int i = 0; i < headSegEdgeLengths.size(); i++) {
+          edgeStartPos = nextEdgeStartPos;
+          nextEdgeStartPos = edgeStartPos + headSegEdgeLengths.get(i);
+
+          if (nextEdgeStartPos >= SEGMENT_TARGET_SPLIT_POINT) {
+            int left = SEGMENT_TARGET_SPLIT_POINT - edgeStartPos;
+            int right = nextEdgeStartPos - SEGMENT_TARGET_SPLIT_POINT;
+
+            if (edgeStartPos == 0) {
+              edgesInNewTailSeg = headSegEdgeLengths.size() - (i + 1);
+              break;
+            } else if (right < left) {
+              if (nextEdgeStartPos > SEGMENT_SIZE_LIMIT) {
+                edgesInNewTailSeg = headSegEdgeLengths.size() - i;
+                break;
+              } else {
+                edgesInNewTailSeg = headSegEdgeLengths.size() - (i + 1);
+                break;
+              }
+            } else {
+              edgesInNewTailSeg = headSegEdgeLengths.size() - i;
+              break;
+            }
+          }
+        }
+        
+        if (edgesInNewTailSeg > 0) {
+          edgesPerSegment.add(edgesInNewTailSeg);
+
+          int segmentSize = 0;
+          for (int j = 0; j < edgesInNewTailSeg; j++) {
+            segmentSize += headSegEdgeLengths.get(headSegEdgeLengths.size() - 1);
+            headSegEdgeLengths.remove(headSegEdgeLengths.size() - 1);
+          }
+          segmentSizes.add(segmentSize);
+
+          headSegLen -= segmentSize;
+        }
+      }
+    }
+
+    // Whatever is left is the head segment.
+    edgesPerSegment.add(headSegEdgeLengths.size());
+    segmentSizes.add(headSegLen);
+   
+    // Write tail segments out to edge image file.
+    int neighborListSegOffset = 0;
+    ByteBuffer keyLen = Buffer.allocate(Integer.BYTES);
+    keyLen.order(ByteOrder.LITTLE_ENDIAN);
+    ByteBuffer valLen = Buffer.allocate(Integer.BYTES);
+    valLen.order(ByteOrder.LITTLE_ENDIAN);
+    for (int tailSeg = 0; tailSeg < edgesPerSegment.size() - 1; tailSeg++) {
+      int edgesInSegment = edgesPerSegment.get(tailSeg);
+      int segmentSize = segmentSizes.get(tailSeg);
+      byte[] segKey = getSegmentKey(keyPrefix, tailSeg + 1);
+
+      ByteBuffer segment = ByteBuffer.allocate(segmentSize);
+      segment.order(ByteOrder.LITTLE_ENDIAN);
+      for (int i = edgesInSegment - 1; i >= 0; i--) {
+        UInt128 neighborId = neighborIds.get(neighborListSegOffset + i);
+        byte[] serializedProps = 
+            serializedPropList.get(neighborListSegOffset + i);
+        segment.put(neighborId.toByteArray());
+        segment.putShort((short) serializedProps.length);
+        segment.put(serializedProps);
+      }
+
+      byte[] segVal = segment.array();
+
+      keyLen.rewind();
+      keyLen.putInt(segKey.length);
+      valLen.rewind();
+      valLen.putInt(segVal.length);
+
+      edgeListTableOS.write(keyLen.array());
+      edgeListTableOS.write(segKey);
+      edgeListTableOS.write(valLen.array());
+      edgeListTAbleOS.write(segVal);
+
+      neighborListSegOffset += edgesInSegment;
+    }
+
+    // Now write the head segment out.
+    int edgesInSegment = edgesPerSegment.get(edgesPerSegment.size() - 1);
+    int segmentSize = segmentSizes.get(edgesPerSegment.size() - 1);
+    byte[] segKey = getSegmentKey(keyPrefix, 0);
+
+    ByteBuffer segment = ByteBuffer.allocate(Integer.BYTES + segmentSize);
+    segment.order(ByteOrder.LITTLE_ENDIAN);
+    segment.putInt(edgesPerSegment.size() - 1);
+    for (int i = edgesInSegment - 1; i >= 0; i--) {
+      UInt128 neighborId = neighborIds.get(neighborListSegOffset + i);
+      byte[] serializedProps = 
+          serializedPropList.get(neighborListSegOffset + i);
+      segment.put(neighborId.toByteArray());
+      segment.putShort((short) serializedProps.length);
+      segment.put(serializedProps);
+    }
+    
+    byte[] segVal = segment.array();
+
+    keyLen.rewind();
+    keyLen.putInt(segKey.length);
+    valLen.rewind();
+    valLen.putInt(segVal.length);
+
+    edgeListTableOS.write(keyLen.array());
+    edgeListTableOS.write(segKey);
+    edgeListTableOS.write(valLen.array());
+    edgeListTAbleOS.write(segVal);
+  }
+
+  /**
    * Reads all of the TorcEdges in the edge list.
    *
    * @param graph TorcGraph to which these edges belong. Used for creating
