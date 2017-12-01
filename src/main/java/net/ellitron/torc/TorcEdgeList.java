@@ -265,8 +265,14 @@ public class TorcEdgeList {
   }
 
   /**
-   * Write entire standalone edge list as serialized RAMCloud key/value objects
-   * to edge list image file.
+   * This method takes an array of edges and creates the same set of RAMCloud
+   * key / value pairs that would be created had the edges been added one by
+   * one, starting with the first edge in the array and ending with the last
+   * edge in the array, and writes the resulting key/value pairs into the given
+   * RAMCloud image file. The resulting key / value pairs written into the
+   * image should exactly match the key / value pairs that would be in RAMCloud
+   * had the TorcEdgeList.prepend() method been called for each of the edges,
+   * starting with the first in the array and ending with the last in the array.
    *
    * @param edgeListTableOS The image file to write to.
    * @param keyPrefix Key prefix for the edge list.
@@ -280,13 +286,45 @@ public class TorcEdgeList {
       byte[] keyPrefix,
       UInt128[] neighborIds, 
       List<byte[]> serializedPropList) {
+    /* General strategy here is to simulate the prepending of edges by
+     * prepending edge lengths instead of actual edges and split by the sum of
+     * the edge lengths in the list, and thus calculate how many edges should go
+     * in each segment had they been prepended one by one in that order. Using
+     * this information, we can then take the list of edges and directly pack
+     * the correct number into the correct segments. 
+     */
 
-    int headSegLen = 0;
+    // We only need to keep track of the series of edge lengths in the head
+    // segment, because once a tail segment is "pinched" off after a split of
+    // the head segment, it will remain unchanged, and the only information we
+    // need to keep around is the number of edges that made it into the segment.
     ArrayList<int> headSegEdgeLengths = 
         new ArrayList<>(serializedPropList.size());
-    // Number of edges packed into each segment, starting with the tail.
+    
+    // As we split off tail segments from the head, we record the number of
+    // edges that made it into the resulting tail segment in this list. Elements
+    // are added to the end of this list as the simulation proceeds, therefore
+    // the first element of the list represents the number of edges in the last
+    // segment of the edge list, and the last element represents the number of
+    // edges in the head segment.
     ArrayList<int> edgesPerSegment = new ArrayList<>();
+    
+    // Here we record the sizes, in bytes, of segments created during the
+    // simulation (in the same ordering as the edgesPerSegment list). These data
+    // are used after the simulation to allocate appropriately sized ByteBuffers
+    // that represent the edge list segments. Although these data could be
+    // derived from edgesPerSegment and the argument list of edges
+    // post-simulation, this information is calculated already during the
+    // simulation and so it is more efficient to simply save it for later use.
     ArrayList<int> segmentSizes = new ArrayList<>();
+   
+    // Head segment starts with an integer field containing the total number of
+    // tail segments for this edge list, so this is our starting length for the
+    // head segment.
+    int headSegLen = Integer.BYTES;
+
+    // Simulate prepending the edges, starting with the first in the argument
+    // list and ending with the last in the argument list.
     for (int i = 0; i < neighborIds.length; i++) {
       int edgeLength = 
           UInt128.BYTES + Short.BYTES + serializedPropList.get(i).length;
@@ -295,21 +333,44 @@ public class TorcEdgeList {
 
       if (headSegLen >= SEGMENT_SIZE_LIMIT) {
         int edgesInNewTailSeg;
-        int edgeStartPos = 0;
-        int nextEdgeStartPos = 0;
+        // In the head segment, edges start after the integer field that stores
+        // the total number of tail segments for the edge list.
+        int edgeStartPos = Integer.BYTES;
+        int nextEdgeStartPos = Integer.BYTES;
         for (int i = 0; i < headSegEdgeLengths.size(); i++) {
           edgeStartPos = nextEdgeStartPos;
           nextEdgeStartPos = edgeStartPos + headSegEdgeLengths.get(i);
 
           if (nextEdgeStartPos >= SEGMENT_TARGET_SPLIT_POINT) {
+            /*
+             * The current edge either stradles the split point, or is right up
+             * against it.
+             *
+             *                                       nextEdgeStartPos
+             *            <--left-->          <--right-->   V
+             * ------|--------------------|-----------------|--------
+             *       ^                    ^
+             * edgeStartPos     SEGMENT_TARGET_SPLIT_POINT
+             */
             int left = SEGMENT_TARGET_SPLIT_POINT - edgeStartPos;
             int right = nextEdgeStartPos - SEGMENT_TARGET_SPLIT_POINT;
 
-            if (edgeStartPos == 0) {
-              edgesInNewTailSeg = headSegEdgeLengths.size() - (i + 1);
+            if (edgeStartPos == Integer.BYTES) {
+              /* This is the first edge. In this case, always choose to keep
+               * this edge in the head segment because it doesn't make sense to
+               * put the first edge in a tail segment and leave the head segment
+               * empty. */
+              edgesInNewTailSeg = headSegEdgeLengths.size() - 1;
               break;
             } else if (right < left) {
+              /* Target split point is closer to the start of the next edge in
+               * the list than the start of this edge. In this case we
+               * generally want to split at the start of the next edge, except
+               * for a special case handled here. */
               if (nextEdgeStartPos > SEGMENT_SIZE_LIMIT) {
+                /* Special case, the current edge extends beyond the size limit.
+                 * To still enforce the size limit policy we choose not to keep
+                 * this edge in the head segment. */
                 edgesInNewTailSeg = headSegEdgeLengths.size() - i;
                 break;
               } else {
@@ -317,11 +378,18 @@ public class TorcEdgeList {
                 break;
               }
             } else {
+              /* Target split point is closer to the start of this edge than the
+               * next. In this case we choose to make this edge part of the
+               * newly created segment. */
               edgesInNewTailSeg = headSegEdgeLengths.size() - i;
               break;
             }
           }
         }
+
+        // At this point we have figured out how many edges go in the new tail
+        // segment (which could potentially be zero, which means the edge is
+        // actually NOT split. In this case just move on).
         
         if (edgesInNewTailSeg > 0) {
           edgesPerSegment.add(edgesInNewTailSeg);
@@ -331,34 +399,54 @@ public class TorcEdgeList {
             segmentSize += headSegEdgeLengths.get(headSegEdgeLengths.size() - 1);
             headSegEdgeLengths.remove(headSegEdgeLengths.size() - 1);
           }
-          segmentSizes.add(segmentSize);
-
           headSegLen -= segmentSize;
+          
+          segmentSizes.add(segmentSize);
         }
-      }
-    }
+      } // if (headSegLen >= SEGMENT_SIZE_LIMIT) 
+    } // for (int i = 0; i < neighborIds.length; i++) 
 
-    // Whatever is left is the head segment.
+    // Whatever is left in headSegEdgeLengths after the simulation is over
+    // represents the final state of the head segment.
     edgesPerSegment.add(headSegEdgeLengths.size());
     segmentSizes.add(headSegLen);
-   
-    // Write tail segments out to edge image file.
+  
+    // Now edgesPerSegment and segmentSizes contain the metadata for all the
+    // segments that represent this edge list in RAMCloud. Time to pack the
+    // edges into ByteBuffers and write them out to the edge image file.
+
     int neighborListSegOffset = 0;
     ByteBuffer keyLen = Buffer.allocate(Integer.BYTES);
     keyLen.order(ByteOrder.LITTLE_ENDIAN);
     ByteBuffer valLen = Buffer.allocate(Integer.BYTES);
     valLen.order(ByteOrder.LITTLE_ENDIAN);
-    for (int tailSeg = 0; tailSeg < edgesPerSegment.size() - 1; tailSeg++) {
-      int edgesInSegment = edgesPerSegment.get(tailSeg);
-      int segmentSize = segmentSizes.get(tailSeg);
-      byte[] segKey = getSegmentKey(keyPrefix, tailSeg + 1);
+    for (int i = 0; i < edgesPerSegment.size(); i++) {
+      int edgesInSegment = edgesPerSegment.get(i);
+      int segmentSize = segmentSizes.get(i);
+      
+      byte[] segKey;
+      ByteBuffer segment;
+      if (i == edgesPerSegment.size() - 1) {
+        // This is the head segment.
+        segKey = getSegmentKey(keyPrefix, 0);
+        segment = ByteBuffer.allocate(Integer.BYTES + segmentSize);
+        segment.order(ByteOrder.LITTLE_ENDIAN);
+        // Special field in head segment for total number of tail segments.
+        segment.putInt(edgesPerSegment.size() - 1);
+      } else {
+        // This is a tail segment.
+        segKey = getSegmentKey(keyPrefix, i + 1);
+        segment = ByteBuffer.allocate(segmentSize);
+        segment.order(ByteOrder.LITTLE_ENDIAN);
+      }
 
-      ByteBuffer segment = ByteBuffer.allocate(segmentSize);
-      segment.order(ByteOrder.LITTLE_ENDIAN);
-      for (int i = edgesInSegment - 1; i >= 0; i--) {
-        UInt128 neighborId = neighborIds.get(neighborListSegOffset + i);
+      // Remember that the given edges were prepended, so a given segment
+      // actually starts with the edges in the end of the range and finishes
+      // with the first edge in the range.
+      for (int j = edgesInSegment - 1; j >= 0; j--) {
+        UInt128 neighborId = neighborIds.get(neighborListSegOffset + j);
         byte[] serializedProps = 
-            serializedPropList.get(neighborListSegOffset + i);
+            serializedPropList.get(neighborListSegOffset + j);
         segment.put(neighborId.toByteArray());
         segment.putShort((short) serializedProps.length);
         segment.put(serializedProps);
@@ -378,35 +466,6 @@ public class TorcEdgeList {
 
       neighborListSegOffset += edgesInSegment;
     }
-
-    // Now write the head segment out.
-    int edgesInSegment = edgesPerSegment.get(edgesPerSegment.size() - 1);
-    int segmentSize = segmentSizes.get(edgesPerSegment.size() - 1);
-    byte[] segKey = getSegmentKey(keyPrefix, 0);
-
-    ByteBuffer segment = ByteBuffer.allocate(Integer.BYTES + segmentSize);
-    segment.order(ByteOrder.LITTLE_ENDIAN);
-    segment.putInt(edgesPerSegment.size() - 1);
-    for (int i = edgesInSegment - 1; i >= 0; i--) {
-      UInt128 neighborId = neighborIds.get(neighborListSegOffset + i);
-      byte[] serializedProps = 
-          serializedPropList.get(neighborListSegOffset + i);
-      segment.put(neighborId.toByteArray());
-      segment.putShort((short) serializedProps.length);
-      segment.put(serializedProps);
-    }
-    
-    byte[] segVal = segment.array();
-
-    keyLen.rewind();
-    keyLen.putInt(segKey.length);
-    valLen.rewind();
-    valLen.putInt(segVal.length);
-
-    edgeListTableOS.write(keyLen.array());
-    edgeListTableOS.write(segKey);
-    edgeListTableOS.write(valLen.array());
-    edgeListTAbleOS.write(segVal);
   }
 
   /**
