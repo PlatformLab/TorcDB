@@ -656,27 +656,8 @@ public final class TorcGraph implements Graph {
    * non-null, then instead of writing the writing the vertex into RAMCloud, the
    * vertex's RAMCloud key-value serialization is appended to the given file.
    */
-  public void loadVertex(final Object... keyValues) {
-    Object idValue = ElementHelper.getIdValue(keyValues).orElse(null);
-    final String label =
-        ElementHelper.getLabelValue(keyValues).orElse(Vertex.DEFAULT_LABEL);
-
-    UInt128 vertexId = UInt128.decode(idValue);
-
-    // Create property map.
-    Map<String, List<String>> properties = new HashMap<>();
-    for (int i = 0; i < keyValues.length; i = i + 2) {
-      if (keyValues[i] instanceof String) {
-        String key = (String) keyValues[i];
-        String val = (String) keyValues[i + 1];
-        if (properties.containsKey(key)) {
-          properties.get(key).add(val);
-        } else {
-          properties.put(key, new ArrayList<>(Arrays.asList(val)));
-        }
-      }
-    }
-
+  public void loadVertex(UInt128 vertexId, String label, 
+      Map<String, List<String>> properties) {
     /*
      * Perform size checks on objects to be written to RAMCloud.
      */
