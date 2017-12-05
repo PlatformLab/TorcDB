@@ -721,7 +721,7 @@ public final class TorcGraph implements Graph {
    * direction. Edge lists for the neighbor vertices must be added separately.
    */
   public void loadEdges(final UInt128 baseVertexId, final String edgeLabel,
-      final TorcEdgeDirection dir, final String neighborLabel, 
+      final TorcEdgeDirection direction, final String neighborLabel, 
       final UInt128[] neighborIds, final Map<String, List<String>>[] propMaps) 
   {
     byte[] keyPrefix =

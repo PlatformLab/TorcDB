@@ -25,7 +25,10 @@ import edu.stanford.ramcloud.RAMCloudTransactionReadOp;
 
 import org.apache.log4j.Logger;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.*;
 
 /**
@@ -298,8 +301,7 @@ public class TorcEdgeList {
     // segment, because once a tail segment is "pinched" off after a split of
     // the head segment, it will remain unchanged, and the only information we
     // need to keep around is the number of edges that made it into the segment.
-    ArrayList<int> headSegEdgeLengths = 
-        new ArrayList<>(serializedPropList.size());
+    LinkedList<Integer> headSegEdgeLengths = new LinkedList<>();
     
     // As we split off tail segments from the head, we record the number of
     // edges that made it into the resulting tail segment in this list. Elements
@@ -307,7 +309,7 @@ public class TorcEdgeList {
     // the first element of the list represents the number of edges in the last
     // segment of the edge list, and the last element represents the number of
     // edges in the head segment.
-    ArrayList<int> edgesPerSegment = new ArrayList<>();
+    ArrayList<Integer> edgesPerSegment = new ArrayList<>();
     
     // Here we record the sizes, in bytes, of segments created during the
     // simulation (in the same ordering as the edgesPerSegment list). These data
@@ -316,7 +318,7 @@ public class TorcEdgeList {
     // derived from edgesPerSegment and the argument list of edges
     // post-simulation, this information is calculated already during the
     // simulation and so it is more efficient to simply save it for later use.
-    ArrayList<int> segmentSizes = new ArrayList<>();
+    ArrayList<Integer> segmentSizes = new ArrayList<>();
    
     // Head segment starts with an integer field containing the total number of
     // tail segments for this edge list, so this is our starting length for the
@@ -329,17 +331,17 @@ public class TorcEdgeList {
       int edgeLength = 
           UInt128.BYTES + Short.BYTES + serializedPropList.get(i).length;
       headSegLen += edgeLength;
-      headSegEdgeLengths.prepend(edgeLength);
+      headSegEdgeLengths.addFirst(edgeLength);
 
       if (headSegLen >= SEGMENT_SIZE_LIMIT) {
-        int edgesInNewTailSeg;
+        int edgesInNewTailSeg = 0;
         // In the head segment, edges start after the integer field that stores
         // the total number of tail segments for the edge list.
         int edgeStartPos = Integer.BYTES;
         int nextEdgeStartPos = Integer.BYTES;
-        for (int i = 0; i < headSegEdgeLengths.size(); i++) {
+        for (int j = 0; j < headSegEdgeLengths.size(); j++) {
           edgeStartPos = nextEdgeStartPos;
-          nextEdgeStartPos = edgeStartPos + headSegEdgeLengths.get(i);
+          nextEdgeStartPos = edgeStartPos + headSegEdgeLengths.get(j);
 
           if (nextEdgeStartPos >= SEGMENT_TARGET_SPLIT_POINT) {
             /*
@@ -371,17 +373,17 @@ public class TorcEdgeList {
                 /* Special case, the current edge extends beyond the size limit.
                  * To still enforce the size limit policy we choose not to keep
                  * this edge in the head segment. */
-                edgesInNewTailSeg = headSegEdgeLengths.size() - i;
+                edgesInNewTailSeg = headSegEdgeLengths.size() - j;
                 break;
               } else {
-                edgesInNewTailSeg = headSegEdgeLengths.size() - (i + 1);
+                edgesInNewTailSeg = headSegEdgeLengths.size() - (j + 1);
                 break;
               }
             } else {
               /* Target split point is closer to the start of this edge than the
                * next. In this case we choose to make this edge part of the
                * newly created segment. */
-              edgesInNewTailSeg = headSegEdgeLengths.size() - i;
+              edgesInNewTailSeg = headSegEdgeLengths.size() - j;
               break;
             }
           }
@@ -396,8 +398,8 @@ public class TorcEdgeList {
 
           int segmentSize = 0;
           for (int j = 0; j < edgesInNewTailSeg; j++) {
-            segmentSize += headSegEdgeLengths.get(headSegEdgeLengths.size() - 1);
-            headSegEdgeLengths.remove(headSegEdgeLengths.size() - 1);
+            segmentSize += headSegEdgeLengths.getLast();
+            headSegEdgeLengths.removeLast();
           }
           headSegLen -= segmentSize;
           
@@ -416,9 +418,9 @@ public class TorcEdgeList {
     // edges into ByteBuffers and write them out to the edge image file.
 
     int neighborListSegOffset = 0;
-    ByteBuffer keyLen = Buffer.allocate(Integer.BYTES);
+    ByteBuffer keyLen = ByteBuffer.allocate(Integer.BYTES);
     keyLen.order(ByteOrder.LITTLE_ENDIAN);
-    ByteBuffer valLen = Buffer.allocate(Integer.BYTES);
+    ByteBuffer valLen = ByteBuffer.allocate(Integer.BYTES);
     valLen.order(ByteOrder.LITTLE_ENDIAN);
     for (int i = 0; i < edgesPerSegment.size(); i++) {
       int edgesInSegment = edgesPerSegment.get(i);
@@ -444,7 +446,7 @@ public class TorcEdgeList {
       // actually starts with the edges in the end of the range and finishes
       // with the first edge in the range.
       for (int j = edgesInSegment - 1; j >= 0; j--) {
-        UInt128 neighborId = neighborIds.get(neighborListSegOffset + j);
+        UInt128 neighborId = neighborIds[neighborListSegOffset + j];
         byte[] serializedProps = 
             serializedPropList.get(neighborListSegOffset + j);
         segment.put(neighborId.toByteArray());
@@ -459,10 +461,14 @@ public class TorcEdgeList {
       valLen.rewind();
       valLen.putInt(segVal.length);
 
-      edgeListTableOS.write(keyLen.array());
-      edgeListTableOS.write(segKey);
-      edgeListTableOS.write(valLen.array());
-      edgeListTAbleOS.write(segVal);
+      try {
+        edgeListTableOS.write(keyLen.array());
+        edgeListTableOS.write(segKey);
+        edgeListTableOS.write(valLen.array());
+        edgeListTableOS.write(segVal);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
 
       neighborListSegOffset += edgesInSegment;
     }
