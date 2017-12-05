@@ -283,6 +283,8 @@ public class TorcEdgeList {
    * order these edges would have been added in (0th edge is the first edge
    * added).
    * @param propMaps Property maps for the edges. Same ordering as neighborIds.
+   * Can be an empty list, which signals that these edges do not have
+   * properties.
    */
   public static void writeListToFile(
       OutputStream edgeListTableOS,
@@ -328,8 +330,13 @@ public class TorcEdgeList {
     // Simulate prepending the edges, starting with the first in the argument
     // list and ending with the last in the argument list.
     for (int i = 0; i < neighborIds.size(); i++) {
-      int edgeLength = 
-          UInt128.BYTES + Short.BYTES + serializedPropList.get(i).length;
+      int edgeLength;
+      if (serializedPropList.size() > 0) {
+        edgeLength = UInt128.BYTES + Short.BYTES + 
+            serializedPropList.get(i).length;
+      } else {
+        edgeLength = UInt128.BYTES + Short.BYTES;
+      }
       headSegLen += edgeLength;
       headSegEdgeLengths.addFirst(edgeLength);
 
@@ -447,11 +454,16 @@ public class TorcEdgeList {
       // with the first edge in the range.
       for (int j = edgesInSegment - 1; j >= 0; j--) {
         UInt128 neighborId = neighborIds.get(neighborListSegOffset + j);
-        byte[] serializedProps = 
-            serializedPropList.get(neighborListSegOffset + j);
-        segment.put(neighborId.toByteArray());
-        segment.putShort((short) serializedProps.length);
-        segment.put(serializedProps);
+        if (serializedPropList.size() > 0) {
+          byte[] serializedProps = 
+              serializedPropList.get(neighborListSegOffset + j);
+          segment.put(neighborId.toByteArray());
+          segment.putShort((short) serializedProps.length);
+          segment.put(serializedProps);
+        } else {
+          segment.put(neighborId.toByteArray());
+          segment.putShort((short) 0);
+        }
       }
 
       byte[] segVal = segment.array();
