@@ -722,16 +722,17 @@ public final class TorcGraph implements Graph {
    */
   public void loadEdges(final UInt128 baseVertexId, final String edgeLabel,
       final TorcEdgeDirection direction, final String neighborLabel, 
-      final UInt128[] neighborIds, final Map<String, List<String>>[] propMaps) 
+      final List<UInt128> neighborIds, 
+      final List<Map<String, List<String>>> propMaps) 
   {
     byte[] keyPrefix =
         TorcHelper.getEdgeListKeyPrefix(baseVertexId, edgeLabel, direction,
             neighborLabel);
 
-    List<byte[]> serializedPropList = new ArrayList<>(propMaps.length);
-    for (int i = 0; i < propMaps.length; i++) {
+    List<byte[]> serializedPropList = new ArrayList<>(propMaps.size());
+    for (int i = 0; i < propMaps.size(); i++) {
       serializedPropList.add(
-          TorcHelper.serializeProperties(propMaps[i]).array());
+          TorcHelper.serializeProperties(propMaps.get(i)).array());
     }
 
     TorcEdgeList.writeListToFile(edgeListTableOS, keyPrefix, neighborIds,

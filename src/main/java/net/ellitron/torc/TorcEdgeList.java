@@ -287,7 +287,7 @@ public class TorcEdgeList {
   public static void writeListToFile(
       OutputStream edgeListTableOS,
       byte[] keyPrefix,
-      UInt128[] neighborIds, 
+      List<UInt128> neighborIds, 
       List<byte[]> serializedPropList) {
     /* General strategy here is to simulate the prepending of edges by
      * prepending edge lengths instead of actual edges and split by the sum of
@@ -327,7 +327,7 @@ public class TorcEdgeList {
 
     // Simulate prepending the edges, starting with the first in the argument
     // list and ending with the last in the argument list.
-    for (int i = 0; i < neighborIds.length; i++) {
+    for (int i = 0; i < neighborIds.size(); i++) {
       int edgeLength = 
           UInt128.BYTES + Short.BYTES + serializedPropList.get(i).length;
       headSegLen += edgeLength;
@@ -406,7 +406,7 @@ public class TorcEdgeList {
           segmentSizes.add(segmentSize);
         }
       } // if (headSegLen >= SEGMENT_SIZE_LIMIT) 
-    } // for (int i = 0; i < neighborIds.length; i++) 
+    } // for (int i = 0; i < neighborIds.size(); i++) 
 
     // Whatever is left in headSegEdgeLengths after the simulation is over
     // represents the final state of the head segment.
@@ -446,7 +446,7 @@ public class TorcEdgeList {
       // actually starts with the edges in the end of the range and finishes
       // with the first edge in the range.
       for (int j = edgesInSegment - 1; j >= 0; j--) {
-        UInt128 neighborId = neighborIds[neighborListSegOffset + j];
+        UInt128 neighborId = neighborIds.get(neighborListSegOffset + j);
         byte[] serializedProps = 
             serializedPropList.get(neighborListSegOffset + j);
         segment.put(neighborId.toByteArray());
