@@ -55,6 +55,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 
 /**
@@ -657,62 +658,86 @@ public final class TorcGraph implements Graph {
    * vertex's RAMCloud key-value serialization is appended to the given file.
    */
   public void loadVertex(UInt128 vertexId, String label, 
-      Map<String, List<String>> properties) {
-    /*
-     * Perform size checks on objects to be written to RAMCloud.
-     */
-    byte[] labelByteArray = TorcHelper.serializeString(label);
-    if (labelByteArray.length > RAMCLOUD_OBJECT_SIZE_LIMIT) {
-      throw new IllegalArgumentException(String.format("Size of vertex label "
-          + "exceeds maximum allowable (size=%dB, max=%dB)",
-          labelByteArray.length, RAMCLOUD_OBJECT_SIZE_LIMIT));
-    }
+      Map<String, List<String>> properties,
+      List<String> edgeLabelList,
+      Map<Entry<String, TorcEdgeDirection>, List<String>> neighborLabelListMap) 
+  {
+    List<byte[]> keys = new ArrayList<>();
+    List<byte[]> values = new ArrayList<>();
 
-    byte[] serializedProps =
-        TorcHelper.serializeProperties(properties).array();
-    if (serializedProps.length > RAMCLOUD_OBJECT_SIZE_LIMIT) {
-      throw new IllegalArgumentException(String.format("Total size of "
-          + "properties exceeds maximum allowable (size=%dB, max=%dB)",
-          serializedProps.length, RAMCLOUD_OBJECT_SIZE_LIMIT));
-    }
+    // First write to vertex table
 
-    byte[] vertexLabelKey = TorcHelper.getVertexLabelKey(vertexId);
-    byte[] vertexPropertiesKey = TorcHelper.getVertexPropertiesKey(vertexId);
+    // Label
+    keys.add(TorcHelper.getVertexLabelKey(vertexId));
+    values.add(TorcHelper.serializeString(label));
 
-    if (rcImageCreationMode) {
+    // Properties
+    keys.add(TorcHelper.getVertexPropertiesKey(vertexId));
+    values.add(TorcHelper.serializeProperties(properties).array());
+
+    for (int i = 0; i < keys.size(); i++) {
+      byte[] key = keys.get(i);
+      byte[] value = values.get(i);
+
       ByteBuffer buffer = ByteBuffer.allocate(
-          Integer.BYTES * 4 +
-          vertexLabelKey.length + 
-          labelByteArray.length +
-          vertexPropertiesKey.length + 
-          serializedProps.length);
+          Integer.BYTES +
+          key.length +
+          Integer.BYTES +
+          value.length);
 
       buffer.order(ByteOrder.LITTLE_ENDIAN);
 
-      buffer.putInt(vertexLabelKey.length);
-      buffer.put(vertexLabelKey);
-      buffer.putInt(labelByteArray.length);
-      buffer.put(labelByteArray);
-
-      buffer.putInt(vertexPropertiesKey.length);
-      buffer.put(vertexPropertiesKey);
-      buffer.putInt(serializedProps.length);
-      buffer.put(serializedProps);
+      buffer.putInt(key.length);
+      buffer.put(key);
+      buffer.putInt(value.length);
+      buffer.put(value);
 
       try {
         vertexTableOS.write(buffer.array());
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
-    } else {
-      // Write vertex into RAMCloud
-      initialize();
+    }
 
-      torcGraphTx.readWrite();
-      RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    keys.clear();
+    values.clear();
 
-      rctx.write(vertexTableId, vertexLabelKey, labelByteArray);
-      rctx.write(vertexTableId, vertexPropertiesKey, serializedProps);
+    // Now write to edge list table
+
+    // Edge label list
+    keys.add(TorcHelper.getIncidentEdgeLabelListKey(vertexId));
+    values.add(TorcHelper.serializeStringList(edgeLabelList).array());
+
+    for (Entry<String, TorcEdgeDirection> entry : 
+        neighborLabelListMap.keySet()) {
+      List<String> neighborLabelList = neighborLabelListMap.get(entry);
+      keys.add(TorcHelper.getNeighborLabelListKey(vertexId, entry.getKey(),
+          entry.getValue()));
+      values.add(TorcHelper.serializeStringList(neighborLabelList).array());
+    }
+
+    for (int i = 0; i < keys.size(); i++) {
+      byte[] key = keys.get(i);
+      byte[] value = values.get(i);
+
+      ByteBuffer buffer = ByteBuffer.allocate(
+          Integer.BYTES +
+          key.length +
+          Integer.BYTES +
+          value.length);
+
+      buffer.order(ByteOrder.LITTLE_ENDIAN);
+
+      buffer.putInt(key.length);
+      buffer.put(key);
+      buffer.putInt(value.length);
+      buffer.put(value);
+
+      try {
+        edgeListTableOS.write(buffer.array());
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 
