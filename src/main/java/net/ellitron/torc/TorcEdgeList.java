@@ -432,21 +432,17 @@ public class TorcEdgeList {
     for (int i = 0; i < edgesPerSegment.size(); i++) {
       int edgesInSegment = edgesPerSegment.get(i);
       int segmentSize = segmentSizes.get(i);
+      ByteBuffer segment = ByteBuffer.allocate(segmentSize);
       
       byte[] segKey;
-      ByteBuffer segment;
       if (i == edgesPerSegment.size() - 1) {
         // This is the head segment.
         segKey = getSegmentKey(keyPrefix, 0);
-        segment = ByteBuffer.allocate(Integer.BYTES + segmentSize);
-        segment.order(ByteOrder.LITTLE_ENDIAN);
         // Special field in head segment for total number of tail segments.
         segment.putInt(edgesPerSegment.size() - 1);
       } else {
         // This is a tail segment.
         segKey = getSegmentKey(keyPrefix, i + 1);
-        segment = ByteBuffer.allocate(segmentSize);
-        segment.order(ByteOrder.LITTLE_ENDIAN);
       }
 
       // Remember that the given edges were prepended, so a given segment
