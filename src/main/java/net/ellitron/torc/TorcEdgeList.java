@@ -641,6 +641,12 @@ public class TorcEdgeList {
       } finally {
         readOp.finalize();
       }
+
+      if (headSegObj == null) {
+        // Object does not exist.
+        continue;
+      }
+
 //      long endTime = System.nanoTime();
 //      System.out.println(String.format("Head: %d", (endTime -
 //              startTime)/1000l));
