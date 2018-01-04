@@ -245,27 +245,6 @@ public final class TorcGraph implements Graph {
     UInt128 vertexId;
     if (idValue != null) {
       vertexId = UInt128.decode(idValue);
-
-      startTime = 0;
-      if (logger.isTraceEnabled()) {
-        startTime = System.nanoTime();
-      }
-
-      // Check if a vertex with this ID already exists.
-      try {
-        rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(vertexId));
-        throw Graph.Exceptions.vertexWithIdAlreadyExists(vertexId.toString());
-      } catch (ObjectDoesntExistException e) {
-        // Good!
-      }
-
-      if (logger.isTraceEnabled()) {
-        long endTime = System.nanoTime();
-        logger.trace(String.format("addVertex(id=%s,label=%s):idCheck, took "
-            + "%dus", vertexId.toString(), label,
-            (endTime - startTime) / 1000l));
-      }
-
     } else {
       startTime = 0;
       if (logger.isTraceEnabled()) {
