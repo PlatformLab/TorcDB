@@ -427,8 +427,11 @@ public final class TorcGraph implements Graph {
             throw Graph.Exceptions.elementNotFound(TorcVertex.class,
                 vertexIds[i]);
           }
+          
+          System.out.println("Got label: " + TorcHelper.deserializeString(obj.getValueBytes()));
 
-          list.add(new TorcVertex(this, vertexId, obj.getValue()));
+          list.add(new TorcVertex(this, vertexId, 
+                TorcHelper.deserializeString(obj.getValueBytes())));
         }
       }
     } else {
@@ -453,7 +456,8 @@ public final class TorcGraph implements Graph {
             RAMCloudObject obj =
                 rctx.read(vertexTableId,
                     TorcHelper.getVertexLabelKey(vertexId));
-            list.add(new TorcVertex(this, vertexId, obj.getValue()));
+            list.add(new TorcVertex(this, vertexId, 
+                  TorcHelper.deserializeString(obj.getValueBytes())));
           } catch (ObjectDoesntExistException e) {
             // Continue...
           }
@@ -1148,7 +1152,7 @@ public final class TorcGraph implements Graph {
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
     RAMCloudObject neighborLabelRCObj =
         rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(v.id()));
-    return neighborLabelRCObj.getValue();
+    return TorcHelper.deserializeString(neighborLabelRCObj.getValueBytes());
   }
 
   void removeVertex(final TorcVertex vertex) {
@@ -1567,13 +1571,15 @@ public final class TorcGraph implements Graph {
     if (direction.equals(Direction.OUT) || direction.equals(Direction.BOTH)) {
       RAMCloudObject obj = rctx.read(vertexTableId,
           TorcHelper.getVertexLabelKey(edge.getV1Id()));
-      list.add(new TorcVertex(this, edge.getV1Id(), obj.getValue()));
+      list.add(new TorcVertex(this, edge.getV1Id(), 
+            TorcHelper.deserializeString(obj.getValueBytes())));
     }
 
     if (direction.equals(Direction.IN) || direction.equals(Direction.BOTH)) {
       RAMCloudObject obj = rctx.read(vertexTableId,
           TorcHelper.getVertexLabelKey(edge.getV2Id()));
-      list.add(new TorcVertex(this, edge.getV2Id(), obj.getValue()));
+      list.add(new TorcVertex(this, edge.getV2Id(), 
+            TorcHelper.deserializeString(obj.getValueBytes())));
     }
 
     if (logger.isDebugEnabled()) {
