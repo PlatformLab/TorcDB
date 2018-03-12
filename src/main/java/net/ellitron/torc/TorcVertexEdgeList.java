@@ -25,6 +25,7 @@ import edu.stanford.ramcloud.RAMCloudTransaction;
 import org.apache.log4j.Logger;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.function.Function;
 import java.util.List;
@@ -226,10 +227,13 @@ public class TorcVertexEdgeList {
     try {
       RAMCloudObject headSegObj = rctx.read(rcTableId, headSegKey);
       headSeg = ByteBuffer.allocate(headSegObj.getValueBytes().length)
+          .order(ByteOrder.LITTLE_ENDIAN)
           .put(headSegObj.getValueBytes());
       headSeg.flip();
     } catch (ClientException.ObjectDoesntExistException e) {
-      headSeg = ByteBuffer.allocate(Integer.BYTES).putInt(0);
+      headSeg = ByteBuffer.allocate(Integer.BYTES)
+          .order(ByteOrder.LITTLE_ENDIAN)
+          .putInt(0);
       headSeg.flip();
       newList = true;
     }
@@ -239,7 +243,8 @@ public class TorcVertexEdgeList {
 
     // Create fancy new segment with the edge we want to prepend.
     ByteBuffer prependedSeg =
-        ByteBuffer.allocate(serializedEdge.capacity() + headSeg.capacity());
+        ByteBuffer.allocate(serializedEdge.capacity() + headSeg.capacity())
+        .order(ByteOrder.LITTLE_ENDIAN);
     int majorSegments = headSeg.getInt();
     prependedSeg.putInt(majorSegments);
     prependedSeg.put(serializedEdge);
@@ -304,9 +309,11 @@ public class TorcVertexEdgeList {
         // We have chosen not to split this segment.
         rctx.write(rcTableId, headSegKey, prependedSeg.array());
       } else {
-        ByteBuffer newHeadSeg = ByteBuffer.allocate(splitIndex);
+        ByteBuffer newHeadSeg = ByteBuffer.allocate(splitIndex)
+            .order(ByteOrder.LITTLE_ENDIAN);
         ByteBuffer newMajorSeg = ByteBuffer.allocate(Integer.BYTES
-            + prependedSeg.capacity() - splitIndex);
+            + prependedSeg.capacity() - splitIndex)
+            .order(ByteOrder.LITTLE_ENDIAN);
         int newMajorSegments = curMajorSegments + 1;
 
         newHeadSeg.put(prependedSeg.array(), 0, splitIndex);
@@ -425,7 +432,8 @@ public class TorcVertexEdgeList {
     }
 
     ByteBuffer headSeg =
-        ByteBuffer.allocate(headSegObj.getValueBytes().length);
+        ByteBuffer.allocate(headSegObj.getValueBytes().length)
+        .order(ByteOrder.LITTLE_ENDIAN);
     headSeg.put(headSegObj.getValueBytes());
     headSeg.flip();
 
@@ -446,7 +454,8 @@ public class TorcVertexEdgeList {
       }
 
       ByteBuffer majorSeg =
-          ByteBuffer.allocate(majorSegObj.getValueBytes().length);
+          ByteBuffer.allocate(majorSegObj.getValueBytes().length)
+          .order(ByteOrder.LITTLE_ENDIAN);
       majorSeg.put(majorSegObj.getValueBytes());
       majorSeg.flip();
 
@@ -467,7 +476,8 @@ public class TorcVertexEdgeList {
         }
 
         ByteBuffer minorSeg =
-            ByteBuffer.allocate(minorSegObj.getValueBytes().length);
+            ByteBuffer.allocate(minorSegObj.getValueBytes().length)
+            .order(ByteOrder.LITTLE_ENDIAN);
         minorSeg.put(minorSegObj.getValueBytes());
         minorSeg.flip();
 
@@ -489,7 +499,8 @@ public class TorcVertexEdgeList {
   private byte[] getSegmentKey(int majorSegmentNumber,
       int minorSegmentNumber) {
     ByteBuffer buffer =
-        ByteBuffer.allocate(keyPrefix.length + Integer.BYTES * 2);
+        ByteBuffer.allocate(keyPrefix.length + Integer.BYTES * 2)
+        .order(ByteOrder.LITTLE_ENDIAN);
     buffer.put(keyPrefix);
     buffer.putInt(majorSegmentNumber);
     buffer.putInt(minorSegmentNumber);
@@ -624,7 +635,8 @@ public class TorcVertexEdgeList {
       byte[] serializedProperties) {
     int serializedEdgeLength =
         UInt128.BYTES + Short.BYTES + serializedProperties.length;
-    ByteBuffer buf = ByteBuffer.allocate(serializedEdgeLength);
+    ByteBuffer buf = ByteBuffer.allocate(serializedEdgeLength)
+        .order(ByteOrder.LITTLE_ENDIAN);
     buf.put(neighborId.toByteArray());
     buf.putShort((short) serializedProperties.length);
     buf.put(serializedProperties);
@@ -680,7 +692,8 @@ public class TorcVertexEdgeList {
           serializedLength += entry.getSerializedLength();
         }
 
-        ByteBuffer buf = ByteBuffer.allocate(serializedLength);
+        ByteBuffer buf = ByteBuffer.allocate(serializedLength)
+            .order(ByteOrder.LITTLE_ENDIAN);
         for (Entry entry : list) {
           buf.putInt(entry.getSerializedLength());
           buf.put(entry.serialize());
@@ -781,7 +794,8 @@ public class TorcVertexEdgeList {
         byte[] serializedProperties =
             TorcHelper.serializeProperties(properties).array();
         serializedFormat =
-            ByteBuffer.allocate(UInt128.BYTES + serializedProperties.length);
+            ByteBuffer.allocate(UInt128.BYTES + serializedProperties.length)
+            .order(ByteOrder.LITTLE_ENDIAN);
         serializedFormat.put(serializedNeighborId);
         serializedFormat.put(serializedProperties);
         serializedFormat.flip();

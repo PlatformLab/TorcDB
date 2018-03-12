@@ -17,6 +17,7 @@ package net.ellitron.torc.util;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.UUID;
 
@@ -138,7 +139,7 @@ public class UInt128 implements Comparable<UInt128> {
       }
     }
 
-    ByteBuffer buf = ByteBuffer.allocate(BYTES);
+    ByteBuffer buf = ByteBuffer.allocate(BYTES).order(ByteOrder.LITTLE_ENDIAN);
     buf.put(resArray);
     buf.flip();
     this.upperLong = buf.getLong();
@@ -174,7 +175,7 @@ public class UInt128 implements Comparable<UInt128> {
       }
     }
 
-    ByteBuffer buf = ByteBuffer.allocate(BYTES);
+    ByteBuffer buf = ByteBuffer.allocate(BYTES).order(ByteOrder.LITTLE_ENDIAN);
     buf.put(res);
     buf.flip();
     this.upperLong = buf.getLong();
@@ -270,7 +271,7 @@ public class UInt128 implements Comparable<UInt128> {
    * @return Byte array containing this number in big-endian format.
    */
   public byte[] toByteArray() {
-    ByteBuffer buf = ByteBuffer.allocate(BYTES);
+    ByteBuffer buf = ByteBuffer.allocate(BYTES).order(ByteOrder.LITTLE_ENDIAN);
     buf.putLong(upperLong);
     buf.putLong(lowerLong);
     return buf.array();
