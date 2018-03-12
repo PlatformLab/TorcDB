@@ -443,8 +443,8 @@ public final class TorcGraph implements Graph {
 
       for (int i = 0; i < NUM_ID_COUNTERS; ++i) {
         try {
-          ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
-          buffer.order(ByteOrder.LITTLE_ENDIAN);
+          ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES)
+              .order(ByteOrder.LITTLE_ENDIAN);
           buffer.put(rctx.read(idTableId, Long.toString(i)).getValueBytes());
           buffer.flip();
           max_id[i] = buffer.getLong();
@@ -691,9 +691,8 @@ public final class TorcGraph implements Graph {
           Integer.BYTES +
           key.length +
           Integer.BYTES +
-          value.length);
-
-      buffer.order(ByteOrder.LITTLE_ENDIAN);
+          value.length)
+          .order(ByteOrder.LITTLE_ENDIAN);
 
       buffer.putInt(key.length);
       buffer.put(key);
@@ -732,9 +731,8 @@ public final class TorcGraph implements Graph {
           Integer.BYTES +
           key.length +
           Integer.BYTES +
-          value.length);
-
-      buffer.order(ByteOrder.LITTLE_ENDIAN);
+          value.length)
+          .order(ByteOrder.LITTLE_ENDIAN);
 
       buffer.putInt(key.length);
       buffer.put(key);

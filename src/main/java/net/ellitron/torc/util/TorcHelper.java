@@ -25,6 +25,7 @@ import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.T;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -102,7 +103,8 @@ public class TorcHelper {
       }
     }
 
-    ByteBuffer buffer = ByteBuffer.allocate(serializedLength);
+    ByteBuffer buffer = ByteBuffer.allocate(serializedLength)
+        .order(ByteOrder.LITTLE_ENDIAN);
     for (Map.Entry<String, List<String>> property : propertyMap.entrySet()) {
       int propLenPos = buffer.position();
       buffer.putInt(0); // will fill this in when we've got the total len
@@ -149,14 +151,16 @@ public class TorcHelper {
 
   public static Map<String, List<String>> deserializeProperties(
       RAMCloudObject obj) {
-    ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
+    ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length)
+        .order(ByteOrder.LITTLE_ENDIAN);
     value.put(obj.getValueBytes());
     value.rewind();
     return deserializeProperties(value);
   }
 
   public static Map<String, List<String>> deserializeProperties(byte[] buf) {
-    ByteBuffer value = ByteBuffer.allocate(buf.length);
+    ByteBuffer value = ByteBuffer.allocate(buf.length)
+        .order(ByteOrder.LITTLE_ENDIAN);
     value.put(buf);
     value.rewind();
     return deserializeProperties(value);
@@ -168,7 +172,8 @@ public class TorcHelper {
       serializedLength += Short.BYTES + serializeString(s).length;
     }
 
-    ByteBuffer buffer = ByteBuffer.allocate(serializedLength);
+    ByteBuffer buffer = ByteBuffer.allocate(serializedLength)
+        .order(ByteOrder.LITTLE_ENDIAN);
     for (String s : list) {
       byte[] byteArray = serializeString(s);
       buffer.putShort((short) byteArray.length);
@@ -192,7 +197,8 @@ public class TorcHelper {
   }
 
   public static List<String> deserializeStringList(RAMCloudObject obj) {
-    ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length);
+    ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length)
+        .order(ByteOrder.LITTLE_ENDIAN);
     value.put(obj.getValueBytes());
     value.rewind();
     return deserializeStringList(value);
@@ -207,7 +213,8 @@ public class TorcHelper {
   }
 
   public static byte[] getVertexLabelKey(UInt128 vertexId) {
-    ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES + Byte.BYTES);
+    ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES + Byte.BYTES)
+        .order(ByteOrder.LITTLE_ENDIAN);
     buffer.putLong(vertexId.getUpperLong());
     buffer.putLong(vertexId.getLowerLong());
     buffer.put((byte) VertexKeyType.LABEL.ordinal());
@@ -215,7 +222,8 @@ public class TorcHelper {
   }
 
   public static byte[] getVertexPropertiesKey(UInt128 vertexId) {
-    ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES + Byte.BYTES);
+    ByteBuffer buffer = ByteBuffer.allocate(UInt128.BYTES + Byte.BYTES)
+        .order(ByteOrder.LITTLE_ENDIAN);
     buffer.putLong(vertexId.getUpperLong());
     buffer.putLong(vertexId.getLowerLong());
     buffer.put((byte) VertexKeyType.PROPERTIES.ordinal());
@@ -263,7 +271,8 @@ public class TorcHelper {
     byte[] labelByteArray = serializeString(edgeLabel);
     ByteBuffer buffer =
         ByteBuffer.allocate(UInt128.BYTES + Short.BYTES + labelByteArray.length
-            + Byte.BYTES);
+            + Byte.BYTES)
+        .order(ByteOrder.LITTLE_ENDIAN);
     buffer.putLong(vertexId.getUpperLong());
     buffer.putLong(vertexId.getLowerLong());
     buffer.putShort((short) labelByteArray.length);
@@ -295,7 +304,8 @@ public class TorcHelper {
         ByteBuffer.allocate(UInt128.BYTES 
             + Short.BYTES + edgeLabelByteArray.length
             + Byte.BYTES 
-            + Short.BYTES + vertexLabelByteArray.length);
+            + Short.BYTES + vertexLabelByteArray.length)
+        .order(ByteOrder.LITTLE_ENDIAN);
     buffer.putLong(vertexId.getUpperLong());
     buffer.putLong(vertexId.getLowerLong());
     buffer.putShort((short) edgeLabelByteArray.length);
