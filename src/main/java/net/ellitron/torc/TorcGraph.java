@@ -58,6 +58,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 
+import javax.xml.bind.DatatypeConverter;
+
 /**
  * TorcGraph is an ACID compliant implementation of the TinkerPop Graph
  * interface, and represents a graph stored in RAMCloud.
@@ -429,6 +431,8 @@ public final class TorcGraph implements Graph {
           }
           
           System.out.println("Got label: " + TorcHelper.deserializeString(obj.getValueBytes()));
+          System.out.println("Hex: " + DatatypeConverter.printHexBinary(obj.getValueBytes()));
+          System.out.println("Length: " + obj.getValueBytes().length);
 
           list.add(new TorcVertex(this, vertexId, 
                 TorcHelper.deserializeString(obj.getValueBytes())));
@@ -1254,7 +1258,7 @@ public final class TorcGraph implements Graph {
         } catch (ClientException.ObjectDoesntExistException e) {
           List<String> edgeLabelList = new ArrayList<>();
           edgeLabelList.add(edgeLabel);
-          rctx.write(vertexTableId, incidentEdgeLabelListKey,
+          rctx.write(edgeListTableId, incidentEdgeLabelListKey,
               TorcHelper.serializeStringList(edgeLabelList).array());
         }
 
