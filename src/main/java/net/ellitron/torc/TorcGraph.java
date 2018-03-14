@@ -430,10 +430,6 @@ public final class TorcGraph implements Graph {
                 vertexIds[i]);
           }
           
-          System.out.println("Got label: " + TorcHelper.deserializeString(obj.getValueBytes()));
-          System.out.println("Hex: " + DatatypeConverter.printHexBinary(obj.getValueBytes()));
-          System.out.println("Length: " + obj.getValueBytes().length);
-
           list.add(new TorcVertex(this, vertexId, 
                 TorcHelper.deserializeString(obj.getValueBytes())));
         }
