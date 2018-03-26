@@ -28,6 +28,7 @@ import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.*;
 
 /**
@@ -159,7 +160,8 @@ public class TorcEdge implements Edge, Element {
   public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
       Type type, final String label, byte[] serializedProperties) {
     this(graph, v1Id, v2Id, type, label);
-    this.serializedProperties = ByteBuffer.wrap(serializedProperties);
+    this.serializedProperties = ByteBuffer.wrap(serializedProperties)
+        .order(ByteOrder.LITTLE_ENDIAN);
   }
 
   public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
