@@ -1272,7 +1272,7 @@ public final class TorcGraph implements Graph {
           RAMCloudObject neighborLabelListRCObj =
               rctx.read(edgeListTableId, neighborLabelListKey);
 
-          if (neighborLabelListRCObj == null) {
+          if (neighborLabelListRCObj != null) {
             List<String> neighborLabelList =
                 TorcHelper.deserializeStringList(neighborLabelListRCObj);
             if (!neighborLabelList.contains(neighborLabel)) {
