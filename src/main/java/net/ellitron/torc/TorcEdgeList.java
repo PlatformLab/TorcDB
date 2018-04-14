@@ -146,15 +146,19 @@ public class TorcEdgeList {
     boolean newList = false;
     try {
       RAMCloudObject headSegObj = rctx.read(rcTableId, headSegKey);
-      headSeg = ByteBuffer.allocate(headSegObj.getValueBytes().length)
-          .order(ByteOrder.LITTLE_ENDIAN)
-          .put(headSegObj.getValueBytes());
-      headSeg.flip();
-    } catch (ClientException.ObjectDoesntExistException e) {
-      headSeg = ByteBuffer.allocate(Integer.BYTES)
-          .order(ByteOrder.LITTLE_ENDIAN).putInt(0);
-      headSeg.flip();
-      newList = true;
+      if (headSegObj != null) {
+        headSeg = ByteBuffer.allocate(headSegObj.getValueBytes().length)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .put(headSegObj.getValueBytes());
+        headSeg.flip();
+      } else {
+        headSeg = ByteBuffer.allocate(Integer.BYTES)
+            .order(ByteOrder.LITTLE_ENDIAN).putInt(0);
+        headSeg.flip();
+        newList = true;
+      }
+    } catch (ClientException e) {
+      throw new RuntimeException(e);
     }
 
     int serializedEdgeLength =
@@ -514,8 +518,11 @@ public class TorcEdgeList {
     RAMCloudObject headSegObj;
     try {
       headSegObj = rctx.read(rcTableId, headSegKey);
-    } catch (ClientException.ObjectDoesntExistException e) {
-      return edgeList;
+      if (headSegObj == null) {
+        return edgeList;
+      }
+    } catch (ClientException e) {
+      throw new RuntimeException(e);
     }
 
     ByteBuffer headSeg =
@@ -555,8 +562,11 @@ public class TorcEdgeList {
       RAMCloudObject tailSegObj;
       try {
         tailSegObj = rctx.read(rcTableId, tailSegKey);
-      } catch (ClientException.ObjectDoesntExistException e) {
-        continue;
+        if (tailSegObj == null) {
+          continue;
+        }
+      } catch (ClientException e) {
+        throw new RuntimeException(e);
       }
 
       ByteBuffer tailSeg =
@@ -644,8 +654,11 @@ public class TorcEdgeList {
       RAMCloudObject headSegObj;
       try {
         headSegObj = readOp.getValue();
-      } catch (ClientException.ObjectDoesntExistException e) {
-        continue;
+        if (headSegObj == null) {
+          continue;
+        }
+      } catch (ClientException e) {
+        throw new RuntimeException(e);
       } finally {
         readOp.finalize();
       }

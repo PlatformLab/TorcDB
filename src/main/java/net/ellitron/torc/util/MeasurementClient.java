@@ -162,13 +162,15 @@ public class MeasurementClient {
       while (true) {
         try {
           RAMCloudObject obj = cluster.read(controlTableId, regKey);
-          if (obj.getValue().equals(ReturnStatus.STATUS_OK.name())) {
-            break;
-          } else {
-            throw new Exception("Slave " + (firstSlave + i)
-                + " returned error status " + obj.getValue());
-          }
-        } catch (TableDoesntExistException | ObjectDoesntExistException e) {
+          if (obj != null) {
+            if (obj.getValue().equals(ReturnStatus.STATUS_OK.name())) {
+              break;
+            } else {
+              throw new Exception("Slave " + (firstSlave + i)
+                  + " returned error status " + obj.getValue());
+            } 
+          } 
+        } catch (TableDoesntExistException e) {
         }
 
         double elapsedTimeSeconds =
@@ -195,9 +197,13 @@ public class MeasurementClient {
           getRegisterKey(firstSlave + i, ControlRegister.RETURN_VALUE);
       try {
         RAMCloudObject obj = cluster.read(controlTableId, regKey);
-        values[i] = obj.getValue();
-      } catch (TableDoesntExistException | ObjectDoesntExistException e) {
-        values[i] = null;
+        if (obj != null) {
+          values[i] = obj.getValue();
+        } else {
+          values[i] = null;
+        }
+      } catch (TableDoesntExistException e) {
+        throw new RuntimeException(e);
       }
     }
 
@@ -212,8 +218,13 @@ public class MeasurementClient {
     while (true) {
       try {
         RAMCloudObject obj = cluster.read(controlTableId, regKey);
-        return CommandCode.valueOf(obj.getValue());
-      } catch (TableDoesntExistException | ObjectDoesntExistException e) {
+        if (obj != null) {
+          return CommandCode.valueOf(obj.getValue());
+        }
+      } catch (TableDoesntExistException e) {
+
+      } catch (ClientException e) {
+        throw new RuntimeException(e);
       }
 
       try {
@@ -228,9 +239,15 @@ public class MeasurementClient {
 
     try {
       RAMCloudObject obj = cluster.read(controlTableId, regKey);
-      return CommandCode.valueOf(obj.getValue());
-    } catch (TableDoesntExistException | ObjectDoesntExistException e) {
+      if (obj != null) {
+        return CommandCode.valueOf(obj.getValue());
+      } else {
+        return null;
+      }
+    } catch (TableDoesntExistException e) {
       return null;
+    } catch (ClientException e) {
+      throw new RuntimeException(e);
     }
   }
 
@@ -238,8 +255,12 @@ public class MeasurementClient {
     String regKey = getRegisterKey(clientIndex, ControlRegister.ARGUMENTS);
     try {
       RAMCloudObject obj = cluster.read(controlTableId, regKey);
-      return obj.getValue();
-    } catch (TableDoesntExistException | ObjectDoesntExistException e) {
+      if (obj != null) {
+        return obj.getValue();
+      } 
+    } catch (TableDoesntExistException e) {
+    } catch (ClientException e) {
+      throw new RuntimeException(e);
     }
 
     return null;
