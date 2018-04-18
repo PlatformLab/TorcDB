@@ -1154,6 +1154,12 @@ public final class TorcGraph implements Graph {
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
     RAMCloudObject neighborLabelRCObj =
         rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(v.id()));
+
+    if (neighborLabelRCObj == null) {
+      throw new RuntimeException("Tried to read label for vertex but " +
+          "RAMCloud object does not exist");
+    }
+
     return TorcHelper.deserializeString(neighborLabelRCObj.getValueBytes());
   }
 
@@ -1475,8 +1481,12 @@ public final class TorcGraph implements Graph {
     RAMCloudObject obj = rctx.read(vertexTableId,
         TorcHelper.getVertexPropertiesKey(vertex.id()));
 
-    Map<String, List<String>> properties =
-        TorcHelper.deserializeProperties(obj);
+    Map<String, List<String>> properties;
+    if (obj != null) {
+      properties = TorcHelper.deserializeProperties(obj);
+    } else {
+      properties = new HashMap<>();
+    }
 
     List<VertexProperty<V>> propList = new ArrayList<>();
 
@@ -1535,8 +1545,12 @@ public final class TorcGraph implements Graph {
     RAMCloudObject obj = rctx.read(vertexTableId,
         TorcHelper.getVertexPropertiesKey(vertex.id()));
 
-    Map<String, List<String>> properties =
-        TorcHelper.deserializeProperties(obj);
+    Map<String, List<String>> properties;
+    if (obj != null) {
+      properties = TorcHelper.deserializeProperties(obj);
+    } else {
+      properties = new HashMap<>();
+    }
 
     if (properties.containsKey(key)) {
       if (cardinality == VertexProperty.Cardinality.single) {
@@ -1595,6 +1609,12 @@ public final class TorcGraph implements Graph {
     if (direction.equals(Direction.OUT) || direction.equals(Direction.BOTH)) {
       RAMCloudObject obj = rctx.read(vertexTableId,
           TorcHelper.getVertexLabelKey(edge.getV1Id()));
+
+      if (obj == null) {
+        throw Graph.Exceptions.elementNotFound(TorcVertex.class,
+            edge.getV1Id());
+      }
+
       list.add(new TorcVertex(this, edge.getV1Id(), 
             TorcHelper.deserializeString(obj.getValueBytes())));
     }
@@ -1602,6 +1622,12 @@ public final class TorcGraph implements Graph {
     if (direction.equals(Direction.IN) || direction.equals(Direction.BOTH)) {
       RAMCloudObject obj = rctx.read(vertexTableId,
           TorcHelper.getVertexLabelKey(edge.getV2Id()));
+
+      if (obj == null) {
+        throw Graph.Exceptions.elementNotFound(TorcVertex.class,
+            edge.getV2Id());
+      }
+
       list.add(new TorcVertex(this, edge.getV2Id(), 
             TorcHelper.deserializeString(obj.getValueBytes())));
     }
