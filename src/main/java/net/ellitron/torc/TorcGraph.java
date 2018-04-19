@@ -1314,6 +1314,12 @@ public final class TorcGraph implements Graph {
   Iterator<Edge> vertexEdges(final TorcVertex vertex,
       final EnumSet<TorcEdgeDirection> edgeDirections,
       final String[] edgeLabels) {
+    return vertexEdges(vertex, edgeDirections, edgeLabels, new String[0]);
+  }
+
+  Iterator<Edge> vertexEdges(final TorcVertex vertex,
+      final EnumSet<TorcEdgeDirection> edgeDirections,
+      final String[] edgeLabels, final String[] neighborLabels) {
     long startTimeNs = 0;
     if (logger.isDebugEnabled()) {
       startTimeNs = System.nanoTime();
@@ -1325,9 +1331,10 @@ public final class TorcGraph implements Graph {
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
     List<Edge> edges = new ArrayList<>();
-    List<String> labels = Arrays.asList(edgeLabels);
+    List<String> eLabels = Arrays.asList(edgeLabels);
+    List<String> nLabels = Arrays.asList(neighborLabels);
 
-    if (labels.isEmpty()) {
+    if (eLabels.isEmpty()) {
       try {
         byte[] incidentEdgeLabelListKey 
             = TorcHelper.getIncidentEdgeLabelListKey(vertex.id());
@@ -1335,33 +1342,34 @@ public final class TorcGraph implements Graph {
             rctx.read(edgeListTableId, incidentEdgeLabelListKey);
 
         if (incidentEdgeLabelListRCObj != null) {
-          labels = TorcHelper.deserializeStringList(incidentEdgeLabelListRCObj);
+          eLabels = TorcHelper.deserializeStringList(incidentEdgeLabelListRCObj);
         }
       } catch (ClientException e) {
         throw new RuntimeException(e);
       }
     }
 
-    for (String edgeLabel : labels) {
+    for (String edgeLabel : eLabels) {
       for (TorcEdgeDirection dir : edgeDirections) {
-        /* Get all the neighbor vertex labels for this edge label. */
-        List<String> neighborLabels = new ArrayList<>();
-        byte[] neighborLabelListKey =
-            TorcHelper.getNeighborLabelListKey(vertex.id(), edgeLabel, dir);
+        if (nLabels.isEmpty()) {
+          /* Get all the neighbor vertex labels for this edge label. */
+          byte[] neighborLabelListKey =
+              TorcHelper.getNeighborLabelListKey(vertex.id(), edgeLabel, dir);
 
-        try {
-          RAMCloudObject neighborLabelListRCObj =
-              rctx.read(edgeListTableId, neighborLabelListKey);
+          try {
+            RAMCloudObject neighborLabelListRCObj =
+                rctx.read(edgeListTableId, neighborLabelListKey);
 
-          if (neighborLabelListRCObj != null) {
-            neighborLabels =
-                TorcHelper.deserializeStringList(neighborLabelListRCObj);
+            if (neighborLabelListRCObj != null) {
+              nLabels =
+                  TorcHelper.deserializeStringList(neighborLabelListRCObj);
+            }
+          } catch (ClientException e) {
+            throw new RuntimeException(e);
           }
-        } catch (ClientException e) {
-          throw new RuntimeException(e);
         }
 
-        for (String neighborLabel : neighborLabels) {
+        for (String neighborLabel : nLabels) {
           byte[] keyPrefix =
               TorcHelper.getEdgeListKeyPrefix(vertex.id(), edgeLabel, dir,
                   neighborLabel);
@@ -1375,8 +1383,8 @@ public final class TorcGraph implements Graph {
     if (logger.isDebugEnabled()) {
       long endTimeNs = System.nanoTime();
       logger.debug(String.format("vertexEdges(vertex=%s,directions=%s,"
-          + "labels=%s):(n=%d), took %dus", vertex.id().toString(),
-          edgeDirections.toString(), labels.toString(), edges.size(),
+          + "eLabels=%s):(n=%d), took %dus", vertex.id().toString(),
+          edgeDirections.toString(), eLabels.toString(), edges.size(),
           (endTimeNs - startTimeNs) / 1000l));
     }
 

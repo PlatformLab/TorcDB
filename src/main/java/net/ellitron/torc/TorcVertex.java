@@ -111,26 +111,34 @@ public class TorcVertex implements Vertex, Element {
    */
   @Override
   public Iterator<Edge> edges(Direction direction, String... edgeLabels) {
-    switch (direction) {
-      case OUT:
-        return graph.vertexEdges(this,
-            EnumSet.of(TorcEdgeDirection.DIRECTED_OUT), edgeLabels);
-      case IN:
-        return graph.vertexEdges(this,
-            EnumSet.of(TorcEdgeDirection.DIRECTED_IN), edgeLabels);
-      case BOTH:
-        return graph.vertexEdges(this,
-            EnumSet.of(TorcEdgeDirection.DIRECTED_OUT,
-                TorcEdgeDirection.DIRECTED_IN), edgeLabels);
-      default:
-        throw new UnsupportedOperationException("Unrecognized direction "
-            + "value: " + direction);
-    }
+    return edges(direction, edgeLabels, new String[0]);
   }
 
   public Iterator<Edge> edges(EnumSet<TorcEdgeDirection> edgeDirections,
       String... edgeLabels) {
-    return graph.vertexEdges(this, edgeDirections, edgeLabels);
+    return graph.vertexEdges(this, edgeDirections, edgeLabels, new String[0]);
+  }
+
+  public Iterator<Edge> edges(Direction direction, String[] edgeLabels, 
+      String[] neighborLabels) {
+    switch (direction) {
+      case OUT:
+        return graph.vertexEdges(this,
+            EnumSet.of(TorcEdgeDirection.DIRECTED_OUT), edgeLabels, 
+            neighborLabels);
+      case IN:
+        return graph.vertexEdges(this,
+            EnumSet.of(TorcEdgeDirection.DIRECTED_IN), edgeLabels,
+            neighborLabels);
+      case BOTH:
+        return graph.vertexEdges(this,
+            EnumSet.of(TorcEdgeDirection.DIRECTED_OUT,
+                TorcEdgeDirection.DIRECTED_IN), edgeLabels,
+            neighborLabels);
+      default:
+        throw new UnsupportedOperationException("Unrecognized direction "
+            + "value: " + direction);
+    }
   }
 
   /**
