@@ -1318,6 +1318,8 @@ public final class TorcGraph implements Graph {
     if (logger.isDebugEnabled()) {
       startTimeNs = System.nanoTime();
     }
+  
+    initialize();
 
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
