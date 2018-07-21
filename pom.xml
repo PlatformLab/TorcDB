@@ -76,7 +76,7 @@
                     <properties>
                         <property>
                             <name>listener</name>
-                            <value>org.ellitron.tinkerpop.gremlin.torc.util.UnitTestProgressReporter</value>
+                            <value>net.ellitron.torc.util.UnitTestProgressReporter</value>
                         </property>
                     </properties>
                     <environmentVariables>
