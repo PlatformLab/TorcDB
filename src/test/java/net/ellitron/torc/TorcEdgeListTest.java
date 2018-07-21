@@ -15,8 +15,13 @@
  */
 package net.ellitron.torc;
 
+import edu.stanford.ramcloud.*;
+import edu.stanford.ramcloud.ClientException.*;
+
 import static org.junit.Assert.*;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -25,11 +30,28 @@ import org.junit.Test;
  */
 public class TorcEdgeListTest {
 
+  RAMCloud client;
+
   public TorcEdgeListTest() {
+    this.client = null;
+  }
+
+  @Before
+  public void before() throws Exception {
+    String coordLoc = System.getProperty("ramcloudCoordinatorLocator");
+    if (coordLoc == null)
+      throw new Exception("No RAMCloud coordinator specified. Please specify with -DramcloudCoordinatorLocator=<locator_string>");
+
+    this.client = new RAMCloud(coordLoc);
   }
 
   @Test
   public void constructor_example() {
     System.out.println("Hello World!");
+  }
+
+  @After
+  public void after() throws Exception {
+    System.out.println("tearDown()");
   }
 }
