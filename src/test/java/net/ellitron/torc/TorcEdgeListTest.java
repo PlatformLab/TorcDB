@@ -15,8 +15,12 @@
  */
 package net.ellitron.torc;
 
+import net.ellitron.torc.util.*;
+
 import edu.stanford.ramcloud.*;
 import edu.stanford.ramcloud.ClientException.*;
+
+import java.util.List;
 
 import static org.junit.Assert.*;
 
@@ -31,9 +35,11 @@ import org.junit.Test;
 public class TorcEdgeListTest {
 
   RAMCloud client;
+  long tableId;
 
   public TorcEdgeListTest() {
     this.client = null;
+    this.tableId = -1;
   }
 
   @Before
@@ -43,15 +49,208 @@ public class TorcEdgeListTest {
       throw new Exception("No RAMCloud coordinator specified. Please specify with -DramcloudCoordinatorLocator=<locator_string>");
 
     this.client = new RAMCloud(coordLoc);
+    this.tableId = client.createTable("test");
   }
 
   @Test
-  public void constructor_example() {
-    System.out.println("Hello World!");
+  public void prependAndRead_withoutProperties0to1k() {
+    RAMCloudTransaction rctx = new RAMCloudTransaction(client);
+
+    UInt128 baseVertexId = new UInt128(42);
+
+    byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
+        baseVertexId, 
+        "hasCreator", 
+        TorcEdgeDirection.DIRECTED_IN,
+        "Comment");
+   
+    for (int i = 0; i < (1<<10); i++) {
+      UInt128 neighborId = new UInt128(i);
+
+      boolean newList = TorcEdgeList.prepend(
+          rctx,
+          tableId,
+          keyPrefix,
+          neighborId, 
+          new byte[] {});
+
+      if (i == 0) {
+        assertEquals(newList, true);
+      } else {
+        assertEquals(newList, false);
+      }
+
+      List<TorcEdge> list = TorcEdgeList.read(
+          rctx,
+          tableId,
+          keyPrefix,
+          null, 
+          baseVertexId,
+          "hasCreator", 
+          TorcEdgeDirection.DIRECTED_IN);
+
+      int j = i;
+      for (TorcEdge edge : list) {
+        UInt128 expectedId = new UInt128(j);
+        assertEquals(expectedId, edge.getV1Id());
+        j--;
+      }
+    }
+
+    rctx.close();
+  }
+
+  @Test
+  public void prependAndRead_withProperties0to1k() {
+    RAMCloudTransaction rctx = new RAMCloudTransaction(client);
+
+    UInt128 baseVertexId = new UInt128(42);
+
+    byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
+        baseVertexId, 
+        "hasCreator", 
+        TorcEdgeDirection.DIRECTED_IN,
+        "Comment");
+   
+    for (int i = 0; i < (1<<10); i++) {
+      UInt128 neighborId = new UInt128(i);
+
+      boolean newList = TorcEdgeList.prepend(
+          rctx,
+          tableId,
+          keyPrefix,
+          neighborId, 
+          neighborId.toByteArray());
+
+      if (i == 0) {
+        assertEquals(newList, true);
+      } else {
+        assertEquals(newList, false);
+      }
+
+      List<TorcEdge> list = TorcEdgeList.read(
+          rctx,
+          tableId,
+          keyPrefix,
+          null, 
+          baseVertexId,
+          "hasCreator", 
+          TorcEdgeDirection.DIRECTED_IN);
+
+      int j = i;
+      for (TorcEdge edge : list) {
+        UInt128 expectedId = new UInt128(j);
+        assertEquals(expectedId, edge.getV1Id());
+        assertTrue(java.util.Arrays.equals(expectedId.toByteArray(), 
+            edge.getSerializedProperties().array()));
+        j--;
+      }
+    }
+
+    rctx.close();
+  }
+
+  @Test
+  public void prependAndRead_withoutProperties1M() {
+    RAMCloudTransaction rctx = new RAMCloudTransaction(client);
+
+    UInt128 baseVertexId = new UInt128(42);
+
+    byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
+        baseVertexId, 
+        "hasCreator", 
+        TorcEdgeDirection.DIRECTED_IN,
+        "Comment");
+   
+    for (int i = 0; i < (1<<20); i++) {
+      UInt128 neighborId = new UInt128(i);
+
+      boolean newList = TorcEdgeList.prepend(
+          rctx,
+          tableId,
+          keyPrefix,
+          neighborId, 
+          new byte[] {});
+
+      if (i == 0) {
+        assertEquals(newList, true);
+      } else {
+        assertEquals(newList, false);
+      }
+    }
+
+    List<TorcEdge> list = TorcEdgeList.read(
+        rctx,
+        tableId,
+        keyPrefix,
+        null, 
+        baseVertexId,
+        "hasCreator", 
+        TorcEdgeDirection.DIRECTED_IN);
+
+    int j = (1<<20) - 1;
+    for (TorcEdge edge : list) {
+      UInt128 expectedId = new UInt128(j);
+      assertEquals(expectedId, edge.getV1Id());
+      j--;
+    }
+
+    rctx.close();
+  }
+
+  @Test
+  public void prependAndRead_withProperties1M() {
+    RAMCloudTransaction rctx = new RAMCloudTransaction(client);
+
+    UInt128 baseVertexId = new UInt128(42);
+
+    byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
+        baseVertexId, 
+        "hasCreator", 
+        TorcEdgeDirection.DIRECTED_IN,
+        "Comment");
+   
+    for (int i = 0; i < (1<<20); i++) {
+      UInt128 neighborId = new UInt128(i);
+
+      boolean newList = TorcEdgeList.prepend(
+          rctx,
+          tableId,
+          keyPrefix,
+          neighborId, 
+          neighborId.toByteArray());
+
+      if (i == 0) {
+        assertEquals(newList, true);
+      } else {
+        assertEquals(newList, false);
+      }
+    }
+
+    List<TorcEdge> list = TorcEdgeList.read(
+        rctx,
+        tableId,
+        keyPrefix,
+        null, 
+        baseVertexId,
+        "hasCreator", 
+        TorcEdgeDirection.DIRECTED_IN);
+
+    int j = (1<<20) - 1;
+    for (TorcEdge edge : list) {
+      UInt128 expectedId = new UInt128(j);
+      assertEquals(expectedId, edge.getV1Id());
+      assertTrue(java.util.Arrays.equals(expectedId.toByteArray(), 
+          edge.getSerializedProperties().array()));
+      j--;
+    }
+
+    rctx.close();
   }
 
   @After
   public void after() throws Exception {
-    System.out.println("tearDown()");
+    client.dropTable("test");
+    client.disconnect();
   }
 }
