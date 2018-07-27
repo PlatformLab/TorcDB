@@ -173,14 +173,14 @@ public class TorcPerf {
           segment_sizes.add(segment_range_start);
         }
 
-        if (op.equals("prependAndRead")) {
+        if (op.equals("TorcEdgeList_PrependAndRead")) {
           for (int ss_idx = 0; ss_idx < segment_sizes.size(); ss_idx++) {
             int segment_size = segment_sizes.get(ss_idx);
             System.out.println(String.format("Prepend And Read Test: segment_size: %dB", segment_size));
 
             FileWriter datFile = new FileWriter(String.format("prependAndRead.ss_%d.lms_%s.rf_%d.csv", segment_size, list_max_size, replicas));
 
-            long tableId = client.createTable("prependAndReadTest");
+            long tableId = client.createTable("PrependAndReadTest");
 
             datFile.write(String.format("%12s %12s %12s\n", 
                   "Elements",
@@ -256,7 +256,7 @@ public class TorcPerf {
 
             datFile.close();
 
-            client.dropTable("prependAndReadTest");
+            client.dropTable("PrependAndReadTest");
           }
         } else {
           System.out.println(String.format("ERROR: Unknown operation: %s", op));
