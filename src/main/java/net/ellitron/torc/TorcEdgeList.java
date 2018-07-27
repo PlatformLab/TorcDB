@@ -105,17 +105,27 @@ public class TorcEdgeList {
    * small, then operations like reading all of the edges in the list will
    * require reading many RAMCloud objects and incur high read overhead.
    */
-  private static final int SEGMENT_SIZE_LIMIT = 1 << 16;
+  private static final int DEFAULT_SEGMENT_SIZE_LIMIT = 1 << 16;
 
   /*
-   * When a RAMCloud object exceeds its size limit (SEGMENT_SIZE_LIMIT), the
+   * When a RAMCloud object exceeds its size limit (DEFAULT_SEGMENT_SIZE_LIMIT), the
    * object is split into two parts. This parameter specifies the byte offset
    * into the segment where the split should occur. Most of the time this will
    * not land exactly between two edges in the list, and in this case the
    * nearest boundary to the split point is selected, unless that happens to be
    * past the size limit, in which case the lower boundary is selected.
    */
-  private static final int SEGMENT_TARGET_SPLIT_POINT = 1 << 12;
+  private static final int DEFAULT_SEGMENT_TARGET_SPLIT_POINT = 1 << 12;
+
+  public static boolean prepend(
+      RAMCloudTransaction rctx,
+      long rcTableId,
+      byte[] keyPrefix,
+      UInt128 neighborId, 
+      byte[] serializedProperties) {
+    return prepend(rctx, rcTableId, keyPrefix, neighborId, serializedProperties,
+        DEFAULT_SEGMENT_SIZE_LIMIT, DEFAULT_SEGMENT_TARGET_SPLIT_POINT);
+  }
 
   /**
    * Prepends the edge represented by the given neighbor vertex and serialized
@@ -131,6 +141,8 @@ public class TorcEdgeList {
    * @param keyPrefix Key prefix for the edge list.
    * @param neighborId Remote vertex Id for this edge.
    * @param serializedProperties Pre-serialized properties for this edge.
+   * @param segment_size_limit Limit on the max size of segments.
+   * @param segment_target_split_point Where to split when splitting is needed.
    *
    * @return True if a new edge list was created, false otherwise.
    */
@@ -139,7 +151,9 @@ public class TorcEdgeList {
       long rcTableId,
       byte[] keyPrefix,
       UInt128 neighborId, 
-      byte[] serializedProperties) {
+      byte[] serializedProperties,
+      int segment_size_limit,
+      int segment_target_split_point) {
     /* Read out the head segment. */
     ByteBuffer headSeg;
     byte[] headSegKey = getSegmentKey(keyPrefix, 0);
@@ -182,7 +196,7 @@ public class TorcEdgeList {
     prependedSeg.flip();
 
     /* Check if we need to split the head segment. */
-    if (prependedSeg.capacity() <= SEGMENT_SIZE_LIMIT) {
+    if (prependedSeg.capacity() <= segment_size_limit) {
       /* Common case, don't need to split. */
       rctx.write(rcTableId, headSegKey, prependedSeg.array());
     } else {
@@ -197,7 +211,7 @@ public class TorcEdgeList {
         int nextEdgeStartPos = edgeStartPos + UInt128.BYTES + Short.BYTES 
             + prependedSeg.getShort(edgeStartPos + UInt128.BYTES);
 
-        if (nextEdgeStartPos >= SEGMENT_TARGET_SPLIT_POINT) {
+        if (nextEdgeStartPos >= segment_target_split_point) {
           /*
            * The current edge either stradles the split point, or is right up
            * against it.
@@ -206,10 +220,10 @@ public class TorcEdgeList {
            *            <--left-->          <--right-->   V
            * ------|--------------------|-----------------|--------
            *       ^                    ^
-           * edgeStartPos     SEGMENT_TARGET_SPLIT_POINT
+           * edgeStartPos     DEFAULT_SEGMENT_TARGET_SPLIT_POINT
            */
-          int left = SEGMENT_TARGET_SPLIT_POINT - edgeStartPos;
-          int right = nextEdgeStartPos - SEGMENT_TARGET_SPLIT_POINT;
+          int left = segment_target_split_point - edgeStartPos;
+          int right = nextEdgeStartPos - segment_target_split_point;
 
           if (edgeStartPos == Integer.BYTES) {
             /* This is the first edge. In this case, always choose to keep this
@@ -223,7 +237,7 @@ public class TorcEdgeList {
              * the list than the start of this edge. In this case we generally
              * want to split at the start of the next edge, except for a
              * special case handled here. */
-            if (nextEdgeStartPos > SEGMENT_SIZE_LIMIT) {
+            if (nextEdgeStartPos > segment_size_limit) {
               /* Special case, the current edge extends beyond the size limit.
                * To still enforce the size limit policy we choose not to keep
                * this edge in the head segment. */
@@ -349,7 +363,7 @@ public class TorcEdgeList {
       headSegLen += edgeLength;
       headSegEdgeLengths.addFirst(edgeLength);
 
-      if (headSegLen >= SEGMENT_SIZE_LIMIT) {
+      if (headSegLen >= DEFAULT_SEGMENT_SIZE_LIMIT) {
         int edgesInNewTailSeg = 0;
         // In the head segment, edges start after the integer field that stores
         // the total number of tail segments for the edge list.
@@ -359,7 +373,7 @@ public class TorcEdgeList {
           edgeStartPos = nextEdgeStartPos;
           nextEdgeStartPos = edgeStartPos + headSegEdgeLengths.get(j);
 
-          if (nextEdgeStartPos >= SEGMENT_TARGET_SPLIT_POINT) {
+          if (nextEdgeStartPos >= DEFAULT_SEGMENT_TARGET_SPLIT_POINT) {
             /*
              * The current edge either stradles the split point, or is right up
              * against it.
@@ -368,10 +382,10 @@ public class TorcEdgeList {
              *            <--left-->          <--right-->   V
              * ------|--------------------|-----------------|--------
              *       ^                    ^
-             * edgeStartPos     SEGMENT_TARGET_SPLIT_POINT
+             * edgeStartPos     DEFAULT_SEGMENT_TARGET_SPLIT_POINT
              */
-            int left = SEGMENT_TARGET_SPLIT_POINT - edgeStartPos;
-            int right = nextEdgeStartPos - SEGMENT_TARGET_SPLIT_POINT;
+            int left = DEFAULT_SEGMENT_TARGET_SPLIT_POINT - edgeStartPos;
+            int right = nextEdgeStartPos - DEFAULT_SEGMENT_TARGET_SPLIT_POINT;
 
             if (edgeStartPos == Integer.BYTES) {
               /* This is the first edge. In this case, always choose to keep
@@ -385,7 +399,7 @@ public class TorcEdgeList {
                * the list than the start of this edge. In this case we
                * generally want to split at the start of the next edge, except
                * for a special case handled here. */
-              if (nextEdgeStartPos > SEGMENT_SIZE_LIMIT) {
+              if (nextEdgeStartPos > DEFAULT_SEGMENT_SIZE_LIMIT) {
                 /* Special case, the current edge extends beyond the size limit.
                  * To still enforce the size limit policy we choose not to keep
                  * this edge in the head segment. */
@@ -421,7 +435,7 @@ public class TorcEdgeList {
           
           segmentSizes.add(segmentSize);
         }
-      } // if (headSegLen >= SEGMENT_SIZE_LIMIT) 
+      } // if (headSegLen >= DEFAULT_SEGMENT_SIZE_LIMIT) 
     } // for (int i = 0; i < neighborIds.size(); i++) 
 
     // Whatever is left in headSegEdgeLengths after the simulation is over

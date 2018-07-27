@@ -209,7 +209,9 @@ public class TorcPerf {
                   tableId,
                   keyPrefix,
                   neighborId, 
-                  new byte[] {});
+                  new byte[] {},
+                  segment_size,
+                  0);
 
               boolean success = rctx.commit();
               rctx.close();
