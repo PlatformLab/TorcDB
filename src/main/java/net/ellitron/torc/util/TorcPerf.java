@@ -73,6 +73,8 @@ public class TorcPerf {
       + "                       [default: ./config/torcperf.cfg].\n"
       + "  --replicas=<r>       Number of replicas in RAMCloud cluster.\n"
       + "                       [default: 3].\n"
+      + "  --dpdkPort=<p>       If using DPDK, which port to use.\n"
+      + "                       [default: -1].\n"
       + "  -h --help            Show this screen.\n"
       + "  --version            Show version.\n"
       + "\n";
@@ -81,9 +83,11 @@ public class TorcPerf {
     Map<String, Object> opts =
         new Docopt(doc).withVersion("TorcPerf 1.0").parse(args);
 
-    RAMCloud client = new RAMCloud((String) opts.get("COORDINATOR"));
-
+    String coordinatorLocator = (String) opts.get("COORDINATOR");
     int replicas = Integer.decode((String) opts.get("--replicas"));
+    int dpdkPort = Integer.decode((String) opts.get("--dpdkPort"));
+
+    RAMCloud client = new RAMCloud(coordinatorLocator, "foo", dpdkPort);
 
     // Default values for experiment properties.
     int segment_range_start = 2048;
