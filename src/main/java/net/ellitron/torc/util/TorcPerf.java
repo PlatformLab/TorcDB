@@ -95,6 +95,10 @@ public class TorcPerf {
     int segment_points = 1;
     String segment_points_mode = "linear";
     int list_max_size = 1000;
+    int list_size_range_start = 100000;
+    int list_size_range_end = 1000000;
+    int list_size_points = 10;
+    String list_size_points_mode = "linear";
 
     // Load properties from the configuration file.
     String cfgFilename = (String) opts.get("--config");
@@ -143,6 +147,25 @@ public class TorcPerf {
                   line.length());
               int varIntValue = Integer.decode(varValue);
               list_max_size = varIntValue;
+            } else if (varName.equals("list_size_range_start")) {
+              String varValue = line.substring(line.lastIndexOf(' ') + 1, 
+                  line.length());
+              int varIntValue = Integer.decode(varValue);
+              list_size_range_start = varIntValue;
+            } else if (varName.equals("list_size_range_end")) {
+              String varValue = line.substring(line.lastIndexOf(' ') + 1, 
+                  line.length());
+              int varIntValue = Integer.decode(varValue);
+              list_size_range_end = varIntValue;
+            } else if (varName.equals("list_size_points")) {
+              String varValue = line.substring(line.lastIndexOf(' ') + 1, 
+                  line.length());
+              int varIntValue = Integer.decode(varValue);
+              list_size_points = varIntValue;
+            } else if (varName.equals("list_size_points_mode")) {
+              String varValue = line.substring(line.lastIndexOf(' ') + 1, 
+                  line.length());
+              list_size_points_mode = varValue;
             } else {
               System.out.println(String.format("ERROR: Unknown parameter: %s\n", 
                     varName));
@@ -157,6 +180,7 @@ public class TorcPerf {
         }
 
         List<Integer> segment_sizes = new ArrayList<>(); 
+        List<Integer> list_sizes = new ArrayList<>(); 
 
         if (segment_points > 1) {
           if (segment_points_mode.equals("linear")) {
@@ -175,6 +199,25 @@ public class TorcPerf {
           }
         } else {
           segment_sizes.add(segment_range_start);
+        }
+
+        if (list_size_points > 1) {
+          if (list_size_points_mode.equals("linear")) {
+            int step_size = 
+              (list_size_range_end - list_size_range_start) / (list_size_points - 1);
+
+            for (int i = list_size_range_start; i <= list_size_range_end; i += step_size) 
+              list_sizes.add(i);
+          } else if (list_size_points_mode.equals("geometric")) {
+            double c = Math.pow(10, Math.log10((double)list_size_range_end/(double)list_size_range_start) / (double)(list_size_points - 1));
+            for (int i = list_size_range_start; i <= list_size_range_end; i *= c)
+              list_sizes.add(i);
+          } else {
+            System.out.println(String.format("ERROR: Unknown points mode: %s\n", list_size_points_mode));
+            return;
+          }
+        } else {
+          list_sizes.add(list_size_range_start);
         }
 
         if (op.equals("TorcEdgeList_PrependAndRead")) {
@@ -263,6 +306,99 @@ public class TorcPerf {
             datFile.close();
 
             client.dropTable("PrependAndReadTest");
+          }
+        } else if (op.equals("TorcEdgeList_PrependVsRead")) {
+          for (int ls_idx = 0; ls_idx < list_sizes.size(); ls_idx++) {
+            int list_size = list_sizes.get(ls_idx);
+            System.out.println(String.format("Prepend Vs. Read Test: list_size: %dB", list_size));
+
+            FileWriter datFile = new FileWriter(String.format("TorcEdgeList_PrependVsRead.ls_%d.lms_%s.rf_%d.csv", list_size, replicas));
+
+            for (int ss_idx = 0; ss_idx < segment_sizes.size(); ss_idx++) {
+              int segment_size = segment_sizes.get(ss_idx);
+
+              
+
+              long tableId = client.createTable("PrependAndReadTest");
+
+              datFile.write(String.format("%12s %12s %12s\n", 
+                    "Elements",
+                    "Prepend",
+                    "Read"));
+
+              UInt128 baseVertexId = new UInt128(42);
+
+              byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
+                  baseVertexId, 
+                  "hasCreator", 
+                  TorcEdgeDirection.DIRECTED_IN,
+                  "Comment");
+
+              List<Long> prependLatency = new ArrayList<>();
+              List<Long> readLatency = new ArrayList<>();
+              long startTime, endTime;
+              for (int i = 0; i < list_max_size; i++) {
+                startTime = System.nanoTime();
+                RAMCloudTransaction rctx = new RAMCloudTransaction(client);
+
+                UInt128 neighborId = new UInt128(i);
+
+                boolean newList = TorcEdgeList.prepend(
+                    rctx,
+                    tableId,
+                    keyPrefix,
+                    neighborId, 
+                    new byte[] {},
+                    segment_size,
+                    0);
+
+                boolean success = rctx.commit();
+                rctx.close();
+
+                endTime = System.nanoTime();
+
+                prependLatency.add(endTime - startTime);
+
+                if (!success) {
+                  System.out.println("ERROR: Prepend element transaction failed");
+                  return;
+                }
+
+                startTime = System.nanoTime();
+                rctx = new RAMCloudTransaction(client);
+
+                List<TorcEdge> list = TorcEdgeList.read(
+                    rctx,
+                    tableId,
+                    keyPrefix,
+                    null, 
+                    baseVertexId,
+                    "hasCreator", 
+                    TorcEdgeDirection.DIRECTED_IN);
+
+                success = rctx.commit();
+                rctx.close();
+
+                endTime = System.nanoTime();
+
+                readLatency.add(endTime - startTime);
+
+                if (!success) {
+                  System.out.println("ERROR: Read element transaction failed");
+                  return;
+                }
+
+                datFile.write(String.format("%12d %12.1f %12.1f\n",
+                      i+1,
+                      prependLatency.get(prependLatency.size()-1)/1000.0,
+                      readLatency.get(readLatency.size()-1)/1000.0));
+                datFile.flush();
+              }
+
+              datFile.close();
+
+              client.dropTable("PrependAndReadTest");
+            }
           }
         } else {
           System.out.println(String.format("ERROR: Unknown operation: %s", op));
