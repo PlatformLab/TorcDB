@@ -182,7 +182,7 @@ public class TorcPerf {
             int segment_size = segment_sizes.get(ss_idx);
             System.out.println(String.format("Prepend And Read Test: segment_size: %dB", segment_size));
 
-            FileWriter datFile = new FileWriter(String.format("prependAndRead.ss_%d.lms_%s.rf_%d.csv", segment_size, list_max_size, replicas));
+            FileWriter datFile = new FileWriter(String.format("TorcEdgeList_PrependAndRead.ss_%d.lms_%s.rf_%d.csv", segment_size, list_max_size, replicas));
 
             long tableId = client.createTable("PrependAndReadTest");
 
