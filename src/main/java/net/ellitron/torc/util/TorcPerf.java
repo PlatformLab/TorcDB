@@ -90,10 +90,10 @@ public class TorcPerf {
     RAMCloud client = new RAMCloud(coordinatorLocator, "foo", dpdkPort);
 
     // Default values for experiment properties.
-    int segment_range_start = 2048;
-    int segment_range_end = 2048;
-    int segment_points = 1;
-    String segment_points_mode = "linear";
+    int segment_size_range_start = 2048;
+    int segment_size_range_end = 2048;
+    int segment_size_points = 1;
+    String segment_size_points_mode = "linear";
     int list_max_size = 1000;
     int list_size_range_start = 100000;
     int list_size_range_end = 1000000;
@@ -123,25 +123,25 @@ public class TorcPerf {
           } else {
             String varName = line.substring(0, line.indexOf(' '));
             
-            if (varName.equals("segment_range_start")) {
+            if (varName.equals("segment_size_range_start")) {
               String varValue = line.substring(line.lastIndexOf(' ') + 1, 
                   line.length());
               int varIntValue = Integer.decode(varValue);
-              segment_range_start = varIntValue;
-            } else if (varName.equals("segment_range_end")) {
+              segment_size_range_start = varIntValue;
+            } else if (varName.equals("segment_size_range_end")) {
               String varValue = line.substring(line.lastIndexOf(' ') + 1, 
                   line.length());
               int varIntValue = Integer.decode(varValue);
-              segment_range_end = varIntValue;
-            } else if (varName.equals("segment_points")) {
+              segment_size_range_end = varIntValue;
+            } else if (varName.equals("segment_size_points")) {
               String varValue = line.substring(line.lastIndexOf(' ') + 1, 
                   line.length());
               int varIntValue = Integer.decode(varValue);
-              segment_points = varIntValue;
-            } else if (varName.equals("segment_points_mode")) {
+              segment_size_points = varIntValue;
+            } else if (varName.equals("segment_size_points_mode")) {
               String varValue = line.substring(line.lastIndexOf(' ') + 1, 
                   line.length());
-              segment_points_mode = varValue;
+              segment_size_points_mode = varValue;
             } else if (varName.equals("list_max_size")) {
               String varValue = line.substring(line.lastIndexOf(' ') + 1, 
                   line.length());
@@ -182,23 +182,23 @@ public class TorcPerf {
         List<Integer> segment_sizes = new ArrayList<>(); 
         List<Integer> list_sizes = new ArrayList<>(); 
 
-        if (segment_points > 1) {
-          if (segment_points_mode.equals("linear")) {
+        if (segment_size_points > 1) {
+          if (segment_size_points_mode.equals("linear")) {
             int step_size = 
-              (segment_range_end - segment_range_start) / (segment_points - 1);
+              (segment_size_range_end - segment_size_range_start) / (segment_size_points - 1);
 
-            for (int i = segment_range_start; i <= segment_range_end; i += step_size) 
+            for (int i = segment_size_range_start; i <= segment_size_range_end; i += step_size) 
               segment_sizes.add(i);
-          } else if (segment_points_mode.equals("geometric")) {
-            double c = Math.pow(10, Math.log10((double)segment_range_end/(double)segment_range_start) / (double)(segment_points - 1));
-            for (int i = segment_range_start; i <= segment_range_end; i *= c)
+          } else if (segment_size_points_mode.equals("geometric")) {
+            double c = Math.pow(10, Math.log10((double)segment_size_range_end/(double)segment_size_range_start) / (double)(segment_size_points - 1));
+            for (int i = segment_size_range_start; i <= segment_size_range_end; i *= c)
               segment_sizes.add(i);
           } else {
-            System.out.println(String.format("ERROR: Unknown points mode: %s\n", segment_points_mode));
+            System.out.println(String.format("ERROR: Unknown points mode: %s\n", segment_size_points_mode));
             return;
           }
         } else {
-          segment_sizes.add(segment_range_start);
+          segment_sizes.add(segment_size_range_start);
         }
 
         if (list_size_points > 1) {
