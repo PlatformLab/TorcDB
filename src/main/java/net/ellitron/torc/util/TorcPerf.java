@@ -109,17 +109,17 @@ public class TorcPerf {
         String line;
         String op = "none"; 
         while ((line = br.readLine()) != null) {
-          if (line.charAt(0) == '[') {
+          if (line.length() == 0) {
+            if (foundCfg == false)
+              continue;
+            else
+              break;
+          } else if (line.charAt(0) == '[') {
             op = line.substring(1, line.lastIndexOf(']'));
             foundCfg = true;
           } else if (line.charAt(0) == '#') {
             // skip
             continue;
-          } else if (line.length() == 0) {
-            if (foundCfg == false)
-              continue;
-            else
-              break;
           } else {
             String varName = line.substring(0, line.indexOf(' '));
             
