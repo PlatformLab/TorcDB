@@ -367,7 +367,7 @@ public class TorcPerf {
               }
 
               long readLatency[] = new long[samples_per_point];
-              for (int i = 0; i < sample_per_point; i++) {
+              for (int i = 0; i < samples_per_point; i++) {
                 startTime = System.nanoTime();
                 RAMCloudTransaction rctx = new RAMCloudTransaction(client);
 
