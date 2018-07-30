@@ -99,6 +99,7 @@ public class TorcPerf {
     int list_size_range_end = 1000000;
     int list_size_points = 10;
     String list_size_points_mode = "linear";
+    int samples_per_point = 1000;
 
     // Load properties from the configuration file.
     String cfgFilename = (String) opts.get("--config");
@@ -166,6 +167,11 @@ public class TorcPerf {
               String varValue = line.substring(line.lastIndexOf(' ') + 1, 
                   line.length());
               list_size_points_mode = varValue;
+            } else if (varName.equals("samples_per_point")) {
+              String varValue = line.substring(line.lastIndexOf(' ') + 1, 
+                  line.length());
+              int varIntValue = Integer.decode(varValue);
+              samples_per_point = varIntValue;
             } else {
               System.out.println(String.format("ERROR: Unknown parameter: %s\n", 
                     varName));
@@ -360,8 +366,8 @@ public class TorcPerf {
                 }
               }
 
-              long readLatency[] = new long[1000];
-              for (int i = 0; i < 1000; i++) {
+              long readLatency[] = new long[samples_per_point];
+              for (int i = 0; i < sample_per_point; i++) {
                 startTime = System.nanoTime();
                 RAMCloudTransaction rctx = new RAMCloudTransaction(client);
 
