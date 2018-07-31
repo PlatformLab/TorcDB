@@ -225,14 +225,7 @@ public class TorcEdgeList {
           int left = segment_target_split_point - edgeStartPos;
           int right = nextEdgeStartPos - segment_target_split_point;
 
-          if (edgeStartPos == Integer.BYTES) {
-            /* This is the first edge. In this case, always choose to keep this
-             * edge in the head segment because it doesn't make sense to put
-             * the first edge in a tail segment and leave the head segment
-             * empty. */
-            splitIndex = nextEdgeStartPos;
-            break;
-          } else if (right < left) {
+          if (right < left) {
             /* Target split point is closer to the start of the next edge in
              * the list than the start of this edge. In this case we generally
              * want to split at the start of the next edge, except for a
@@ -387,14 +380,7 @@ public class TorcEdgeList {
             int left = DEFAULT_SEGMENT_TARGET_SPLIT_POINT - edgeStartPos;
             int right = nextEdgeStartPos - DEFAULT_SEGMENT_TARGET_SPLIT_POINT;
 
-            if (edgeStartPos == Integer.BYTES) {
-              /* This is the first edge. In this case, always choose to keep
-               * this edge in the head segment because it doesn't make sense to
-               * put the first edge in a tail segment and leave the head segment
-               * empty. */
-              edgesInNewTailSeg = headSegEdgeLengths.size() - 1;
-              break;
-            } else if (right < left) {
+            if (right < left) {
               /* Target split point is closer to the start of the next edge in
                * the list than the start of this edge. In this case we
                * generally want to split at the start of the next edge, except
