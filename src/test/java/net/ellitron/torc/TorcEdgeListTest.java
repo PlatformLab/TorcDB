@@ -101,6 +101,58 @@ public class TorcEdgeListTest {
   }
 
   @Test
+  public void prependAndRead_smallSegmentSizeManyElements() {
+    UInt128 baseVertexId = new UInt128(42);
+
+    byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
+        baseVertexId, 
+        "hasCreator", 
+        TorcEdgeDirection.DIRECTED_IN,
+        "Comment");
+  
+    int segSize = 25;
+
+    RAMCloudTransaction rctx = new RAMCloudTransaction(client);
+
+    for (int i = 0; i < (1<<16); i++) {
+      UInt128 neighborId = new UInt128(i);
+
+      boolean newList = TorcEdgeList.prepend(
+          rctx,
+          tableId,
+          keyPrefix,
+          neighborId, 
+          new byte[] {},
+          segSize,
+          0);
+
+      if (i == 0) {
+        assertEquals(newList, true);
+      } else {
+        assertEquals(newList, false);
+      }
+    }
+
+    List<TorcEdge> list = TorcEdgeList.read(
+        rctx,
+        tableId,
+        keyPrefix,
+        null, 
+        baseVertexId,
+        "hasCreator", 
+        TorcEdgeDirection.DIRECTED_IN);
+
+    int j = (1<<16) - 1;
+    for (TorcEdge edge : list) {
+      UInt128 expectedId = new UInt128(j);
+      assertEquals(expectedId, edge.getV1Id());
+      j--;
+    }
+
+    rctx.close();
+  }
+
+  @Test
   public void prependAndRead_segmentSizes() {
     UInt128 baseVertexId = new UInt128(42);
 
