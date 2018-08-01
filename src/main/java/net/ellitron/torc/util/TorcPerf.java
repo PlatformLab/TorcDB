@@ -406,6 +406,118 @@ public class TorcPerf {
 
             datFile.close();
           }
+        } else if (op.equals("TorcEdgeList_PrependVsRead2")) {
+          System.out.println(String.format("Prepend Vs. Read 2 Test"));
+
+          FileWriter datFile[] = new FileWriter[list_sizes.size()];
+          for (int ls_idx = 0; ls_idx < list_sizes.size(); ls_idx++) {
+            int list_size = list_sizes.get(ls_idx);
+            datFile[ls_idx] = new FileWriter(String.format("TorcEdgeList_PrependVsRead2.ls_%d.rf_%d.csv", list_size, replicas));
+
+            datFile[ls_idx].write(String.format("%12s %12s %12s\n", 
+                  "SegSize",
+                  "Prepend",
+                  "Read"));
+            datFile[ls_idx].flush();
+          }
+
+          UInt128 baseVertexId = new UInt128(42);
+
+          byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
+              baseVertexId, 
+              "hasCreator", 
+              TorcEdgeDirection.DIRECTED_IN,
+              "Comment");
+
+          for (int ss_idx = 0; ss_idx < segment_sizes.size(); ss_idx++) {
+            int segment_size = segment_sizes.get(ss_idx);
+           
+            long tableId = client.createTable("PrependVsRead2Test");
+
+            int prependSamples = Math.max(samples_per_point, list_sizes.get(list_sizes.size() - 1));
+            long prependLatency[] = new long[prependSamples];
+            long startTime, endTime;
+            int ls_idx = 0;
+            float readLatencies[] = new float[list_sizes.size()];
+            for (int i = 0; i < prependSamples; i++) {
+              startTime = System.nanoTime();
+              RAMCloudTransaction rctx = new RAMCloudTransaction(client);
+
+              UInt128 neighborId = new UInt128(i);
+
+              boolean newList = TorcEdgeList.prepend(
+                  rctx,
+                  tableId,
+                  keyPrefix,
+                  neighborId, 
+                  new byte[] {},
+                  segment_size,
+                  0);
+
+              boolean success = rctx.commit();
+              rctx.close();
+
+              endTime = System.nanoTime();
+
+              prependLatency[i] = (endTime - startTime);
+
+              if (!success) {
+                throw new RuntimeException("ERROR: Prepend element transaction failed");
+              }
+
+              if (ls_idx < list_sizes.size() && (i+1) == list_sizes.get(ls_idx)) {
+                long readLatency[] = new long[samples_per_point];
+                for (int j = 0; j < samples_per_point; j++) {
+                  startTime = System.nanoTime();
+                  rctx = new RAMCloudTransaction(client);
+
+                  List<TorcEdge> list = TorcEdgeList.read(
+                      rctx,
+                      tableId,
+                      keyPrefix,
+                      null, 
+                      baseVertexId,
+                      "hasCreator", 
+                      TorcEdgeDirection.DIRECTED_IN);
+
+                  success = rctx.commit();
+                  rctx.close();
+
+                  endTime = System.nanoTime();
+
+                  readLatency[j] = (endTime - startTime);
+
+                  if (!success) {
+                    throw new RuntimeException("ERROR: Read element transaction failed");
+                  }
+                }
+
+                Arrays.sort(readLatency);
+
+                readLatencies[ls_idx] = ((float) readLatency[(int) (0.5 * (float) readLatency.length)])/((float) 1000.0);
+
+                System.out.println(String.format("Prepend Vs. Read 2 Test: segment_size: %d, list_size: %d", segment_size, list_sizes.get(ls_idx)));
+
+                ls_idx++;
+              }
+            }
+
+            Arrays.sort(prependLatency);
+
+            for (ls_idx = 0; ls_idx < list_sizes.size(); ls_idx++) {
+              datFile[ls_idx].write(String.format("%12d %12.1f %12.1f\n",
+                    segment_size,
+                    ((float) prependLatency[(int) (0.5 * (float) prependLatency.length)])/1000.0,
+                    readLatencies[ls_idx]));
+              datFile[ls_idx].flush();
+            }
+
+            client.dropTable("PrependVsRead2Test");
+          }
+
+          for (int ls_idx = 0; ls_idx < list_sizes.size(); ls_idx++) {
+            datFile[ls_idx].close();
+          }
         } else {
           System.out.println(String.format("ERROR: Unknown operation: %s", op));
           return;
