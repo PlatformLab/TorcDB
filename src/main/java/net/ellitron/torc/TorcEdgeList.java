@@ -580,7 +580,7 @@ public class TorcEdgeList {
         } catch (ClientException e) {
           throw new RuntimeException(e);
         } finally {
-          readOp.finalize();
+          readOp.close();
         }
 
         if (tailSegObj == null) {
@@ -682,7 +682,7 @@ public class TorcEdgeList {
       } catch (ClientException e) {
         throw new RuntimeException(e);
       } finally {
-        readOp.finalize();
+        readOp.close();
       }
 
       if (headSegObj == null) {
@@ -751,7 +751,7 @@ public class TorcEdgeList {
 //        long endTime = System.nanoTime();
 //        System.out.println(String.format("Tail: %d", (endTime -
 //                startTime)/1000l));
-        readOp.finalize();
+        readOp.close();
 
         ByteBuffer tailSeg =
             ByteBuffer.allocate(tailSegObj.getValueBytes().length)
