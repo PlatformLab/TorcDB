@@ -117,6 +117,12 @@ public class TorcEdgeList {
    */
   private static final int DEFAULT_SEGMENT_TARGET_SPLIT_POINT = 1 << 12;
 
+  /*
+   * Limit placed on the number of asynchronous reads that can be outstanding at
+   * any one time.
+   */
+  private static final int DEFAULT_MAX_ASYNC_READS = 1 << 7;
+
   public static boolean prepend(
       RAMCloudTransaction rctx,
       long rcTableId,
@@ -556,47 +562,63 @@ public class TorcEdgeList {
       }
     }
 
-    for (int i = numTailSegments; i > 0; --i) {
-      byte[] tailSegKey = getSegmentKey(keyPrefix, i);
+    int mark = 0;
+    while (mark < numTailSegments) {
+      // Read tail segments asynchronously
+      List<RAMCloudTransactionReadOp> tailSegReadOps = new ArrayList<>();
+      for (int i = mark; i < numTailSegments; i++) {
+        byte[] tailSegKey = getSegmentKey(keyPrefix, numTailSegments - i);
+        tailSegReadOps.add(new RAMCloudTransactionReadOp(rctx, rcTableId, tailSegKey, true));
+        if (tailSegReadOps.size() == DEFAULT_MAX_ASYNC_READS)
+          break;
+      }
 
-      RAMCloudObject tailSegObj;
-      try {
-        tailSegObj = rctx.read(rcTableId, tailSegKey);
+      for (RAMCloudTransactionReadOp readOp : tailSegReadOps) {
+        RAMCloudObject tailSegObj;
+        try {
+          tailSegObj = readOp.getValue();
+        } catch (ClientException e) {
+          throw new RuntimeException(e);
+        } finally {
+          readOp.finalize();
+        }
+
         if (tailSegObj == null) {
+          // Object does not exist.
           continue;
         }
-      } catch (ClientException e) {
-        throw new RuntimeException(e);
-      }
 
-      ByteBuffer tailSeg =
-          ByteBuffer.allocate(tailSegObj.getValueBytes().length)
-          .order(ByteOrder.LITTLE_ENDIAN);
-      tailSeg.put(tailSegObj.getValueBytes());
-      tailSeg.flip();
+        ByteBuffer tailSeg =
+            ByteBuffer.allocate(tailSegObj.getValueBytes().length)
+            .order(ByteOrder.LITTLE_ENDIAN);
+        tailSeg.put(tailSegObj.getValueBytes());
+        tailSeg.flip();
 
-      while (tailSeg.hasRemaining()) {
-        byte[] neighborIdBytes = new byte[UInt128.BYTES];
-        tailSeg.get(neighborIdBytes);
+        while (tailSeg.hasRemaining()) {
+          byte[] neighborIdBytes = new byte[UInt128.BYTES];
+          tailSeg.get(neighborIdBytes);
 
-        UInt128 neighborId = new UInt128(neighborIdBytes);
+          UInt128 neighborId = new UInt128(neighborIdBytes);
 
-        short propLen = tailSeg.getShort();
+          short propLen = tailSeg.getShort();
 
-        byte[] serializedProperties = new byte[propLen];
-        tailSeg.get(serializedProperties);
+          byte[] serializedProperties = new byte[propLen];
+          tailSeg.get(serializedProperties);
 
-        if (direction == TorcEdgeDirection.DIRECTED_OUT) {
-          edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
-              TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
-        } else if (direction == TorcEdgeDirection.DIRECTED_IN) {
-          edgeList.add(new TorcEdge(graph, neighborId, baseVertexId,
-              TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
-        } else {
-          edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
-              TorcEdge.Type.UNDIRECTED, edgeLabel, serializedProperties));
+          if (direction == TorcEdgeDirection.DIRECTED_OUT) {
+            edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
+                TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
+          } else if (direction == TorcEdgeDirection.DIRECTED_IN) {
+            edgeList.add(new TorcEdge(graph, neighborId, baseVertexId,
+                TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
+          } else {
+            edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
+                TorcEdge.Type.UNDIRECTED, edgeLabel, serializedProperties));
+          }
         }
       }
+
+      mark += tailSegReadOps.size();
     }
 
     return edgeList;
