@@ -707,15 +707,20 @@ public final class TorcGraph implements Graph {
     // Now write to edge list table
 
     // Edge label list
-    keys.add(TorcHelper.getIncidentEdgeLabelListKey(vertexId));
-    values.add(TorcHelper.serializeStringList(edgeLabelList).array());
+    if (edgeLabelList != null) {
+      keys.add(TorcHelper.getIncidentEdgeLabelListKey(vertexId));
+      values.add(TorcHelper.serializeStringList(edgeLabelList).array());
+    }
 
-    for (Entry<String, TorcEdgeDirection> entry : 
-        neighborLabelListMap.keySet()) {
-      List<String> neighborLabelList = neighborLabelListMap.get(entry);
-      keys.add(TorcHelper.getNeighborLabelListKey(vertexId, entry.getKey(),
-          entry.getValue()));
-      values.add(TorcHelper.serializeStringList(neighborLabelList).array());
+    // Neighbor label list
+    if (neighborLabelList != null) {
+      for (Entry<String, TorcEdgeDirection> entry : 
+          neighborLabelListMap.keySet()) {
+        List<String> neighborLabelList = neighborLabelListMap.get(entry);
+        keys.add(TorcHelper.getNeighborLabelListKey(vertexId, entry.getKey(),
+            entry.getValue()));
+        values.add(TorcHelper.serializeStringList(neighborLabelList).array());
+      }
     }
 
     for (int i = 0; i < keys.size(); i++) {
