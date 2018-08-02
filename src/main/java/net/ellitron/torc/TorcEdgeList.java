@@ -105,7 +105,7 @@ public class TorcEdgeList {
    * small, then operations like reading all of the edges in the list will
    * require reading many RAMCloud objects and incur high read overhead.
    */
-  private static final int DEFAULT_SEGMENT_SIZE_LIMIT = 1 << 16;
+  private static final int DEFAULT_SEGMENT_SIZE_LIMIT = 1 << 10;
 
   /*
    * When a RAMCloud object exceeds its size limit (DEFAULT_SEGMENT_SIZE_LIMIT), the
@@ -115,7 +115,7 @@ public class TorcEdgeList {
    * nearest boundary to the split point is selected, unless that happens to be
    * past the size limit, in which case the lower boundary is selected.
    */
-  private static final int DEFAULT_SEGMENT_TARGET_SPLIT_POINT = 1 << 12;
+  private static final int DEFAULT_SEGMENT_TARGET_SPLIT_POINT = 0;
 
   /*
    * Limit placed on the number of asynchronous reads that can be outstanding at
