@@ -713,7 +713,7 @@ public final class TorcGraph implements Graph {
     }
 
     // Neighbor label list
-    if (neighborLabelList != null) {
+    if (neighborLabelListMap != null) {
       for (Entry<String, TorcEdgeDirection> entry : 
           neighborLabelListMap.keySet()) {
         List<String> neighborLabelList = neighborLabelListMap.get(entry);
