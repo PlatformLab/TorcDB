@@ -83,6 +83,8 @@ public final class TorcGraph implements Graph {
       "gremlin.torc.graphName";
   public static final String CONFIG_COORD_LOCATOR =
       "gremlin.torc.coordinatorLocator";
+  public static final String CONFIG_DPDK_PORT =
+      "gremlin.torc.dpdkPort";
   public static final String CONFIG_NUM_MASTER_SERVERS =
       "gremlin.torc.numMasterServers";
   public static final String CONFIG_LOG_LEVEL =
@@ -116,6 +118,7 @@ public final class TorcGraph implements Graph {
   private String rcImageDir;
   private OutputStream vertexTableOS, edgeListTableOS;
   private int totalMasterServers;
+  private int dpdkPort;
   private ConcurrentHashMap<Thread, RAMCloud> threadLocalClientMap;
   private long idTableId, vertexTableId, edgeListTableId;
   private String graphName;
@@ -162,6 +165,12 @@ public final class TorcGraph implements Graph {
         totalMasterServers = configuration.getInt(CONFIG_NUM_MASTER_SERVERS);
       } else {
         totalMasterServers = 1;
+      }
+
+      if (configuration.containsKey(CONFIG_DPDK_PORT)) {
+        dpdkPort = configuration.getInt(CONFIG_DPDK_PORT);
+      } else {
+        dpdkPort = -1;
       }
 
       this.torcGraphTx = new TorcGraphTransaction();
@@ -1127,7 +1136,7 @@ public final class TorcGraph implements Graph {
   private void initialize() {
     if (!threadLocalClientMap.containsKey(Thread.currentThread())) {
       threadLocalClientMap.put(Thread.currentThread(),
-          new RAMCloud(coordinatorLocator));
+          new RAMCloud(coordinatorLocator, "main", dpdkPort));
 
       logger.debug(String.format("initialize(): Thread %d made connection to "
           + "RAMCloud cluster.", Thread.currentThread().getId()));
