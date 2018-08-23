@@ -221,4 +221,9 @@ public class TorcVertex implements Vertex, Element {
     return ElementHelper.hashCode(this);
   }
 
+  @Override
+  public String toString() {
+    return id.toString();
+  }
+
 }
