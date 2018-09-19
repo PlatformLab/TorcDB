@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Custom VertexStep that takes advantage of special methods in TorcGraph for
@@ -56,19 +57,25 @@ public class TorcVertexStep<E extends Element>
   public TorcVertexStep(final Traversal.Admin traversal,
       final Class<E> returnClass,
       final Direction direction,
-      final String... edgeLabels) {
+      final String[] edgeLabels,
+      final Set<String> labels) {
     super(traversal);
     this.direction = direction;                                             
     this.edgeLabels = edgeLabels;                                           
     this.returnClass = returnClass;
     this.neighborLabels = new ArrayList<>();
+
+    for (String label : labels) {
+      this.addLabel(label);
+    }
   }
 
   public TorcVertexStep(final VertexStep<E> originalVertexStep) {
     this(originalVertexStep.getTraversal(), 
         originalVertexStep.getReturnClass(), 
         originalVertexStep.getDirection(), 
-        originalVertexStep.getEdgeLabels());
+        originalVertexStep.getEdgeLabels(),
+        originalVertexStep.getLabels());
   }
 
   public void addNeighborLabel(String label) {
