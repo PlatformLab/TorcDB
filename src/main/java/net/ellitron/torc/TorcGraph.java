@@ -27,6 +27,7 @@ import org.apache.commons.configuration.Configuration;
 import org.apache.log4j.Logger;
 
 import org.apache.tinkerpop.gremlin.process.computer.GraphComputer;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
@@ -215,6 +216,11 @@ public final class TorcGraph implements Graph {
   public static TorcGraph open() {
     return open("default");
   }
+
+//  @Override
+//  public GraphTraversalSource traversal() {
+//      return new TorcGraphTraversalSource(this);
+//  }
 
   /* **************************************************************************
    *
