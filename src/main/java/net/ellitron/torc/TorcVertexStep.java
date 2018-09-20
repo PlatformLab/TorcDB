@@ -125,7 +125,8 @@ public class TorcVertexStep<E extends Element>
             ((TorcGraph)this.getTraversal().getGraph().get()).vertexEdges(
                 startList,
                 direction, 
-                edgeLabels);
+                edgeLabels,
+                neighborLabels);
 
         /* Use results to build a complete list of ending elements. */
         List<Traverser.Admin<E>> endList = new ArrayList<>();

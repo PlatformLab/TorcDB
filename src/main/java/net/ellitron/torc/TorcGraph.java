@@ -978,13 +978,15 @@ public final class TorcGraph implements Graph {
    * @param vertices Set of vertices to use as base vertices.
    * @param direction Edge direction to traverse.
    * @param edgeLabels Set of edge labels to traverse.
+   * @param neighborLabels List of neighbor vertex labels.
    *
    * @return Map of base vertex to array of incident edges.
    */
   public Map<Vertex, Iterator<Edge>> vertexEdges(
       final List<TorcVertex> vertices,
       final Direction direction,
-      final String[] edgeLabels) {
+      final String[] edgeLabels,
+      final List<String> neighborLabels) {
 //    System.out.println(String.format("vertexEdges: vertices.size = %d, direction = %s, labels = %s",
 //          vertices.size(),
 //          direction,
@@ -1010,7 +1012,7 @@ public final class TorcGraph implements Graph {
     Map<Vertex, Iterator<Edge>> map = new HashMap<>();
     for (TorcVertex v : vertices) {
       Iterator<Edge> edges = vertexEdges((TorcVertex)v, dirs, 
-          edgeLabels);
+          edgeLabels, neighborLabels.toArray(new String[0]));
       map.put(v, edges);
     }
 
