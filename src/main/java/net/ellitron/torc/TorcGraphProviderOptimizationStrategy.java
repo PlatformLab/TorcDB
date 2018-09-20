@@ -65,14 +65,23 @@ public final class TorcGraphProviderOptimizationStrategy extends
             TorcVertexStep<>(originalVertexStep);
         TraversalHelper.replaceStep(originalVertexStep, torcVertexStep,
             traversal);
-        Step<?, ?> currentStep = torcVertexStep.getNextStep();
-        if (currentStep instanceof HasStep) {
-          for (final HasContainer hasContainer : 
-              ((HasContainerHolder) currentStep).getHasContainers()) {
-            if (hasContainer.getKey().equals(T.label.getAccessor())) {
-              String label = (String) hasContainer.getPredicate().getValue();
-              torcVertexStep.addNeighborLabel(label);
+
+        // Seach for a hasLabel step with which to add neighbor labels
+        Step<?, ?> currentStep = torcVertexStep;
+        for (int i = 0; i < 5; i++) {
+          currentStep = currentStep.getNextStep();
+          if (currentStep == null)
+            break;
+
+          if (currentStep instanceof HasStep) {
+            for (final HasContainer hasContainer : 
+                ((HasContainerHolder) currentStep).getHasContainers()) {
+              if (hasContainer.getKey().equals(T.label.getAccessor())) {
+                String label = (String) hasContainer.getPredicate().getValue();
+                torcVertexStep.addNeighborLabel(label);
+              }
             }
+            break;
           }
         }
       }
