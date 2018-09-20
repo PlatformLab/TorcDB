@@ -31,6 +31,8 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.util.HasContainer;
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.AbstractTraversalStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalHelper;
 
+import java.util.Collection;
+
 /**
  * A TinkerPop provider optimization strategy for TorcGraph. Modifies a
  * traversal prior to its evaluation to take advantage of TorcGraph specific
@@ -77,8 +79,17 @@ public final class TorcGraphProviderOptimizationStrategy extends
             for (final HasContainer hasContainer : 
                 ((HasContainerHolder) currentStep).getHasContainers()) {
               if (hasContainer.getKey().equals(T.label.getAccessor())) {
-                String label = (String) hasContainer.getPredicate().getValue();
-                torcVertexStep.addNeighborLabel(label);
+                Object v = hasContainer.getPredicate().getValue();
+                if (v instanceof String) {
+                  String label = (String) hasContainer.getPredicate().getValue();
+                  torcVertexStep.addNeighborLabel(label);
+                } else if (v instanceof Collection) {
+                  Collection<String> labels = (Collection<String>) hasContainer.getPredicate().getValue();
+                  for (String label : labels)
+                    torcVertexStep.addNeighborLabel(label);
+                } else {
+                  throw new RuntimeException("HasContainer for label contains predicate on unknown value type: " + v.getClass());
+                }
               }
             }
             break;
