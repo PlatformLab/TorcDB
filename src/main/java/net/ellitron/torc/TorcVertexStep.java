@@ -87,11 +87,23 @@ public class TorcVertexStep<E extends Element>
     if ((ends == null || !ends.hasNext()) && this.starts.hasNext()) {
       /* First fetch the complete set of starting vertices. */
       List<TorcVertex> startList = new ArrayList<>();
-      Map<Vertex, Traverser.Admin<Vertex>> traverserMap = new HashMap<>();
+      Map<Vertex, List<Traverser.Admin<Vertex>>> traverserMap = new HashMap<>();
       while(this.starts.hasNext()) {
         Traverser.Admin<Vertex> t = this.starts.next();
-        traverserMap.put(t.get(), t);
-        startList.add((TorcVertex)t.get());
+        TorcVertex v = (TorcVertex)t.get();
+
+        if (!startList.contains(v))
+          startList.add(v);
+
+        if (!traverserMap.containsKey(v)) {
+          List<Traverser.Admin<Vertex>> tList = new ArrayList<>();
+          tList.add(t);
+          traverserMap.put(v, tList);
+        } else {
+          List<Traverser.Admin<Vertex>> tList = traverserMap.get(v);
+          tList.add(t);
+          traverserMap.put(v, tList);
+        }
       }
 
       if (Vertex.class.isAssignableFrom(this.returnClass)) {
@@ -108,12 +120,18 @@ public class TorcVertexStep<E extends Element>
         for (Map.Entry<Vertex, Iterator<Vertex>> entry : 
             neighborMap.entrySet()) {
           Vertex startVertex = entry.getKey();
-          Iterator<Vertex> endVertices = entry.getValue();
-         
-          while (endVertices.hasNext()) {
-            Traverser.Admin<E> endTraverser = (Traverser.Admin<E>) 
-                traverserMap.get(startVertex).split((E)endVertices.next(), this);
-            endList.add(endTraverser);
+          List<Traverser.Admin<Vertex>> startTraverserList 
+              = traverserMap.get(startVertex);
+
+          for (Traverser.Admin<Vertex> startTraverser : startTraverserList) {
+            Iterator<Vertex> endVertices = entry.getValue();
+          
+            while (endVertices.hasNext()) {
+              Vertex endVertex = endVertices.next();
+              Traverser.Admin<E> endTraverser = 
+                  (Traverser.Admin<E>)startTraverser.split((E) endVertex, this);
+              endList.add(endTraverser);
+            }
           }
         }
 
@@ -133,12 +151,18 @@ public class TorcVertexStep<E extends Element>
         for (Map.Entry<Vertex, Iterator<Edge>> entry : 
             edgeMap.entrySet()) {
           Vertex startVertex = entry.getKey();
-          Iterator<Edge> endEdges = entry.getValue();
-         
-          while (endEdges.hasNext()) {
-            Traverser.Admin<E> endTraverser = (Traverser.Admin<E>) 
-                traverserMap.get(startVertex).split((E)endEdges.next(), this);
-            endList.add(endTraverser);
+          List<Traverser.Admin<Vertex>> startTraverserList 
+              = traverserMap.get(startVertex);
+
+          for (Traverser.Admin<Vertex> startTraverser : startTraverserList) {
+            Iterator<Edge> endEdges = entry.getValue();
+          
+            while (endEdges.hasNext()) {
+              Edge endEdge = endEdges.next();
+              Traverser.Admin<E> endTraverser = 
+                  (Traverser.Admin<E>) startTraverser.split((E)endEdge, this);
+              endList.add(endTraverser);
+            }
           }
         }
 
