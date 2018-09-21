@@ -75,10 +75,12 @@ public final class TorcGraphProviderOptimizationStrategy extends
           if (currentStep == null)
             break;
 
+          boolean hasLabelStep = false;
           if (currentStep instanceof HasStep) {
             for (final HasContainer hasContainer : 
                 ((HasContainerHolder) currentStep).getHasContainers()) {
               if (hasContainer.getKey().equals(T.label.getAccessor())) {
+                hasLabelStep = true;
                 Object v = hasContainer.getPredicate().getValue();
                 if (v instanceof String) {
                   String label = (String) hasContainer.getPredicate().getValue();
@@ -92,7 +94,9 @@ public final class TorcGraphProviderOptimizationStrategy extends
                 }
               }
             }
-            break;
+
+            if (hasLabelStep)
+              break;
           }
         }
       }
