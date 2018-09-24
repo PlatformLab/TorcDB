@@ -120,14 +120,16 @@ public class TorcVertexStep<E extends Element>
         for (Map.Entry<Vertex, Iterator<Vertex>> entry : 
             neighborMap.entrySet()) {
           Vertex startVertex = entry.getKey();
+          Iterator<Vertex> endVerticesItr = entry.getValue();
+          List<Vertex> endVertices = new ArrayList<>();
+          endVerticesItr.forEachRemaining(e -> {endVertices.add(e);});
+          
           List<Traverser.Admin<Vertex>> startTraverserList 
               = traverserMap.get(startVertex);
 
           for (Traverser.Admin<Vertex> startTraverser : startTraverserList) {
-            Iterator<Vertex> endVertices = entry.getValue();
-          
-            while (endVertices.hasNext()) {
-              Vertex endVertex = endVertices.next();
+            for (int i = 0; i < endVertices.size(); i++) { 
+              Vertex endVertex = endVertices.get(i);
               Traverser.Admin<E> endTraverser = 
                   (Traverser.Admin<E>)startTraverser.split((E) endVertex, this);
               endList.add(endTraverser);
@@ -151,14 +153,16 @@ public class TorcVertexStep<E extends Element>
         for (Map.Entry<Vertex, Iterator<Edge>> entry : 
             edgeMap.entrySet()) {
           Vertex startVertex = entry.getKey();
+          Iterator<Edge> endEdgesItr = entry.getValue();
+          List<Edge> endEdges = new ArrayList<>();
+          endEdgesItr.forEachRemaining(e -> {endEdges.add(e);});
+
           List<Traverser.Admin<Vertex>> startTraverserList 
               = traverserMap.get(startVertex);
 
           for (Traverser.Admin<Vertex> startTraverser : startTraverserList) {
-            Iterator<Edge> endEdges = entry.getValue();
-          
-            while (endEdges.hasNext()) {
-              Edge endEdge = endEdges.next();
+            for (int i = 0; i < endEdges.size(); i++) { 
+              Edge endEdge = endEdges.get(i);
               Traverser.Admin<E> endTraverser = 
                   (Traverser.Admin<E>) startTraverser.split((E)endEdge, this);
               endList.add(endTraverser);
