@@ -92,17 +92,14 @@ public class TorcVertexStep<E extends Element>
         Traverser.Admin<Vertex> t = this.starts.next();
         TorcVertex v = (TorcVertex)t.get();
 
-        if (!startList.contains(v))
-          startList.add(v);
-
         if (!traverserMap.containsKey(v)) {
+          startList.add(v);
           List<Traverser.Admin<Vertex>> tList = new ArrayList<>();
           tList.add(t);
           traverserMap.put(v, tList);
         } else {
           List<Traverser.Admin<Vertex>> tList = traverserMap.get(v);
           tList.add(t);
-          traverserMap.put(v, tList);
         }
       }
 
