@@ -230,20 +230,10 @@ public final class TorcGraph implements Graph {
 
   @Override
   public Vertex addVertex(final Object... keyValues) {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
     initialize();
 
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
-
-    long startTime = 0;
-    if (logger.isTraceEnabled()) {
-      startTime = System.nanoTime();
-    }
 
     TorcHelper.legalPropertyKeyValueArray(Vertex.class, keyValues);
 
@@ -251,21 +241,10 @@ public final class TorcGraph implements Graph {
     final String label =
         ElementHelper.getLabelValue(keyValues).orElse(Vertex.DEFAULT_LABEL);
 
-    if (logger.isTraceEnabled()) {
-      long endTime = System.nanoTime();
-      logger.trace(String.format("addVertex(label=%s):setup, took %dus",
-          label, (endTime - startTime) / 1000l));
-    }
-
     UInt128 vertexId;
     if (idValue != null) {
       vertexId = UInt128.decode(idValue);
     } else {
-      startTime = 0;
-      if (logger.isTraceEnabled()) {
-        startTime = System.nanoTime();
-      }
-
       long id_counter = (long) (Math.random() * NUM_ID_COUNTERS);
       RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
@@ -274,18 +253,6 @@ public final class TorcGraph implements Graph {
               TorcHelper.serializeString(Long.toString(id_counter)), 1, null);
 
       vertexId = new UInt128((1L << 63) + id_counter, id);
-
-      if (logger.isTraceEnabled()) {
-        long endTime = System.nanoTime();
-        logger.trace(String.format("addVertex(id=%s,label=%s):idGen, took "
-            + "%dus", vertexId.toString(), label,
-            (endTime - startTime) / 1000l));
-      }
-    }
-
-    startTime = 0;
-    if (logger.isTraceEnabled()) {
-      startTime = System.nanoTime();
     }
 
     // Create property map.
@@ -300,18 +267,6 @@ public final class TorcGraph implements Graph {
           properties.put(key, new ArrayList<>(Arrays.asList(val)));
         }
       }
-    }
-
-    if (logger.isTraceEnabled()) {
-      long endTime = System.nanoTime();
-      logger.trace(String.format("addVertex(id=%s,label=%s):propMap, took "
-          + "%dus", vertexId.toString(), label,
-          (endTime - startTime) / 1000l));
-    }
-
-    startTime = 0;
-    if (logger.isTraceEnabled()) {
-      startTime = System.nanoTime();
     }
 
     /*
@@ -332,50 +287,11 @@ public final class TorcGraph implements Graph {
           serializedProps.length, RAMCLOUD_OBJECT_SIZE_LIMIT));
     }
 
-    if (logger.isTraceEnabled()) {
-      long endTime = System.nanoTime();
-      logger.trace(String.format("addVertex(id=%s,label=%s):sizeCheck, took "
-          + "%dus", vertexId.toString(), label,
-          (endTime - startTime) / 1000l));
-    }
-
-    startTime = 0;
-    if (logger.isTraceEnabled()) {
-      startTime = System.nanoTime();
-    }
-
     rctx.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId),
         labelByteArray);
 
-    if (logger.isTraceEnabled()) {
-      long endTime = System.nanoTime();
-      logger.trace(String.format("addVertex(id=%s,label=%s):writeLabel, "
-          + "took %dus", vertexId.toString(), label,
-          (endTime - startTime) / 1000l));
-    }
-
-    startTime = 0;
-    if (logger.isTraceEnabled()) {
-      startTime = System.nanoTime();
-    }
-
     rctx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertexId),
         serializedProps);
-
-    if (logger.isTraceEnabled()) {
-      long endTime = System.nanoTime();
-      logger.trace(String.format("addVertex(id=%s,label=%s):writeProps, "
-          + "took %dus", vertexId.toString(), label,
-          (endTime - startTime) / 1000l));
-    }
-
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      int propLength = serializedProps.length;
-      logger.debug(String.format("addVertex(id=%s,label=%s,propLen=%d), "
-          + "took %dus", vertexId.toString(), label, propLength,
-          (endTimeNs - startTimeNs) / 1000l));
-    }
 
     return new TorcVertex(this, vertexId, label);
   }
@@ -393,11 +309,6 @@ public final class TorcGraph implements Graph {
 
   @Override
   public Iterator<Vertex> vertices(final Object... vertexIds) {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
     initialize();
 
     torcGraphTx.readWrite();
@@ -470,22 +381,11 @@ public final class TorcGraph implements Graph {
       }
     }
 
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      logger.debug(String.format("vertices(n=%d), took %dus", vertexIds.length,
-          (endTimeNs - startTimeNs) / 1000l));
-    }
-
     return list.iterator();
   }
 
   @Override
   public Iterator<Edge> edges(final Object... edgeIds) {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
     initialize();
 
     torcGraphTx.readWrite();
@@ -576,12 +476,6 @@ public final class TorcGraph implements Graph {
 //      }
     }
 
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      logger.debug(String.format("edges(n=%d), took %dus", edgeIds.length,
-          (endTimeNs - startTimeNs) / 1000l));
-    }
-
     return list.iterator();
   }
 
@@ -611,11 +505,6 @@ public final class TorcGraph implements Graph {
    */
   @Override
   public void close() {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
     if (rcImageCreationMode) {
       try {
         vertexTableOS.flush();
@@ -632,12 +521,6 @@ public final class TorcGraph implements Graph {
         client.disconnect();
         threadLocalClientMap.remove(Thread.currentThread());
       }
-    }
-
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      logger.debug(String.format("close(), took %dus",
-          (endTimeNs - startTimeNs) / 1000l));
     }
   }
 
@@ -1031,11 +914,6 @@ public final class TorcGraph implements Graph {
    * finishing the current test and moving on to the next.
    */
   public void closeAllThreads() {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
     torcGraphTx.doRollbackAllThreads();
 
     threadLocalClientMap.forEach((thread, client) -> {
@@ -1051,12 +929,6 @@ public final class TorcGraph implements Graph {
     });
 
     threadLocalClientMap.clear();
-
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      logger.debug(String.format("closeAllThreads(), took %dus",
-          (endTimeNs - startTimeNs) / 1000l));
-    }
   }
 
   /**
@@ -1068,18 +940,7 @@ public final class TorcGraph implements Graph {
    * tests to reset all transaction state before executing the next test .
    */
   public void rollbackAllThreads() {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
     torcGraphTx.doRollbackAllThreads();
-
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      logger.debug(String.format("rollbackAllThreads(), took %dus",
-          (endTimeNs - startTimeNs) / 1000l));
-    }
   }
 
   /**
@@ -1096,11 +957,6 @@ public final class TorcGraph implements Graph {
    * graph.closeAllThreads();
    */
   public void deleteGraph() {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
     initialize();
 
     RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
@@ -1113,12 +969,6 @@ public final class TorcGraph implements Graph {
         totalMasterServers);
     edgeListTableId = client.createTable(graphName + "_" + EDGELIST_TABLE_NAME,
         totalMasterServers);
-
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      logger.debug(String.format("deleteGraph(), took %dus",
-          (endTimeNs - startTimeNs) / 1000l));
-    }
   }
 
   /* **************************************************************************
@@ -1192,11 +1042,6 @@ public final class TorcGraph implements Graph {
   Edge addEdge(final TorcVertex vertex1, final TorcVertex vertex2,
       final String edgeLabel, final TorcEdge.Type type, 
       final Object[] keyValues) {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
@@ -1320,15 +1165,6 @@ public final class TorcGraph implements Graph {
       }
     }
 
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      int propLength =
-          TorcHelper.serializeProperties(properties).array().length;
-      logger.debug(String.format("addEdge(from=%s,to=%s,edgeLabel=%s,propLen=%d), "
-          + "took %dus", vertex1.id().toString(), vertex2.id().toString(),
-          edgeLabel, propLength, (endTimeNs - startTimeNs) / 1000l));
-    }
-
     return new TorcEdge(this, vertex1.id(), vertex2.id(), type, edgeLabel,
         properties, serializedProperties);
   }
@@ -1342,11 +1178,6 @@ public final class TorcGraph implements Graph {
   Iterator<Edge> vertexEdges(final TorcVertex vertex,
       final EnumSet<TorcEdgeDirection> edgeDirections,
       final String[] edgeLabels, final String[] neighborLabels) {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-  
     initialize();
 
     torcGraphTx.readWrite();
@@ -1402,25 +1233,12 @@ public final class TorcGraph implements Graph {
       }
     }
 
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      logger.debug(String.format("vertexEdges(vertex=%s,directions=%s,"
-          + "eLabels=%s):(n=%d), took %dus", vertex.id().toString(),
-          edgeDirections.toString(), eLabels.toString(), edges.size(),
-          (endTimeNs - startTimeNs) / 1000l));
-    }
-
     return edges.iterator();
   }
 
   Iterator<Vertex> vertexNeighbors(final TorcVertex vertex,
       final EnumSet<TorcEdgeDirection> edgeDirections,
       final String[] edgeLabels) {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
@@ -1489,24 +1307,11 @@ public final class TorcGraph implements Graph {
       }
     }
 
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      logger.debug(String.format("vertexNeighbors(vertex=%s,directions=%s,"
-          + "labels=%s):(n=%d), took %dus", vertex.id().toString(),
-          edgeDirections.toString(), labels.toString(), vertices.size(),
-          (endTimeNs - startTimeNs) / 1000l));
-    }
-
     return vertices.iterator();
   }
 
   <V> Iterator<VertexProperty<V>> getVertexProperties(final TorcVertex vertex,
       final String[] propertyKeys) {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
@@ -1544,25 +1349,12 @@ public final class TorcGraph implements Graph {
       }
     }
 
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      logger.debug(String.format("getVertexProperties(vertex=%s,propKeys=%s), "
-          + "took %dus", vertex.id().toString(),
-          Arrays.asList(propertyKeys).toString(),
-          (endTimeNs - startTimeNs) / 1000l));
-    }
-
     return propList.iterator();
   }
 
   <V> VertexProperty<V> setVertexProperty(final TorcVertex vertex,
       final VertexProperty.Cardinality cardinality, final String key,
       final V value, final Object[] keyValues) {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
@@ -1604,14 +1396,6 @@ public final class TorcGraph implements Graph {
     rctx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()),
         TorcHelper.serializeProperties(properties).array());
 
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      logger.debug(String.format("setVertexProperty(vertex=%s,card=%s,key=%s,"
-          + "value=%s), took %dus", vertex.id().toString(),
-          cardinality.toString(), key, value,
-          (endTimeNs - startTimeNs) / 1000l));
-    }
-
     return new TorcVertexProperty(vertex, key, value);
   }
 
@@ -1621,11 +1405,6 @@ public final class TorcGraph implements Graph {
 
   Iterator<Vertex> edgeVertices(final TorcEdge edge,
       final Direction direction) {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
     if (edge.getType() == TorcEdge.Type.UNDIRECTED
         && direction != Direction.BOTH) {
       throw new RuntimeException(String.format("Tried get source/destination "
@@ -1664,24 +1443,11 @@ public final class TorcGraph implements Graph {
             TorcHelper.deserializeString(obj.getValueBytes())));
     }
 
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      // TODO: Update this when we have TorcEdgeId class to stringify
-      logger.debug(String.format("edgeVertices(edgeIdGoesHere,dir=%s):(n=%d), "
-          + "took %dus", direction.toString(), list.size(),
-          (endTimeNs - startTimeNs) / 1000l));
-    }
-
     return list.iterator();
   }
 
   <V> Iterator<Property<V>> getEdgeProperties(final TorcEdge edge,
       final String[] propertyKeys) {
-    long startTimeNs = 0;
-    if (logger.isDebugEnabled()) {
-      startTimeNs = System.nanoTime();
-    }
-
     List<Property<V>> propList = new ArrayList<>();
 
     Map<String, List<String>> propMap = edge.getProperties();
@@ -1699,14 +1465,6 @@ public final class TorcGraph implements Graph {
           propList.add(new TorcProperty(edge, key, value));
         }
       }
-    }
-
-    if (logger.isDebugEnabled()) {
-      long endTimeNs = System.nanoTime();
-      logger.debug(String.format("getEdgeProperties(v1Id=%s,v2Id=%s,"
-          + "propKeys=%s), took %dus", edge.getV1Id().toString(),
-          edge.getV2Id().toString(), Arrays.asList(propertyKeys).toString(),
-          (endTimeNs - startTimeNs) / 1000l));
     }
 
     return propList.iterator();
@@ -1802,23 +1560,12 @@ public final class TorcGraph implements Graph {
 
     @Override
     public void doOpen() {
-      long startTimeNs = 0;
-      if (logger.isDebugEnabled()) {
-        startTimeNs = System.nanoTime();
-      }
-
       Thread us = Thread.currentThread();
       if (threadLocalRCTXMap.get(us) == null) {
         RAMCloud client = threadLocalClientMap.get(us);
         threadLocalRCTXMap.put(us, new RAMCloudTransaction(client));
       } else {
         throw Transaction.Exceptions.transactionAlreadyOpen();
-      }
-
-      if (logger.isDebugEnabled()) {
-        long endTimeNs = System.nanoTime();
-        logger.debug(String.format("TorcGraphTransaction.doOpen(thread=%d), "
-            + "took %dus", us.getId(), (endTimeNs - startTimeNs) / 1000l));
       }
     }
 
@@ -1832,11 +1579,6 @@ public final class TorcGraph implements Graph {
 
     @Override
     public void doCommit() throws AbstractTransaction.TransactionException {
-      long startTimeNs = 0;
-      if (logger.isDebugEnabled()) {
-        startTimeNs = System.nanoTime();
-      }
-
       RAMCloudTransaction rctx =
           threadLocalRCTXMap.get(Thread.currentThread());
 
@@ -1851,22 +1593,10 @@ public final class TorcGraph implements Graph {
         rctx.close();
         threadLocalRCTXMap.remove(Thread.currentThread());
       }
-
-      if (logger.isDebugEnabled()) {
-        long endTimeNs = System.nanoTime();
-        logger.debug(String.format("TorcGraphTransaction.doCommit(thread=%d), "
-            + "took %dus", Thread.currentThread().getId(),
-            (endTimeNs - startTimeNs) / 1000l));
-      }
     }
 
     @Override
     public void doRollback() throws AbstractTransaction.TransactionException {
-      long startTimeNs = 0;
-      if (logger.isDebugEnabled()) {
-        startTimeNs = System.nanoTime();
-      }
-
       RAMCloudTransaction rctx =
           threadLocalRCTXMap.get(Thread.currentThread());
 
@@ -1876,14 +1606,6 @@ public final class TorcGraph implements Graph {
         throw new AbstractTransaction.TransactionException(e);
       } finally {
         threadLocalRCTXMap.remove(Thread.currentThread());
-      }
-
-      if (logger.isDebugEnabled()) {
-        long endTimeNs = System.nanoTime();
-        logger.debug(
-            String.format("TorcGraphTransaction.doRollback(thread=%d), "
-                + "took %dus", Thread.currentThread().getId(),
-                (endTimeNs - startTimeNs) / 1000l));
       }
     }
 
