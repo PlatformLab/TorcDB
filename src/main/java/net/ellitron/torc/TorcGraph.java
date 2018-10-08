@@ -217,11 +217,6 @@ public final class TorcGraph implements Graph {
     return open("default");
   }
 
-//  @Override
-//  public GraphTraversalSource traversal() {
-//      return new TorcGraphTraversalSource(this);
-//  }
-
   /* **************************************************************************
    *
    * Standard TinkerPop Graph Interface Methods
