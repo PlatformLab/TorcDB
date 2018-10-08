@@ -571,14 +571,6 @@ public final class TorcGraph implements Graph {
       final Direction direction,
       final String[] edgeLabels,
       final List<String> neighborLabels) {
-//    System.out.println(String.format("TorcGraph.vertexNeighbors(): vertices.size: %d, direction: %s, elabels: %s, nlabels: %s",
-//          vertices.size(),
-//          direction,
-//          Arrays.toString(edgeLabels),
-//          neighborLabels));
-
-//    long startTime = System.nanoTime();
-
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
@@ -640,8 +632,6 @@ public final class TorcGraph implements Graph {
             nLabels = new ArrayList<>();
           }
 
-//          boolean exists = true;
-//          long nlabelStartTime = System.nanoTime();
           if (nLabels.isEmpty()) {
             try {
               byte[] neighborLabelListKey 
@@ -658,15 +648,6 @@ public final class TorcGraph implements Graph {
               throw new RuntimeException(e);
             }
           }
-//          long nlabelEndTime = System.nanoTime();
-//          if (exists) {
-//            System.out.println(String.format("DoExist: %d",
-//                  (nlabelEndTime - nlabelStartTime)/1000l));
-//          } else {
-//            System.out.println(String.format("NoExist: %d",
-//                  (nlabelEndTime - nlabelStartTime)/1000l));
-//
-//          }
 
           for (String neighborLabel : nLabels) {
             brKeyPrefixes.add(TorcHelper.getEdgeListKeyPrefix(vertex.id(), 
@@ -729,14 +710,6 @@ public final class TorcGraph implements Graph {
       retMap.put(entry.getKey(), entry.getValue().iterator());
     }
     
-//    long endTime = System.nanoTime();
-//    System.out.println(String.format("TorcGraph.vertexNeighbors(): vertices.size: %d, direction: %s, elabels: %s, nlabels: %s, Time: %d",
-//          vertices.size(),
-//          direction,
-//          Arrays.toString(edgeLabels),
-//          neighborLabels,
-//          (endTime - startTime)/1000l));
-
     return retMap;
   }
 
@@ -757,10 +730,6 @@ public final class TorcGraph implements Graph {
       final Direction direction,
       final String[] edgeLabels,
       final List<String> neighborLabels) {
-//    System.out.println(String.format("vertexEdges: vertices.size = %d, direction = %s, labels = %s",
-//          vertices.size(),
-//          direction,
-//          Arrays.toString(edgeLabels)));
     EnumSet<TorcEdgeDirection> dirs;
     switch (direction) {
       case OUT:
