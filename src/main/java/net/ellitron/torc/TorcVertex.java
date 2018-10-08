@@ -146,29 +146,7 @@ public class TorcVertex implements Vertex, Element {
    */
   @Override
   public Iterator<Vertex> vertices(Direction direction, String... edgeLabels) {
-    switch (direction) {
-      case OUT:
-        return graph.vertexNeighbors(this,
-            EnumSet.of(TorcEdgeDirection.DIRECTED_OUT), edgeLabels);
-      case IN:
-        return graph.vertexNeighbors(this,
-            EnumSet.of(TorcEdgeDirection.DIRECTED_IN), edgeLabels);
-      case BOTH:
-        return graph.vertexNeighbors(this,
-            EnumSet.of(TorcEdgeDirection.DIRECTED_OUT,
-                TorcEdgeDirection.DIRECTED_IN), edgeLabels);
-      default:
-        throw new UnsupportedOperationException("Unrecognized direction "
-            + "value: " + direction);
-    }
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public Iterator<Vertex> vertices(EnumSet<TorcEdgeDirection> edgeDirections,
-      String... edgeLabels) {
-    return graph.vertexNeighbors(this, edgeDirections, edgeLabels);
+    throw new UnsupportedOperationException("Must specify the edge labels and neighbor vertex labels when fetching vertex neighbors.");
   }
 
   /**
