@@ -402,73 +402,7 @@ public final class TorcGraph implements Graph {
         throw Graph.Exceptions.elementNotFound(TorcEdge.class, edgeIds[0]);
       }
     } else {
-//      long max_id[] = new long[NUM_ID_COUNTERS];
-//
-//      for (int i = 0; i < NUM_ID_COUNTERS; ++i) {
-//        try {
-//          ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
-//          buffer.order(ByteOrder.LITTLE_ENDIAN);
-//          RAMCloudObject obj = rctx.read(idTableId, Integer.toString(i)).getValueBytes();
-//          if (obj != null) {
-//            buffer.put(obj);
-//            buffer.flip();
-//            max_id[i] = buffer.getLong();
-//          } else {
-//            max_id[i] = 0;
-//          }
-//        } catch (ClientException e) {
-//          throw new RuntimeException(e);
-//        }
-//      }
-//
-//      for (int i = 0; i < NUM_ID_COUNTERS; ++i) {
-//        for (long j = 1; j <= max_id[i]; ++j) {
-//          UInt128 baseVertexId = new UInt128((1L << 63) + i, j);
-//          try {
-//            byte[] edgeLabelListKey =
-//                TorcHelper.getIncidentEdgeLabelListKey(baseVertexId);
-//            RAMCloudObject obj = rctx.read(vertexTableId, edgeLabelListKey);
-//
-//            if (obj != null) {
-//              List<String> edgeLabels = TorcHelper.deserializeStringList(obj);
-//  
-//              for (String label : edgeLabels) {
-//                /*
-//                 * Add all the directed edges.
-//                 */
-//                byte[] keyPrefix =
-//                    TorcHelper.getEdgeListKeyPrefix(baseVertexId, label,
-//                        TorcEdgeDirection.DIRECTED_OUT);
-//                TorcVertexEdgeList edgeList =
-//                    TorcVertexEdgeList.open(rctx, edgeListTableId, keyPrefix);
-//                list.addAll(edgeList.readEdges(this, baseVertexId, label,
-//                    TorcEdgeDirection.DIRECTED_OUT));
-//  
-//                /*
-//                 * Add all the undirected edges.
-//                 */
-//                keyPrefix =
-//                    TorcHelper.getEdgeListKeyPrefix(baseVertexId, label,
-//                        TorcEdgeDirection.UNDIRECTED);
-//                edgeList =
-//                    TorcVertexEdgeList.open(rctx, edgeListTableId, keyPrefix);
-//                edgeList.readEdges(this, baseVertexId, label,
-//                    TorcEdgeDirection.UNDIRECTED).forEach((edge) -> {
-//                      if (edge.getV1Id().compareTo(edge.getV2Id()) < 0) {
-//                        list.add(edge);
-//                      }
-//                    });
-//              }
-//            } else {
-//              /*
-//               * The edge label list object for this vertex doesn't exist
-//               */
-//            }
-//          } catch (ClientException e) {
-//            throw new RuntimeException(e);
-//          }
-//        }
-//      }
+      throw new UnsupportedOperationException("Reading all graph edges not supported.");
     }
 
     return list.iterator();
