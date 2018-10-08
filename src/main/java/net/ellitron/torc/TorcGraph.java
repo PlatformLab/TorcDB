@@ -109,7 +109,6 @@ public final class TorcGraph implements Graph {
   private static final String VERTEX_TABLE_NAME = "vertexTable";
   private static final String EDGELIST_TABLE_NAME = "edgeListTable";
   private static final int MAX_TX_RETRY_COUNT = 100;
-  private static final int NUM_ID_COUNTERS = 16;
   private static final int RAMCLOUD_OBJECT_SIZE_LIMIT = 1 << 20;
 
   // Normal private members.
@@ -240,14 +239,7 @@ public final class TorcGraph implements Graph {
     if (idValue != null) {
       vertexId = UInt128.decode(idValue);
     } else {
-      long id_counter = (long) (Math.random() * NUM_ID_COUNTERS);
-      RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
-
-      long id =
-          client.incrementInt64(idTableId,
-              TorcHelper.serializeString(Long.toString(id_counter)), 1, null);
-
-      vertexId = new UInt128((1L << 63) + id_counter, id);
+      throw new UnsupportedOperationException("Automatic ID generation not supported.");
     }
 
     // Create property map.
@@ -339,41 +331,7 @@ public final class TorcGraph implements Graph {
         }
       }
     } else {
-      long max_id[] = new long[NUM_ID_COUNTERS];
-
-      for (int i = 0; i < NUM_ID_COUNTERS; ++i) {
-        try {
-          ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES)
-              .order(ByteOrder.LITTLE_ENDIAN);
-          RAMCloudObject obj = rctx.read(idTableId, Long.toString(i));
-          if (obj != null) {
-            buffer.put(obj.getValueBytes());
-            buffer.flip();
-            max_id[i] = buffer.getLong();
-          } else {
-            max_id[i] = 0;
-          }
-        } catch (ClientException e) {
-          throw new RuntimeException(e);
-        }
-      }
-
-      for (int i = 0; i < NUM_ID_COUNTERS; ++i) {
-        for (long j = 1; j <= max_id[i]; ++j) {
-          UInt128 vertexId = new UInt128((1L << 63) + i, j);
-          try {
-            RAMCloudObject obj =
-                rctx.read(vertexTableId,
-                    TorcHelper.getVertexLabelKey(vertexId));
-            if (obj != null) {
-              list.add(new TorcVertex(this, vertexId, 
-                    TorcHelper.deserializeString(obj.getValueBytes())));
-            }
-          } catch (ClientException e) {
-            throw new RuntimeException(e);
-          }
-        }
-      }
+      throw new UnsupportedOperationException("Reading all graph vertices not supported.");
     }
 
     return list.iterator();
