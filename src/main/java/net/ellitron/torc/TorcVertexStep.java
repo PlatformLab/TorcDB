@@ -135,7 +135,6 @@ public class TorcVertexStep<E extends Element>
         }
 
         ends = endList.iterator();
-//        System.out.println(String.format("processNextStart(): ends was null, and have %d vertices to start with, which lead to %d neighbor vertices.", startList.size(), endList.size()));
       } else {
         /* Bulk fetch incident edges from TorcGraph. */
         Map<Vertex, Iterator<Edge>> edgeMap = 
