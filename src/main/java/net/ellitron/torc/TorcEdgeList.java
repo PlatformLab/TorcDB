@@ -646,8 +646,6 @@ public class TorcEdgeList {
       List<UInt128> baseVertexIds,
       List<String> edgeLabels, 
       List<Direction> directions) {
-//    long startTime = System.nanoTime();
-
     Map<byte[], LinkedList<RAMCloudTransactionReadOp>> readMap = new HashMap<>();
     Map<byte[], List<TorcEdge>> edgeMap = new HashMap<>();
 
@@ -672,7 +670,6 @@ public class TorcEdgeList {
 
       LinkedList<RAMCloudTransactionReadOp> readOpList = readMap.get(kp);
       RAMCloudTransactionReadOp readOp = readOpList.removeFirst();
-//      long startTime = System.nanoTime();
       RAMCloudObject headSegObj;
       try {
         headSegObj = readOp.getValue();
@@ -689,10 +686,6 @@ public class TorcEdgeList {
         // Object does not exist.
         continue;
       }
-
-//      long endTime = System.nanoTime();
-//      System.out.println(String.format("Head: %d", (endTime -
-//              startTime)/1000l));
 
       ByteBuffer headSeg =
           ByteBuffer.allocate(headSegObj.getValueBytes().length)
@@ -745,11 +738,7 @@ public class TorcEdgeList {
 
       while (readOpList.size() > 0) {
         RAMCloudTransactionReadOp readOp = readOpList.removeFirst();
-//        long startTime = System.nanoTime();
         RAMCloudObject tailSegObj = readOp.getValue();
-//        long endTime = System.nanoTime();
-//        System.out.println(String.format("Tail: %d", (endTime -
-//                startTime)/1000l));
         readOp.close();
 
         ByteBuffer tailSeg =
@@ -781,11 +770,6 @@ public class TorcEdgeList {
         }
       }
     }
-
-//    long endTime = System.nanoTime();
-//    System.out.println(String.format("TorcEdgeList.batchRead(): " +
-//          "keyPrefixes.size(): %d, edgeLabel: %s, Time: %d", keyPrefixes.size(),
-//          edgeLabels.get(0), (endTime - startTime)/1000l));
 
     return edgeMap;
   }

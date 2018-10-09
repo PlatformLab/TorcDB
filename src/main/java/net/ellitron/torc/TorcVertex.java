@@ -112,7 +112,7 @@ public class TorcVertex implements Vertex, Element {
    */
   @Override
   public Iterator<Vertex> vertices(Direction direction, String... edgeLabels) {
-    throw new UnsupportedOperationException("Must specify the edge labels and neighbor vertex labels when fetching vertex neighbors.");
+    throw new UnsupportedOperationException("Must specify the neighbor vertex labels when fetching vertex neighbors.");
   }
 
   /**
