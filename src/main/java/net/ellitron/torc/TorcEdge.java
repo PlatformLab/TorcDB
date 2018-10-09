@@ -40,16 +40,9 @@ public class TorcEdge implements Edge, Element {
   private final TorcGraph graph;
   private final UInt128 v1Id;
   private final UInt128 v2Id;
-  private final Type type;
   private String label;
   private ByteBuffer serializedProperties = null;
   private Map<String, List<String>> properties = null;
-
-  public enum Type {
-
-    DIRECTED,
-    UNDIRECTED;
-  }
 
   /**
    * Inner class that represents this edge's Id. The TorcEdge class itself is
@@ -86,18 +79,8 @@ public class TorcEdge implements Edge, Element {
      */
     @Override
     public String toString() {
-      if (type == Type.DIRECTED) {
-        return String.format("(%s,%s,%s,%s)", v1Id.toString(),
-            v2Id.toString(), type.toString(), label);
-      } else {
-        if (v1Id.compareTo(v2Id) < 0) {
-          return String.format("(%s,%s,%s,%s)", v1Id.toString(),
-              v2Id.toString(), type.toString(), label);
-        } else {
-          return String.format("(%s,%s,%s,%s)", v2Id.toString(),
-              v1Id.toString(), type.toString(), label);
-        }
-      }
+      return String.format("(%s,%s,%s)", v1Id.toString(),
+          v2Id.toString(), label);
     }
 
     /**
@@ -118,7 +101,6 @@ public class TorcEdge implements Edge, Element {
 
       return v1Id.equals(thatEdge.v1Id)
           && v2Id.equals(thatEdge.v2Id)
-          && type.equals(thatEdge.type)
           && label.equals(thatEdge.label);
     }
 
@@ -130,44 +112,42 @@ public class TorcEdge implements Edge, Element {
       int hash = 3;
       hash = 59 * hash + Objects.hashCode(v1Id);
       hash = 59 * hash + Objects.hashCode(v2Id);
-      hash = 59 * hash + Objects.hashCode(type);
       hash = 59 * hash + Objects.hashCode(label);
       return hash;
     }
   }
 
   public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
-      Type type, final String label) {
+      final String label) {
     this.graph = graph;
     this.v1Id = v1Id;
     this.v2Id = v2Id;
-    this.type = type;
     this.label = label;
   }
 
   public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
-      Type type, final String label, Map<String, List<String>> properties) {
-    this(graph, v1Id, v2Id, type, label);
+      final String label, Map<String, List<String>> properties) {
+    this(graph, v1Id, v2Id, label);
     this.properties = properties;
   }
 
   public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
-      Type type, final String label, ByteBuffer serializedProperties) {
-    this(graph, v1Id, v2Id, type, label);
+      final String label, ByteBuffer serializedProperties) {
+    this(graph, v1Id, v2Id, label);
     this.serializedProperties = serializedProperties;
   }
 
   public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
-      Type type, final String label, byte[] serializedProperties) {
-    this(graph, v1Id, v2Id, type, label);
+      final String label, byte[] serializedProperties) {
+    this(graph, v1Id, v2Id, label);
     this.serializedProperties = ByteBuffer.wrap(serializedProperties)
         .order(ByteOrder.LITTLE_ENDIAN);
   }
 
   public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
-      Type type, final String label, Map<String, List<String>> properties,
+      final String label, Map<String, List<String>> properties,
       ByteBuffer serializedProperties) {
-    this(graph, v1Id, v2Id, type, label);
+    this(graph, v1Id, v2Id, label);
     this.properties = properties;
     this.serializedProperties = serializedProperties;
   }
@@ -216,15 +196,6 @@ public class TorcEdge implements Edge, Element {
    */
   public UInt128 getV2Id() {
     return v2Id;
-  }
-
-  /**
-   * Returns the {@link Type} of this edge.
-   *
-   * @return Edge type.
-   */
-  public Type getType() {
-    return type;
   }
 
   /**
@@ -313,17 +284,7 @@ public class TorcEdge implements Edge, Element {
    */
   @Override
   public String toString() {
-    if (type == Type.DIRECTED) {
-      return StringFactory.edgeString(this);
-    } else {
-      if (v1Id.compareTo(v2Id) < 0) {
-        return String.format("e[%s][%s-%s-%s]", id(), v1Id.toString(), label,
-            v2Id.toString());
-      } else {
-        return String.format("e[%s][%s-%s-%s]", id(), v2Id.toString(), label,
-            v1Id.toString());
-      }
-    }
+    return StringFactory.edgeString(this);
   }
 
   /**
@@ -348,7 +309,6 @@ public class TorcEdge implements Edge, Element {
     return this.graph.equals(thatEdge.graph)
         && this.v1Id.equals(thatEdge.v1Id)
         && this.v2Id.equals(thatEdge.v2Id)
-        && this.type.equals(thatEdge.type)
         && this.label.equals(thatEdge.label);
   }
 

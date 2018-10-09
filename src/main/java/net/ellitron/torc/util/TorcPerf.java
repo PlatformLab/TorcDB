@@ -245,7 +245,7 @@ public class TorcPerf {
             byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
                 baseVertexId, 
                 "hasCreator", 
-                TorcEdgeDirection.DIRECTED_IN,
+                Direction.IN,
                 "Comment");
 
             List<Long> prependLatency = new ArrayList<>();
@@ -287,7 +287,7 @@ public class TorcPerf {
                   null, 
                   baseVertexId,
                   "hasCreator", 
-                  TorcEdgeDirection.DIRECTED_IN);
+                  Direction.IN);
 
               success = rctx.commit();
               rctx.close();
@@ -334,7 +334,7 @@ public class TorcPerf {
               byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
                   baseVertexId, 
                   "hasCreator", 
-                  TorcEdgeDirection.DIRECTED_IN,
+                  Direction.IN,
                   "Comment");
 
               long prependLatency[] = new long[list_size];
@@ -378,7 +378,7 @@ public class TorcPerf {
                     null, 
                     baseVertexId,
                     "hasCreator", 
-                    TorcEdgeDirection.DIRECTED_IN);
+                    Direction.IN);
 
                 boolean success = rctx.commit();
                 rctx.close();
@@ -426,7 +426,7 @@ public class TorcPerf {
           byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
               baseVertexId, 
               "hasCreator", 
-              TorcEdgeDirection.DIRECTED_IN,
+              Direction.IN,
               "Comment");
 
           for (int ss_idx = 0; ss_idx < segment_sizes.size(); ss_idx++) {
@@ -478,7 +478,7 @@ public class TorcPerf {
                       null, 
                       baseVertexId,
                       "hasCreator", 
-                      TorcEdgeDirection.DIRECTED_IN);
+                      Direction.IN);
 
                   success = rctx.commit();
                   rctx.close();

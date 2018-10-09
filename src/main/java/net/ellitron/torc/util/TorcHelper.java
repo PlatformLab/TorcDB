@@ -15,10 +15,9 @@
  */
 package net.ellitron.torc.util;
 
-import net.ellitron.torc.TorcEdgeDirection;
-
 import edu.stanford.ramcloud.RAMCloudObject;
 
+import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Property;
@@ -266,8 +265,8 @@ public class TorcHelper {
    *
    * @return RAMCloud Key.
    */
-  public static byte[] getNeighborLabelListKey(UInt128 vertexId, String
-      edgeLabel, TorcEdgeDirection dir) {
+  public static byte[] getNeighborLabelListKey(UInt128 vertexId, 
+      String edgeLabel, Direction dir) {
     byte[] labelByteArray = serializeString(edgeLabel);
     ByteBuffer buffer =
         ByteBuffer.allocate(UInt128.BYTES + Short.BYTES + labelByteArray.length
@@ -297,7 +296,7 @@ public class TorcHelper {
    * @return RAMCloud Key.
    */
   public static byte[] getEdgeListKeyPrefix(UInt128 vertexId, String edgeLabel,
-      TorcEdgeDirection dir, String vertexLabel) {
+      Direction dir, String vertexLabel) {
     byte[] edgeLabelByteArray = serializeString(edgeLabel);
     byte[] vertexLabelByteArray = serializeString(vertexLabel);
     ByteBuffer buffer =

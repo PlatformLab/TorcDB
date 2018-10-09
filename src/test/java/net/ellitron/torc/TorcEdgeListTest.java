@@ -24,6 +24,8 @@ import java.util.List;
 
 import static org.junit.Assert.*;
 
+import org.apache.tinkerpop.gremlin.structure.Direction;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -61,7 +63,7 @@ public class TorcEdgeListTest {
     byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
         baseVertexId, 
         "hasCreator", 
-        TorcEdgeDirection.DIRECTED_IN,
+        Direction.IN,
         "Comment");
    
     for (int i = 0; i < (1<<10); i++) {
@@ -87,7 +89,7 @@ public class TorcEdgeListTest {
           null, 
           baseVertexId,
           "hasCreator", 
-          TorcEdgeDirection.DIRECTED_IN);
+          Direction.IN);
 
       int j = i;
       for (TorcEdge edge : list) {
@@ -107,7 +109,7 @@ public class TorcEdgeListTest {
     byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
         baseVertexId, 
         "hasCreator", 
-        TorcEdgeDirection.DIRECTED_IN,
+        Direction.IN,
         "Comment");
   
     int segSize = 25;
@@ -140,7 +142,7 @@ public class TorcEdgeListTest {
         null, 
         baseVertexId,
         "hasCreator", 
-        TorcEdgeDirection.DIRECTED_IN);
+        Direction.IN);
 
     int j = (1<<16) - 1;
     for (TorcEdge edge : list) {
@@ -159,7 +161,7 @@ public class TorcEdgeListTest {
     byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
         baseVertexId, 
         "hasCreator", 
-        TorcEdgeDirection.DIRECTED_IN,
+        Direction.IN,
         "Comment");
   
     for (int segSize = (1<<4); segSize <= (1<<12); segSize *= 2) { 
@@ -192,7 +194,7 @@ public class TorcEdgeListTest {
           null, 
           baseVertexId,
           "hasCreator", 
-          TorcEdgeDirection.DIRECTED_IN);
+          Direction.IN);
 
       int j = (1<<12) - 1;
       for (TorcEdge edge : list) {
@@ -214,7 +216,7 @@ public class TorcEdgeListTest {
     byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
         baseVertexId, 
         "hasCreator", 
-        TorcEdgeDirection.DIRECTED_IN,
+        Direction.IN,
         "Comment");
    
     for (int i = 0; i < (1<<10); i++) {
@@ -240,7 +242,7 @@ public class TorcEdgeListTest {
           null, 
           baseVertexId,
           "hasCreator", 
-          TorcEdgeDirection.DIRECTED_IN);
+          Direction.IN);
 
       int j = i;
       for (TorcEdge edge : list) {
@@ -264,7 +266,7 @@ public class TorcEdgeListTest {
     byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
         baseVertexId, 
         "hasCreator", 
-        TorcEdgeDirection.DIRECTED_IN,
+        Direction.IN,
         "Comment");
    
     for (int i = 0; i < (1<<20); i++) {
@@ -291,7 +293,7 @@ public class TorcEdgeListTest {
         null, 
         baseVertexId,
         "hasCreator", 
-        TorcEdgeDirection.DIRECTED_IN);
+        Direction.IN);
 
     int j = (1<<20) - 1;
     for (TorcEdge edge : list) {
@@ -312,7 +314,7 @@ public class TorcEdgeListTest {
     byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(
         baseVertexId, 
         "hasCreator", 
-        TorcEdgeDirection.DIRECTED_IN,
+        Direction.IN,
         "Comment");
    
     for (int i = 0; i < (1<<20); i++) {
@@ -339,7 +341,7 @@ public class TorcEdgeListTest {
         null, 
         baseVertexId,
         "hasCreator", 
-        TorcEdgeDirection.DIRECTED_IN);
+        Direction.IN);
 
     int j = (1<<20) - 1;
     for (TorcEdge edge : list) {

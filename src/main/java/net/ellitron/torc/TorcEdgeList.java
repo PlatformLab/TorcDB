@@ -23,6 +23,8 @@ import edu.stanford.ramcloud.RAMCloudObject;
 import edu.stanford.ramcloud.RAMCloudTransaction;
 import edu.stanford.ramcloud.RAMCloudTransactionReadOp;
 
+import org.apache.tinkerpop.gremlin.structure.Direction;
+
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
@@ -516,7 +518,7 @@ public class TorcEdgeList {
       TorcGraph graph, 
       UInt128 baseVertexId,
       String edgeLabel, 
-      TorcEdgeDirection direction) {
+      Direction direction) {
     List<TorcEdge> edgeList = new ArrayList<>();
 
     byte[] headSegKey = getSegmentKey(keyPrefix, 0);
@@ -550,15 +552,14 @@ public class TorcEdgeList {
       byte[] serializedProperties = new byte[propLen];
       headSeg.get(serializedProperties);
 
-      if (direction == TorcEdgeDirection.DIRECTED_OUT) {
-        edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
-            TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
-      } else if (direction == TorcEdgeDirection.DIRECTED_IN) {
-        edgeList.add(new TorcEdge(graph, neighborId, baseVertexId,
-            TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
+      if (direction == Direction.OUT) {
+        edgeList.add(new TorcEdge(graph, baseVertexId, neighborId, edgeLabel, 
+              serializedProperties));
+      } else if (direction == Direction.IN) {
+        edgeList.add(new TorcEdge(graph, neighborId, baseVertexId, edgeLabel, 
+              serializedProperties));
       } else {
-        edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
-            TorcEdge.Type.UNDIRECTED, edgeLabel, serializedProperties));
+        throw new IllegalArgumentException("Unsupported direction type: " + direction);
       }
     }
 
@@ -605,15 +606,14 @@ public class TorcEdgeList {
           byte[] serializedProperties = new byte[propLen];
           tailSeg.get(serializedProperties);
 
-          if (direction == TorcEdgeDirection.DIRECTED_OUT) {
-            edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
-                TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
-          } else if (direction == TorcEdgeDirection.DIRECTED_IN) {
-            edgeList.add(new TorcEdge(graph, neighborId, baseVertexId,
-                TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
+          if (direction == Direction.OUT) {
+            edgeList.add(new TorcEdge(graph, baseVertexId, neighborId, 
+                  edgeLabel, serializedProperties));
+          } else if (direction == Direction.IN) {
+            edgeList.add(new TorcEdge(graph, neighborId, baseVertexId, 
+                  edgeLabel, serializedProperties));
           } else {
-            edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
-                TorcEdge.Type.UNDIRECTED, edgeLabel, serializedProperties));
+            throw new IllegalArgumentException("Unsupported direction type: " + direction);
           }
         }
       }
@@ -645,7 +645,7 @@ public class TorcEdgeList {
       TorcGraph graph, 
       List<UInt128> baseVertexIds,
       List<String> edgeLabels, 
-      List<TorcEdgeDirection> directions) {
+      List<Direction> directions) {
 //    long startTime = System.nanoTime();
 
     Map<byte[], LinkedList<RAMCloudTransactionReadOp>> readMap = new HashMap<>();
@@ -665,7 +665,7 @@ public class TorcEdgeList {
       byte[] kp = keyPrefixes.get(i);
       UInt128 baseVertexId = baseVertexIds.get(i);
       String edgeLabel = edgeLabels.get(i);
-      TorcEdgeDirection direction = directions.get(i);
+      Direction direction = directions.get(i);
 
       List<TorcEdge> edgeList = new LinkedList<>();
       edgeMap.put(kp, edgeList);
@@ -713,15 +713,14 @@ public class TorcEdgeList {
         byte[] serializedProperties = new byte[propLen];
         headSeg.get(serializedProperties);
 
-        if (direction == TorcEdgeDirection.DIRECTED_OUT) {
-          edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
-              TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
-        } else if (direction == TorcEdgeDirection.DIRECTED_IN) {
-          edgeList.add(new TorcEdge(graph, neighborId, baseVertexId,
-              TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
+        if (direction == Direction.OUT) {
+          edgeList.add(new TorcEdge(graph, baseVertexId, neighborId, edgeLabel, 
+                serializedProperties));
+        } else if (direction == Direction.IN) {
+          edgeList.add(new TorcEdge(graph, neighborId, baseVertexId, edgeLabel, 
+                serializedProperties));
         } else {
-          edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
-              TorcEdge.Type.UNDIRECTED, edgeLabel, serializedProperties));
+          throw new IllegalArgumentException("Unsupported direction type: " + direction);
         }
       }
 
@@ -738,7 +737,7 @@ public class TorcEdgeList {
       byte[] kp = keyPrefixes.get(i);
       UInt128 baseVertexId = baseVertexIds.get(i);
       String edgeLabel = edgeLabels.get(i);
-      TorcEdgeDirection direction = directions.get(i);
+      Direction direction = directions.get(i);
 
       List<TorcEdge> edgeList = edgeMap.get(kp);
 
@@ -770,15 +769,14 @@ public class TorcEdgeList {
           byte[] serializedProperties = new byte[propLen];
           tailSeg.get(serializedProperties);
 
-          if (direction == TorcEdgeDirection.DIRECTED_OUT) {
-            edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
-                TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
-          } else if (direction == TorcEdgeDirection.DIRECTED_IN) {
-            edgeList.add(new TorcEdge(graph, neighborId, baseVertexId,
-                TorcEdge.Type.DIRECTED, edgeLabel, serializedProperties));
+          if (direction == Direction.OUT) {
+            edgeList.add(new TorcEdge(graph, baseVertexId, neighborId, 
+                  edgeLabel, serializedProperties));
+          } else if (direction == Direction.IN) {
+            edgeList.add(new TorcEdge(graph, neighborId, baseVertexId, 
+                  edgeLabel, serializedProperties));
           } else {
-            edgeList.add(new TorcEdge(graph, baseVertexId, neighborId,
-                TorcEdge.Type.UNDIRECTED, edgeLabel, serializedProperties));
+            throw new IllegalArgumentException("Unsupported direction type: " + direction);
           }
         }
       }

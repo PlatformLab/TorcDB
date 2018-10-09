@@ -517,7 +517,7 @@ public final class TorcGraph implements Graph {
    * direction. Edge lists for the neighbor vertices must be added separately.
    */
   public void loadEdges(final UInt128 baseVertexId, final String edgeLabel,
-      final TorcEdgeDirection direction, final String neighborLabel, 
+      final Direction direction, final String neighborLabel, 
       final List<UInt128> neighborIds, 
       final List<Map<String, List<String>>> propMaps) 
   {
@@ -554,30 +554,12 @@ public final class TorcGraph implements Graph {
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
-    EnumSet<TorcEdgeDirection> dirs;
-    switch (direction) {
-      case OUT:
-            dirs = EnumSet.of(TorcEdgeDirection.DIRECTED_OUT);
-            break;
-      case IN:
-            dirs = EnumSet.of(TorcEdgeDirection.DIRECTED_IN);
-            break;
-      case BOTH:
-            dirs = EnumSet.of(TorcEdgeDirection.DIRECTED_OUT,
-                TorcEdgeDirection.DIRECTED_IN);
-            break;
-
-      default:
-        throw new UnsupportedOperationException("Unrecognized direction "
-            + "value: " + direction);
-    }
-
     /* Build arguments to TorcEdgeList.batchRead(). */
     List<byte[]> brKeyPrefixes = new ArrayList<>();
     List<Vertex> brVertexList = new ArrayList<>();
     List<UInt128> brBaseVertexIds = new ArrayList<>();
     List<String> brEdgeLabels = new ArrayList<>();
-    List<TorcEdgeDirection> brDirections = new ArrayList<>();
+    List<Direction> brDirections = new ArrayList<>();
     List<String> brNeighborLabels = new ArrayList<>();
 
     List<String> eLabels;
@@ -591,16 +573,32 @@ public final class TorcGraph implements Graph {
       throw new UnsupportedOperationException("Must specify the neighbor vertex labels when fetching vertex neighbors.");
     }
 
+    List<Direction> eDirs = new ArrayList<>();
+    switch (direction) {
+      case OUT:
+        eDirs.add(Direction.OUT);
+        break;
+      case IN:
+        eDirs.add(Direction.IN);
+        break;
+      case BOTH:
+        eDirs.add(Direction.OUT);
+        eDirs.add(Direction.IN);
+        break;
+      default:
+        throw new UnsupportedOperationException("Unknown direction type: " + direction);
+    }
+
     for (TorcVertex vertex : vertices) {
       for (String edgeLabel : eLabels) {
-        for (TorcEdgeDirection dir : dirs) {
+        for (Direction edgeDir : eDirs) {
           for (String neighborLabel : neighborLabels) {
             brKeyPrefixes.add(TorcHelper.getEdgeListKeyPrefix(vertex.id(), 
-                  edgeLabel, dir, neighborLabel));
+                  edgeLabel, direction, neighborLabel));
             brVertexList.add(vertex);
             brBaseVertexIds.add(vertex.id());
             brEdgeLabels.add(edgeLabel);
-            brDirections.add(dir);
+            brDirections.add(edgeDir);
             brNeighborLabels.add(neighborLabel);
           }
         }
@@ -618,7 +616,7 @@ public final class TorcGraph implements Graph {
       Vertex v = brVertexList.get(i);
       UInt128 baseVertexId = brBaseVertexIds.get(i);
       String edgeLabel = brEdgeLabels.get(i);
-      TorcEdgeDirection dir = brDirections.get(i);
+      Direction dir = brDirections.get(i);
       String neighborLabel = brNeighborLabels.get(i);
 
       List<TorcEdge> edgeList = edgeListMap.get(keyPrefix);
@@ -632,20 +630,10 @@ public final class TorcGraph implements Graph {
       }
 
       for (TorcEdge edge : edgeList) {
-        if (dir == TorcEdgeDirection.DIRECTED_OUT) {
-          neighborList.add(new TorcVertex(this, edge.getV2Id(), 
-                neighborLabel));
-        } else if (dir == TorcEdgeDirection.DIRECTED_IN) {
-          neighborList.add(new TorcVertex(this, edge.getV1Id(), 
-                neighborLabel));
+        if (dir == Direction.OUT) {
+          neighborList.add(new TorcVertex(this, edge.getV2Id(), neighborLabel));
         } else {
-          if (v.id().equals(edge.getV1Id())) {
-            neighborList.add(new TorcVertex(this, edge.getV2Id(), 
-                  neighborLabel));
-          } else {
-            neighborList.add(new TorcVertex(this, edge.getV1Id(), 
-                  neighborLabel));
-          }
+          neighborList.add(new TorcVertex(this, edge.getV1Id(), neighborLabel));
         }
       }
     }    
@@ -675,27 +663,10 @@ public final class TorcGraph implements Graph {
       final Direction direction,
       final String[] edgeLabels,
       final List<String> neighborLabels) {
-    EnumSet<TorcEdgeDirection> dirs;
-    switch (direction) {
-      case OUT:
-            dirs = EnumSet.of(TorcEdgeDirection.DIRECTED_OUT);
-            break;
-      case IN:
-            dirs = EnumSet.of(TorcEdgeDirection.DIRECTED_IN);
-            break;
-      case BOTH:
-            dirs = EnumSet.of(TorcEdgeDirection.DIRECTED_OUT,
-                TorcEdgeDirection.DIRECTED_IN);
-            break;
-
-      default:
-        throw new UnsupportedOperationException("Unrecognized direction "
-            + "value: " + direction);
-    }
 
     Map<Vertex, Iterator<Edge>> map = new HashMap<>();
     for (TorcVertex v : vertices) {
-      Iterator<Edge> edges = vertexEdges((TorcVertex)v, dirs, 
+      Iterator<Edge> edges = vertexEdges((TorcVertex)v, direction, 
           edgeLabels, neighborLabels.toArray(new String[0]));
       map.put(v, edges);
     }
@@ -841,8 +812,7 @@ public final class TorcGraph implements Graph {
   }
 
   Edge addEdge(final TorcVertex vertex1, final TorcVertex vertex2,
-      final String edgeLabel, final TorcEdge.Type type, 
-      final Object[] keyValues) {
+      final String edgeLabel, final Object[] keyValues) {
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
@@ -875,7 +845,7 @@ public final class TorcGraph implements Graph {
     for (int i = 0; i < 2; ++i) {
       TorcVertex baseVertex;
       TorcVertex neighborVertex;
-      TorcEdgeDirection direction;
+      Direction direction;
 
       /*
        * Choose which vertex acts as the base and which acts as the neighbor in
@@ -884,19 +854,11 @@ public final class TorcGraph implements Graph {
       if (i == 0) {
         baseVertex = vertex1;
         neighborVertex = vertex2;
-        if (type == TorcEdge.Type.DIRECTED) {
-          direction = TorcEdgeDirection.DIRECTED_OUT;
-        } else {
-          direction = TorcEdgeDirection.UNDIRECTED;
-        }
+        direction = Direction.OUT;
       } else {
         baseVertex = vertex2;
         neighborVertex = vertex1;
-        if (type == TorcEdge.Type.DIRECTED) {
-          direction = TorcEdgeDirection.DIRECTED_IN;
-        } else {
-          direction = TorcEdgeDirection.UNDIRECTED;
-        }
+        direction = Direction.IN;
       }
 
       String neighborLabel = neighborVertex.label();
@@ -910,18 +872,16 @@ public final class TorcGraph implements Graph {
               neighborVertex.id(), serializedProperties.array());
     }
 
-    return new TorcEdge(this, vertex1.id(), vertex2.id(), type, edgeLabel,
+    return new TorcEdge(this, vertex1.id(), vertex2.id(), edgeLabel,
         properties, serializedProperties);
   }
 
-  Iterator<Edge> vertexEdges(final TorcVertex vertex,
-      final EnumSet<TorcEdgeDirection> edgeDirections,
+  Iterator<Edge> vertexEdges(final TorcVertex vertex, final Direction direction,
       final String[] edgeLabels) {
-    return vertexEdges(vertex, edgeDirections, edgeLabels, new String[0]);
+    return vertexEdges(vertex, direction, edgeLabels, new String[0]);
   }
 
-  Iterator<Edge> vertexEdges(final TorcVertex vertex,
-      final EnumSet<TorcEdgeDirection> edgeDirections,
+  Iterator<Edge> vertexEdges(final TorcVertex vertex, final Direction direction,
       final String[] edgeLabels, final String[] neighborLabels) {
     initialize();
 
@@ -936,8 +896,24 @@ public final class TorcGraph implements Graph {
       throw new UnsupportedOperationException("Must specify the edge labels and neighbor vertex labels when fetching vertex edges.");
     }
 
+    List<Direction> edgeDirections = new ArrayList<>();
+    switch (direction) {
+      case OUT:
+        edgeDirections.add(Direction.OUT);
+        break;
+      case IN:
+        edgeDirections.add(Direction.IN);
+        break;
+      case BOTH:
+        edgeDirections.add(Direction.OUT);
+        edgeDirections.add(Direction.IN);
+        break;
+      default:
+        throw new UnsupportedOperationException("Unknown direction type: " + direction);
+    }
+
     for (String edgeLabel : eLabels) {
-      for (TorcEdgeDirection dir : edgeDirections) {
+      for (Direction dir : edgeDirections) {
         for (String neighborLabel : nLabels) {
           byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(vertex.id(), 
               edgeLabel, dir, neighborLabel);
@@ -953,9 +929,9 @@ public final class TorcGraph implements Graph {
     return edges.iterator();
   }
 
-  Iterator<Vertex> vertexNeighbors(final TorcVertex vertex,
-      final EnumSet<TorcEdgeDirection> edgeDirections,
-      final String[] edgeLabels, final String[] neighborLabels) {
+  Iterator<Vertex> vertexNeighbors(final TorcVertex vertex, 
+      final Direction direction, final String[] edgeLabels, 
+      final String[] neighborLabels) {
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 
@@ -967,8 +943,24 @@ public final class TorcGraph implements Graph {
       throw new UnsupportedOperationException("Must specify the edge labels and neighbor vertex labels when fetching vertex neighbors.");
     }
 
+    List<Direction> edgeDirections = new ArrayList<>();
+    switch (direction) {
+      case OUT:
+        edgeDirections.add(Direction.OUT);
+        break;
+      case IN:
+        edgeDirections.add(Direction.IN);
+        break;
+      case BOTH:
+        edgeDirections.add(Direction.OUT);
+        edgeDirections.add(Direction.IN);
+        break;
+      default:
+        throw new UnsupportedOperationException("Unknown direction type: " + direction);
+    }
+
     for (String edgeLabel : eLabels) {
-      for (TorcEdgeDirection dir : edgeDirections) {
+      for (Direction dir : edgeDirections) {
         for (String neighborLabel : nLabels) {
           byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(vertex.id(), 
               edgeLabel, dir, neighborLabel);
@@ -977,21 +969,13 @@ public final class TorcGraph implements Graph {
               keyPrefix, this, vertex.id(), edgeLabel, dir);
 
           for (TorcEdge edge : edgeList) {
-            if (dir == TorcEdgeDirection.DIRECTED_OUT) {
+            if (dir == Direction.OUT) {
               vertices.add(new TorcVertex(this, edge.getV2Id(), 
                     neighborLabel));
-            } else if (dir == TorcEdgeDirection.DIRECTED_IN) {
+            } else {
               vertices.add(new TorcVertex(this, edge.getV1Id(), 
                     neighborLabel));
-            } else {
-              if (vertex.id().equals(edge.getV1Id())) {
-                vertices.add(new TorcVertex(this, edge.getV2Id(), 
-                      neighborLabel));
-              } else {
-                vertices.add(new TorcVertex(this, edge.getV1Id(), 
-                      neighborLabel));
-              }
-            }
+            } 
           }
         }
       }
@@ -1095,13 +1079,6 @@ public final class TorcGraph implements Graph {
 
   Iterator<Vertex> edgeVertices(final TorcEdge edge,
       final Direction direction) {
-    if (edge.getType() == TorcEdge.Type.UNDIRECTED
-        && direction != Direction.BOTH) {
-      throw new RuntimeException(String.format("Tried get source/destination "
-          + "vertex of an undirected edge: [edge:%s, direction:%s]",
-          edge.toString(), direction.toString()));
-    }
-
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
 

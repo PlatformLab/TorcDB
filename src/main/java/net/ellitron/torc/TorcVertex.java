@@ -91,19 +91,7 @@ public class TorcVertex implements Vertex, Element {
    */
   @Override
   public Edge addEdge(String label, Vertex inVertex, Object... keyValues) {
-    return graph.addEdge(this, (TorcVertex) inVertex, label,
-        TorcEdge.Type.DIRECTED, keyValues);
-  }
-
-  /**
-   * Adds an undirected edge between this vertex and the specified vertex.
-   *
-   * See {@link Vertex#addEdge}.
-   */
-  public Edge addUndirectedEdge(String label, Vertex otherVertex,
-      Object... keyValues) {
-    return graph.addEdge(this, (TorcVertex) otherVertex, label,
-        TorcEdge.Type.UNDIRECTED, keyValues);
+    return graph.addEdge(this, (TorcVertex) inVertex, label, keyValues);
   }
 
   /**
@@ -111,34 +99,12 @@ public class TorcVertex implements Vertex, Element {
    */
   @Override
   public Iterator<Edge> edges(Direction direction, String... edgeLabels) {
-    return edges(direction, edgeLabels, new String[0]);
-  }
-
-  public Iterator<Edge> edges(EnumSet<TorcEdgeDirection> edgeDirections,
-      String... edgeLabels) {
-    return graph.vertexEdges(this, edgeDirections, edgeLabels, new String[0]);
+    throw new UnsupportedOperationException("Must specify the neighbor vertex labels when fetching vertex edges.");
   }
 
   public Iterator<Edge> edges(Direction direction, String[] edgeLabels, 
       String[] neighborLabels) {
-    switch (direction) {
-      case OUT:
-        return graph.vertexEdges(this,
-            EnumSet.of(TorcEdgeDirection.DIRECTED_OUT), edgeLabels, 
-            neighborLabels);
-      case IN:
-        return graph.vertexEdges(this,
-            EnumSet.of(TorcEdgeDirection.DIRECTED_IN), edgeLabels,
-            neighborLabels);
-      case BOTH:
-        return graph.vertexEdges(this,
-            EnumSet.of(TorcEdgeDirection.DIRECTED_OUT,
-                TorcEdgeDirection.DIRECTED_IN), edgeLabels,
-            neighborLabels);
-      default:
-        throw new UnsupportedOperationException("Unrecognized direction "
-            + "value: " + direction);
-    }
+    return graph.vertexEdges(this, direction, edgeLabels, neighborLabels);
   }
 
   /**
