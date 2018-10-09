@@ -61,10 +61,6 @@ public class TorcGraphProvider extends AbstractGraphProvider {
     }
   };
 
-  /**
-   * TODO: Use environment variables for the source of configuration
-   * information.
-   */
   @Override
   public Map<String, Object> getBaseConfiguration(String graphName,
       Class<?> test, String testMethodName,

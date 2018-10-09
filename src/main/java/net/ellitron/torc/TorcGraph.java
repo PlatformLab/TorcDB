@@ -1005,9 +1005,6 @@ public final class TorcGraph implements Graph {
       }
     } else {
       for (Map.Entry<String, List<String>> property : properties.entrySet()) {
-        // TODO: Here I am implicitly assuming that V is of type String, 
-        // since property.getValue() returns a string, making the new 
-        // elemennt to propList TorcVertexProperty<String>
         String key = property.getKey();
         for (String value : property.getValue()) {
           propList.add(new TorcVertexProperty(vertex, key, value));
@@ -1158,15 +1155,6 @@ public final class TorcGraph implements Graph {
     hash = 29 * hash + Objects.hashCode(this.coordinatorLocator);
     hash = 29 * hash + Objects.hashCode(this.graphName);
     return hash;
-  }
-
-  // TODO: Move this into its own file.
-  public static class Exceptions {
-
-    public static IllegalArgumentException userSuppliedIdNotValid(
-        String message) {
-      throw new IllegalArgumentException("Invalid vertex ID: " + message);
-    }
   }
 
   class TorcGraphTransaction extends AbstractTransaction {
@@ -1322,7 +1310,6 @@ public final class TorcGraph implements Graph {
     }
   }
 
-  // TODO: Move this to its own file.
   public class TorcGraphFeatures implements Features {
 
     private TorcGraphFeatures() {
