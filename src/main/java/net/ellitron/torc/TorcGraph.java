@@ -446,8 +446,7 @@ public final class TorcGraph implements Graph {
    * vertex's RAMCloud key-value serialization is appended to the given file.
    */
   public void loadVertex(UInt128 vertexId, String label, 
-      Map<String, List<String>> properties) 
-  {
+      Map<String, List<String>> properties) {
     List<byte[]> keys = new ArrayList<>();
     List<byte[]> values = new ArrayList<>();
 
@@ -519,8 +518,7 @@ public final class TorcGraph implements Graph {
   public void loadEdges(final UInt128 baseVertexId, final String edgeLabel,
       final Direction direction, final String neighborLabel, 
       final List<UInt128> neighborIds, 
-      final List<Map<String, List<String>>> propMaps) 
-  {
+      final List<Map<String, List<String>>> propMaps) {
     byte[] keyPrefix =
         TorcHelper.getEdgeListKeyPrefix(baseVertexId, edgeLabel, direction,
             neighborLabel);
@@ -663,7 +661,6 @@ public final class TorcGraph implements Graph {
       final Direction direction,
       final String[] edgeLabels,
       final List<String> neighborLabels) {
-
     Map<Vertex, Iterator<Edge>> map = new HashMap<>();
     for (TorcVertex v : vertices) {
       Iterator<Edge> edges = vertexEdges((TorcVertex)v, direction, 
@@ -874,11 +871,6 @@ public final class TorcGraph implements Graph {
 
     return new TorcEdge(this, vertex1.id(), vertex2.id(), edgeLabel,
         properties, serializedProperties);
-  }
-
-  Iterator<Edge> vertexEdges(final TorcVertex vertex, final Direction direction,
-      final String[] edgeLabels) {
-    return vertexEdges(vertex, direction, edgeLabels, new String[0]);
   }
 
   Iterator<Edge> vertexEdges(final TorcVertex vertex, final Direction direction,
