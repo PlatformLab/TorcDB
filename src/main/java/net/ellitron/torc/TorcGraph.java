@@ -450,8 +450,6 @@ public final class TorcGraph implements Graph {
     List<byte[]> keys = new ArrayList<>();
     List<byte[]> values = new ArrayList<>();
 
-    // First write to vertex table
-
     // Label
     keys.add(TorcHelper.getVertexLabelKey(vertexId));
     values.add(TorcHelper.serializeString(label));
@@ -478,33 +476,6 @@ public final class TorcGraph implements Graph {
 
       try {
         vertexTableOS.write(buffer.array());
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-    }
-
-    keys.clear();
-    values.clear();
-
-    // Now write to edge list table
-    for (int i = 0; i < keys.size(); i++) {
-      byte[] key = keys.get(i);
-      byte[] value = values.get(i);
-
-      ByteBuffer buffer = ByteBuffer.allocate(
-          Integer.BYTES +
-          key.length +
-          Integer.BYTES +
-          value.length)
-          .order(ByteOrder.LITTLE_ENDIAN);
-
-      buffer.putInt(key.length);
-      buffer.put(key);
-      buffer.putInt(value.length);
-      buffer.put(value);
-
-      try {
-        edgeListTableOS.write(buffer.array());
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
