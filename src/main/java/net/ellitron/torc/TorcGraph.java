@@ -661,14 +661,93 @@ public final class TorcGraph implements Graph {
       final Direction direction,
       final String[] edgeLabels,
       final List<String> neighborLabels) {
-    Map<Vertex, Iterator<Edge>> map = new HashMap<>();
-    for (TorcVertex v : vertices) {
-      Iterator<Edge> edges = vertexEdges((TorcVertex)v, direction, 
-          edgeLabels, neighborLabels.toArray(new String[0]));
-      map.put(v, edges);
+    torcGraphTx.readWrite();
+    RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+
+    /* Build arguments to TorcEdgeList.batchRead(). */
+    List<byte[]> brKeyPrefixes = new ArrayList<>();
+    List<Vertex> brVertexList = new ArrayList<>();
+    List<UInt128> brBaseVertexIds = new ArrayList<>();
+    List<String> brEdgeLabels = new ArrayList<>();
+    List<Direction> brDirections = new ArrayList<>();
+    List<String> brNeighborLabels = new ArrayList<>();
+
+    List<String> eLabels;
+    if (edgeLabels != null) {
+      eLabels = Arrays.asList(edgeLabels);
+    } else {
+      throw new UnsupportedOperationException("Must specify the edge labels when fetching vertex edges.");
     }
 
-    return map;
+    if (neighborLabels == null) {
+      throw new UnsupportedOperationException("Must specify the neighbor vertex labels when fetching vertex edges.");
+    }
+
+    List<Direction> eDirs = new ArrayList<>();
+    switch (direction) {
+      case OUT:
+        eDirs.add(Direction.OUT);
+        break;
+      case IN:
+        eDirs.add(Direction.IN);
+        break;
+      case BOTH:
+        eDirs.add(Direction.OUT);
+        eDirs.add(Direction.IN);
+        break;
+      default:
+        throw new UnsupportedOperationException("Unknown direction type: " + direction);
+    }
+
+    for (TorcVertex vertex : vertices) {
+      for (String edgeLabel : eLabels) {
+        for (Direction edgeDir : eDirs) {
+          for (String neighborLabel : neighborLabels) {
+            brKeyPrefixes.add(TorcHelper.getEdgeListKeyPrefix(vertex.id(), 
+                  edgeLabel, direction, neighborLabel));
+            brVertexList.add(vertex);
+            brBaseVertexIds.add(vertex.id());
+            brEdgeLabels.add(edgeLabel);
+            brDirections.add(edgeDir);
+            brNeighborLabels.add(neighborLabel);
+          }
+        }
+      }
+    }
+
+    Map<byte[], List<TorcEdge>> edgeListMap = TorcEdgeList.batchRead(rctx, 
+        edgeListTableId, brKeyPrefixes, this, brBaseVertexIds, brEdgeLabels, 
+        brDirections);
+    
+    Map<Vertex, List<Edge>> map = new HashMap<>();
+
+    for (int i = 0; i < brKeyPrefixes.size(); i++) {
+      byte[] keyPrefix = brKeyPrefixes.get(i);
+      Vertex v = brVertexList.get(i);
+      UInt128 baseVertexId = brBaseVertexIds.get(i);
+      String edgeLabel = brEdgeLabels.get(i);
+      Direction dir = brDirections.get(i);
+      String neighborLabel = brNeighborLabels.get(i);
+
+      List<TorcEdge> edgeList = edgeListMap.get(keyPrefix);
+
+      List<Edge> incidentEdgeList;
+      if (map.containsKey(v)) {
+        incidentEdgeList = map.get(v);
+      } else {
+        incidentEdgeList = new ArrayList<>();
+        map.put(v, incidentEdgeList);
+      }
+
+      incidentEdgeList.addAll(edgeList);
+    }    
+
+    Map<Vertex, Iterator<Edge>> retMap = new HashMap<>();
+    for (Map.Entry<Vertex, List<Edge>> entry : map.entrySet()) {
+      retMap.put(entry.getKey(), entry.getValue().iterator());
+    }
+    
+    return retMap;
   }
 
   /**
