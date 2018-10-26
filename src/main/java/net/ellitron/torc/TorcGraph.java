@@ -124,6 +124,16 @@ public final class TorcGraph implements Graph {
   private String graphName;
   private TorcGraphTransaction torcGraphTx;
 
+  /* Set by enableTx() and disableTx(). Controls whether or not reads and writes
+   * are performed in a transaction context. TorcDB's default behavior is to
+   * automatically open a transaction upon first read/write and continue in that
+   * transaction context until commit or rollback. Sometimes it may be desired,
+   * for performance reasons or otherwise, to execute outside of a transaction
+   * context, and in that case the user may call disableTx(), after which reads
+   * and writes will execute outside any transaction context. 
+   */
+  private boolean txMode = true; // We're in transactional mode by default.
+
   boolean initialized = false;
 
   private TorcGraph(final Configuration configuration) {
@@ -228,6 +238,7 @@ public final class TorcGraph implements Graph {
 
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
     TorcHelper.legalPropertyKeyValueArray(Vertex.class, keyValues);
 
@@ -274,11 +285,17 @@ public final class TorcGraph implements Graph {
           serializedProps.length, RAMCLOUD_OBJECT_SIZE_LIMIT));
     }
 
-    rctx.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId),
-        labelByteArray);
-
-    rctx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertexId),
-        serializedProps);
+    if (txMode) {
+      rctx.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId),
+          labelByteArray);
+      rctx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertexId),
+          serializedProps);
+    } else {
+      client.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId),
+          labelByteArray);
+      client.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertexId),
+          serializedProps);
+    }
 
     return new TorcVertex(this, vertexId, label);
   }
@@ -300,6 +317,7 @@ public final class TorcGraph implements Graph {
 
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
     ElementHelper.validateMixedElementIds(TorcVertex.class, vertexIds);
 
@@ -315,8 +333,13 @@ public final class TorcGraph implements Graph {
 
           RAMCloudObject obj;
           try {
-            obj = rctx.read(vertexTableId,
-                TorcHelper.getVertexLabelKey(vertexId));
+            if (txMode) {
+              obj = rctx.read(vertexTableId,
+                  TorcHelper.getVertexLabelKey(vertexId));
+            } else {
+              obj = client.read(vertexTableId,
+                  TorcHelper.getVertexLabelKey(vertexId));
+            }
           } catch (ClientException e) {
             throw new RuntimeException(e);
           }
@@ -432,6 +455,18 @@ public final class TorcGraph implements Graph {
    * TorcGraph Specific Public Facing Methods
    *
    * *************************************************************************/
+
+  public void enableTx() {
+    txMode = true;
+  }
+
+  public void disableTx() {
+    txMode = false;
+  }
+
+  public boolean getTxMode() {
+    return txMode;
+  }
 
   public boolean isInitialized() {
     return initialized;
@@ -843,8 +878,17 @@ public final class TorcGraph implements Graph {
 
   String getLabel(TorcVertex v) {
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
-    RAMCloudObject neighborLabelRCObj =
-        rctx.read(vertexTableId, TorcHelper.getVertexLabelKey(v.id()));
+    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
+
+    RAMCloudObject neighborLabelRCObj;
+
+    if (txMode) {
+        neighborLabelRCObj = rctx.read(vertexTableId, 
+            TorcHelper.getVertexLabelKey(v.id()));
+    } else {
+        neighborLabelRCObj = client.read(vertexTableId, 
+            TorcHelper.getVertexLabelKey(v.id()));
+    }
 
     if (neighborLabelRCObj == null) {
       throw new RuntimeException("Tried to read label for vertex but " +
@@ -1030,9 +1074,16 @@ public final class TorcGraph implements Graph {
       final String[] propertyKeys) {
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
-    RAMCloudObject obj = rctx.read(vertexTableId,
+    RAMCloudObject obj;
+    if (txMode) {
+      obj  = rctx.read(vertexTableId,
         TorcHelper.getVertexPropertiesKey(vertex.id()));
+    } else {
+      obj  = client.read(vertexTableId,
+        TorcHelper.getVertexPropertiesKey(vertex.id()));
+    }
 
     Map<String, List<String>> properties;
     if (obj != null) {
@@ -1070,6 +1121,7 @@ public final class TorcGraph implements Graph {
       final V value, final Object[] keyValues) {
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
     if (!(keyValues == null || keyValues.length == 0)) {
       throw VertexProperty.Exceptions.metaPropertiesNotSupported();
@@ -1079,8 +1131,14 @@ public final class TorcGraph implements Graph {
       throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(value);
     }
 
-    RAMCloudObject obj = rctx.read(vertexTableId,
-        TorcHelper.getVertexPropertiesKey(vertex.id()));
+    RAMCloudObject obj; 
+    if (txMode) {
+      obj  = rctx.read(vertexTableId,
+          TorcHelper.getVertexPropertiesKey(vertex.id()));
+    } else {
+      obj  = client.read(vertexTableId,
+          TorcHelper.getVertexPropertiesKey(vertex.id()));
+    }
 
     Map<String, List<String>> properties;
     if (obj != null) {
@@ -1106,8 +1164,13 @@ public final class TorcGraph implements Graph {
       properties.put(key, new ArrayList<>(Arrays.asList((String) value)));
     }
 
-    rctx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()),
-        TorcHelper.serializeProperties(properties).array());
+    if (txMode) {
+      rctx.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()),
+          TorcHelper.serializeProperties(properties).array());
+    } else {
+      client.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()),
+          TorcHelper.serializeProperties(properties).array());
+    }
 
     return new TorcVertexProperty(vertex, key, value);
   }
@@ -1120,12 +1183,19 @@ public final class TorcGraph implements Graph {
       final Direction direction) {
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
     List<Vertex> list = new ArrayList<>();
 
     if (direction.equals(Direction.OUT) || direction.equals(Direction.BOTH)) {
-      RAMCloudObject obj = rctx.read(vertexTableId,
-          TorcHelper.getVertexLabelKey(edge.getV1Id()));
+      RAMCloudObject obj; 
+      if (txMode) {
+        obj  = rctx.read(vertexTableId,
+            TorcHelper.getVertexLabelKey(edge.getV1Id()));
+      } else {
+        obj  = client.read(vertexTableId,
+            TorcHelper.getVertexLabelKey(edge.getV1Id()));
+      }
 
       if (obj == null) {
         throw Graph.Exceptions.elementNotFound(TorcVertex.class,
@@ -1137,8 +1207,14 @@ public final class TorcGraph implements Graph {
     }
 
     if (direction.equals(Direction.IN) || direction.equals(Direction.BOTH)) {
-      RAMCloudObject obj = rctx.read(vertexTableId,
-          TorcHelper.getVertexLabelKey(edge.getV2Id()));
+      RAMCloudObject obj; 
+      if (txMode) {
+        obj  = rctx.read(vertexTableId,
+            TorcHelper.getVertexLabelKey(edge.getV2Id()));
+      } else {
+        obj  = client.read(vertexTableId,
+            TorcHelper.getVertexLabelKey(edge.getV2Id()));
+      }
 
       if (obj == null) {
         throw Graph.Exceptions.elementNotFound(TorcVertex.class,
