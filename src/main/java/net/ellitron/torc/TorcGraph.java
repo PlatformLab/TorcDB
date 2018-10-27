@@ -292,9 +292,9 @@ public final class TorcGraph implements Graph {
           serializedProps);
     } else {
       client.write(vertexTableId, TorcHelper.getVertexLabelKey(vertexId),
-          labelByteArray);
+          labelByteArray, null);
       client.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertexId),
-          serializedProps);
+          serializedProps, null);
     }
 
     return new TorcVertex(this, vertexId, label);
@@ -1169,7 +1169,7 @@ public final class TorcGraph implements Graph {
           TorcHelper.serializeProperties(properties).array());
     } else {
       client.write(vertexTableId, TorcHelper.getVertexPropertiesKey(vertex.id()),
-          TorcHelper.serializeProperties(properties).array());
+          TorcHelper.serializeProperties(properties).array(), null);
     }
 
     return new TorcVertexProperty(vertex, key, value);
