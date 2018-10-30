@@ -19,9 +19,12 @@ import net.ellitron.torc.util.TorcHelper;
 import net.ellitron.torc.util.UInt128;
 
 import edu.stanford.ramcloud.ClientException;
+import edu.stanford.ramcloud.RAMCloud;
 import edu.stanford.ramcloud.RAMCloudObject;
 import edu.stanford.ramcloud.RAMCloudTransaction;
 import edu.stanford.ramcloud.RAMCloudTransactionReadOp;
+import edu.stanford.ramcloud.Status;
+import edu.stanford.ramcloud.multiop.MultiReadObject;
 
 import org.apache.tinkerpop.gremlin.structure.Direction;
 
@@ -846,8 +849,8 @@ public class TorcEdgeList {
     int mark = 0;
     while (mark < numTailSegments) {
       // Read tail segments in a MultiRead
-      int batchSize = min(numTailSegments - mark, DEFAULT_MAX_ASYNC_READS);
-      MultiReadObject tailSegObjs[batchSize];
+      int batchSize = Math.min(numTailSegments - mark, DEFAULT_MAX_ASYNC_READS);
+      MultiReadObject[] tailSegObjs = new MultiReadObject[batchSize];
       for (int i = 0; i < batchSize; i++) {
         byte[] tailSegKey = getSegmentKey(keyPrefix, numTailSegments - i);
         tailSegObjs[i] = new MultiReadObject(rcTableId, tailSegKey);
@@ -1046,6 +1049,24 @@ public class TorcEdgeList {
     return edgeMap;
   }
 
+  /* Metadata we want to keep track of for MutliReadObjects. */
+  private static class MultiReadSpec {
+    public byte[] keyPrefix;
+    public UInt128 baseVertexId;
+    public String edgeLabel;
+    public Direction direction;
+    public boolean isHeadSeg;
+
+    public MultiReadSpec(byte[] keyPrefix, UInt128 baseVertexId, 
+        String edgeLabel, Direction direction, boolean isHeadSeg) {
+        this.keyPrefix = keyPrefix;
+        this.baseVertexId = baseVertexId;
+        this.edgeLabel = edgeLabel;
+        this.direction = direction;
+        this.isHeadSeg = isHeadSeg;
+    }
+  }
+
   /**
    * Batch reads in parallel all of the TorcEdges for all the given vertices.
    * This version performs the operation outside of any transaction context.
@@ -1069,126 +1090,86 @@ public class TorcEdgeList {
       List<UInt128> baseVertexIds,
       List<String> edgeLabels, 
       List<Direction> directions) {
-    Map<byte[], LinkedList<RAMCloudTransactionReadOp>> readMap = new HashMap<>();
+    LinkedList<MultiReadObject> requestQ = new LinkedList<>();
+    LinkedList<MultiReadSpec> specQ = new LinkedList<>();
     Map<byte[], List<TorcEdge>> edgeMap = new HashMap<>();
 
-    /* Async. read head segments. */
-    for (byte[] kp : keyPrefixes) {
-      LinkedList<RAMCloudTransactionReadOp> readOpList = new LinkedList<>();
-      byte[] headSegKey = getSegmentKey(kp, 0);
-      readOpList.addLast(new RAMCloudTransactionReadOp(rctx, rcTableId,
-            headSegKey, true));
-      readMap.put(kp, readOpList);
-    }
-
-    /* Process returned head segments and async. read tail segments. */
+    /* Add head segments to queue and prepare edgeMap. */
     for (int i = 0; i < keyPrefixes.size(); i++) {
-      byte[] kp = keyPrefixes.get(i);
-      UInt128 baseVertexId = baseVertexIds.get(i);
-      String edgeLabel = edgeLabels.get(i);
-      Direction direction = directions.get(i);
+      byte[] headSegKey = getSegmentKey(keyPrefixes.get(i), 0);
+      requestQ.addLast(new MultiReadObject(rcTableId, headSegKey));
+      specQ.addLast(new MultiReadSpec(keyPrefixes.get(i), 
+            baseVertexIds.get(i), edgeLabels.get(i), directions.get(i), true));
 
       List<TorcEdge> edgeList = new LinkedList<>();
-      edgeMap.put(kp, edgeList);
-
-      LinkedList<RAMCloudTransactionReadOp> readOpList = readMap.get(kp);
-      RAMCloudTransactionReadOp readOp = readOpList.removeFirst();
-      RAMCloudObject headSegObj;
-      try {
-        headSegObj = readOp.getValue();
-        if (headSegObj == null) {
-          continue;
-        }
-      } catch (ClientException e) {
-        throw new RuntimeException(e);
-      } finally {
-        readOp.close();
-      }
-
-      if (headSegObj == null) {
-        // Object does not exist.
-        continue;
-      }
-
-      ByteBuffer headSeg =
-          ByteBuffer.allocate(headSegObj.getValueBytes().length)
-          .order(ByteOrder.LITTLE_ENDIAN);
-      headSeg.put(headSegObj.getValueBytes());
-      headSeg.flip();
-
-      int numTailSegments = headSeg.getInt();
-
-      while (headSeg.hasRemaining()) {
-        byte[] neighborIdBytes = new byte[UInt128.BYTES];
-        headSeg.get(neighborIdBytes);
-
-        UInt128 neighborId = new UInt128(neighborIdBytes);
-
-        short propLen = headSeg.getShort();
-
-        byte[] serializedProperties = new byte[propLen];
-        headSeg.get(serializedProperties);
-
-        if (direction == Direction.OUT) {
-          edgeList.add(new TorcEdge(graph, baseVertexId, neighborId, edgeLabel, 
-                serializedProperties));
-        } else if (direction == Direction.IN) {
-          edgeList.add(new TorcEdge(graph, neighborId, baseVertexId, edgeLabel, 
-                serializedProperties));
-        } else {
-          throw new IllegalArgumentException("Unsupported direction type: " + direction);
-        }
-      }
-
-      /* Queue up async. reads for tail segments. */
-      for (int j = numTailSegments; j > 0; --j) {
-        byte[] tailSegKey = getSegmentKey(kp, j);
-        readOpList.addLast(new RAMCloudTransactionReadOp(rctx, rcTableId,
-              tailSegKey, true));
-      }
+      edgeMap.put(keyPrefixes.get(i), edgeList);
     }
 
-    /* Process returned tail segments. */
-    for (int i = 0; i < keyPrefixes.size(); i++) {
-      byte[] kp = keyPrefixes.get(i);
-      UInt128 baseVertexId = baseVertexIds.get(i);
-      String edgeLabel = edgeLabels.get(i);
-      Direction direction = directions.get(i);
+    /* Go through request queue and read at most MAX_ASYNC_READS at a time. */
+    while (requestQ.size() > 0) {
+      int batchSize = Math.min(requestQ.size(), DEFAULT_MAX_ASYNC_READS);
+      MultiReadObject[] requests = new MultiReadObject[batchSize];
+      for (int i = 0; i < batchSize; i++) {
+        requests[i] = requestQ.removeFirst();
+      }
 
-      List<TorcEdge> edgeList = edgeMap.get(kp);
+      client.read(requests);
 
-      LinkedList<RAMCloudTransactionReadOp> readOpList = readMap.get(kp);
+      /* Process this batch, adding more MultiReadObjects to the queue if
+       * needed. */
+      for (int i = 0; i < batchSize; i++) {
+        MultiReadSpec spec = specQ.removeFirst();
 
-      while (readOpList.size() > 0) {
-        RAMCloudTransactionReadOp readOp = readOpList.removeFirst();
-        RAMCloudObject tailSegObj = readOp.getValue();
-        readOp.close();
+        if (requests[i].getStatus() != Status.STATUS_OK) {
+          if (requests[i].getStatus() == Status.STATUS_OBJECT_DOESNT_EXIST) {
+            continue;
+          } else {
+            throw new RuntimeException("Segment had status " + 
+                requests[i].getStatus());
+          }
+        }
 
-        ByteBuffer tailSeg =
-            ByteBuffer.allocate(tailSegObj.getValueBytes().length)
+        List<TorcEdge> edgeList = edgeMap.get(spec.keyPrefix);
+
+        ByteBuffer seg =
+            ByteBuffer.allocate(requests[i].getValueBytes().length)
             .order(ByteOrder.LITTLE_ENDIAN);
-        tailSeg.put(tailSegObj.getValueBytes());
-        tailSeg.flip();
+        seg.put(requests[i].getValueBytes());
+        seg.flip();
 
-        while (tailSeg.hasRemaining()) {
+        if (spec.isHeadSeg) {
+          /* Queue up async. reads for tail segments. */
+          int numTailSegments = seg.getInt();
+          for (int j = numTailSegments; j > 0; --j) {
+            byte[] tailSegKey = getSegmentKey(spec.keyPrefix, j);
+            requestQ.addLast(new MultiReadObject(rcTableId, tailSegKey));
+            spec.isHeadSeg = false;
+            specQ.addLast(spec);
+          }
+        }
+
+        while (seg.hasRemaining()) {
           byte[] neighborIdBytes = new byte[UInt128.BYTES];
-          tailSeg.get(neighborIdBytes);
+          seg.get(neighborIdBytes);
 
           UInt128 neighborId = new UInt128(neighborIdBytes);
 
-          short propLen = tailSeg.getShort();
+          short propLen = seg.getShort();
 
           byte[] serializedProperties = new byte[propLen];
-          tailSeg.get(serializedProperties);
+          seg.get(serializedProperties);
 
-          if (direction == Direction.OUT) {
-            edgeList.add(new TorcEdge(graph, baseVertexId, neighborId, 
-                  edgeLabel, serializedProperties));
-          } else if (direction == Direction.IN) {
-            edgeList.add(new TorcEdge(graph, neighborId, baseVertexId, 
-                  edgeLabel, serializedProperties));
+          if (spec.direction == Direction.OUT) {
+            edgeList.add(new TorcEdge(graph, spec.baseVertexId, 
+                  neighborId, spec.edgeLabel, 
+                  serializedProperties));
+          } else if (spec.direction == Direction.IN) {
+            edgeList.add(new TorcEdge(graph, neighborId, 
+                  spec.baseVertexId, spec.edgeLabel, 
+                  serializedProperties));
           } else {
-            throw new IllegalArgumentException("Unsupported direction type: " + direction);
+            throw new IllegalArgumentException("Unsupported direction type: " 
+                + spec.direction);
           }
         }
       }
