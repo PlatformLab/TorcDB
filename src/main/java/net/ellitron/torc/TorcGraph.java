@@ -557,6 +557,7 @@ public final class TorcGraph implements Graph {
       final List<String> neighborLabels) {
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
     /* Build arguments to TorcEdgeList.batchRead(). */
     List<byte[]> brKeyPrefixes = new ArrayList<>();
@@ -609,9 +610,16 @@ public final class TorcGraph implements Graph {
       }
     }
 
-    Map<byte[], List<TorcEdge>> edgeListMap = TorcEdgeList.batchRead(rctx, 
-        edgeListTableId, brKeyPrefixes, this, brBaseVertexIds, brEdgeLabels, 
-        brDirections);
+    Map<byte[], List<TorcEdge>> edgeListMap;
+    if (txMode) {
+      edgeListMap = TorcEdgeList.batchRead(rctx, 
+          edgeListTableId, brKeyPrefixes, this, brBaseVertexIds, brEdgeLabels, 
+          brDirections);
+    } else {
+      edgeListMap = TorcEdgeList.batchRead(client, 
+          edgeListTableId, brKeyPrefixes, this, brBaseVertexIds, brEdgeLabels, 
+          brDirections);
+    }
     
     Map<Vertex, List<Vertex>> map = new HashMap<>();
 
@@ -669,6 +677,7 @@ public final class TorcGraph implements Graph {
       final List<String> neighborLabels) {
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
     /* Build arguments to TorcEdgeList.batchRead(). */
     List<byte[]> brKeyPrefixes = new ArrayList<>();
@@ -721,9 +730,16 @@ public final class TorcGraph implements Graph {
       }
     }
 
-    Map<byte[], List<TorcEdge>> edgeListMap = TorcEdgeList.batchRead(rctx, 
-        edgeListTableId, brKeyPrefixes, this, brBaseVertexIds, brEdgeLabels, 
-        brDirections);
+    Map<byte[], List<TorcEdge>> edgeListMap;
+    if (txMode) {
+      edgeListMap = TorcEdgeList.batchRead(rctx, 
+          edgeListTableId, brKeyPrefixes, this, brBaseVertexIds, brEdgeLabels, 
+          brDirections); 
+    } else {
+      edgeListMap = TorcEdgeList.batchRead(client, 
+          edgeListTableId, brKeyPrefixes, this, brBaseVertexIds, brEdgeLabels, 
+          brDirections);
+    }
     
     Map<Vertex, List<Edge>> map = new HashMap<>();
 
@@ -906,6 +922,7 @@ public final class TorcGraph implements Graph {
       final String edgeLabel, final Object[] keyValues) {
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
     if (vertex1 == null || vertex2 == null) {
       throw Graph.Exceptions.argumentCanNotBeNull("vertex");
@@ -958,9 +975,14 @@ public final class TorcGraph implements Graph {
           TorcHelper.getEdgeListKeyPrefix(baseVertex.id(), edgeLabel, direction,
               neighborLabel);
 
-      boolean newListCreated =
-          TorcEdgeList.prepend(rctx, edgeListTableId, keyPrefix, 
-              neighborVertex.id(), serializedProperties.array());
+      boolean newListCreated;
+      if (txMode) {
+        newListCreated = TorcEdgeList.prepend(rctx, edgeListTableId, keyPrefix, 
+            neighborVertex.id(), serializedProperties.array());
+      } else {
+        newListCreated = TorcEdgeList.prepend(client, edgeListTableId, keyPrefix, 
+            neighborVertex.id(), serializedProperties.array());
+      }
     }
 
     return new TorcEdge(this, vertex1.id(), vertex2.id(), edgeLabel,
@@ -973,13 +995,15 @@ public final class TorcGraph implements Graph {
 
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
     List<Edge> edges = new ArrayList<>();
     List<String> eLabels = Arrays.asList(edgeLabels);
     List<String> nLabels = Arrays.asList(neighborLabels);
 
     if (eLabels.isEmpty() || nLabels.isEmpty()) {
-      throw new UnsupportedOperationException("Must specify the edge labels and neighbor vertex labels when fetching vertex edges.");
+      throw new UnsupportedOperationException("Must specify the edge labels " + 
+          "and neighbor vertex labels when fetching vertex edges.");
     }
 
     List<Direction> edgeDirections = new ArrayList<>();
@@ -995,7 +1019,8 @@ public final class TorcGraph implements Graph {
         edgeDirections.add(Direction.IN);
         break;
       default:
-        throw new UnsupportedOperationException("Unknown direction type: " + direction);
+        throw new UnsupportedOperationException("Unknown direction type: " + 
+            direction);
     }
 
     for (String edgeLabel : eLabels) {
@@ -1004,8 +1029,14 @@ public final class TorcGraph implements Graph {
           byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(vertex.id(), 
               edgeLabel, dir, neighborLabel);
 
-          List<TorcEdge> edgeList = TorcEdgeList.read(rctx, edgeListTableId, 
-              keyPrefix, this, vertex.id(), edgeLabel, dir);
+          List<TorcEdge> edgeList;
+          if (txMode) {
+            edgeList = TorcEdgeList.read(rctx, edgeListTableId, 
+                keyPrefix, this, vertex.id(), edgeLabel, dir);
+          } else {
+            edgeList = TorcEdgeList.read(client, edgeListTableId, 
+                keyPrefix, this, vertex.id(), edgeLabel, dir);
+          }
 
           edges.addAll(edgeList);
         }
@@ -1020,6 +1051,7 @@ public final class TorcGraph implements Graph {
       final String[] neighborLabels) {
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
     List<Vertex> vertices = new ArrayList<>();
     List<String> eLabels = Arrays.asList(edgeLabels);
@@ -1051,8 +1083,14 @@ public final class TorcGraph implements Graph {
           byte[] keyPrefix = TorcHelper.getEdgeListKeyPrefix(vertex.id(), 
               edgeLabel, dir, neighborLabel);
 
-          List<TorcEdge> edgeList = TorcEdgeList.read(rctx, edgeListTableId, 
-              keyPrefix, this, vertex.id(), edgeLabel, dir);
+          List<TorcEdge> edgeList;
+          if (txMode) {
+            edgeList = TorcEdgeList.read(rctx, edgeListTableId, 
+                keyPrefix, this, vertex.id(), edgeLabel, dir);
+          } else {
+            edgeList = TorcEdgeList.read(client, edgeListTableId, 
+                keyPrefix, this, vertex.id(), edgeLabel, dir);
+          }
 
           for (TorcEdge edge : edgeList) {
             if (dir == Direction.OUT) {
