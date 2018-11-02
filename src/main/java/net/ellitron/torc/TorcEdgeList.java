@@ -128,6 +128,11 @@ public class TorcEdgeList {
    */
   private static final int DEFAULT_MAX_ASYNC_READS = 1 << 7;
 
+  /*
+   * Limit placed on the maximum size of multireads.
+   */
+  private static final int DEFAULT_MAX_MULTIREAD_SIZE = 1 << 10;
+
   public static boolean prepend(
       RAMCloudTransaction rctx,
       long rcTableId,
@@ -849,7 +854,7 @@ public class TorcEdgeList {
     int mark = 0;
     while (mark < numTailSegments) {
       // Read tail segments in a MultiRead
-      int batchSize = Math.min(numTailSegments - mark, DEFAULT_MAX_ASYNC_READS);
+      int batchSize = Math.min(numTailSegments - mark, DEFAULT_MAX_MULTIREAD_SIZE);
       MultiReadObject[] tailSegObjs = new MultiReadObject[batchSize];
       for (int i = 0; i < batchSize; i++) {
         byte[] tailSegKey = getSegmentKey(keyPrefix, numTailSegments - i);
@@ -1107,7 +1112,7 @@ public class TorcEdgeList {
 
     /* Go through request queue and read at most MAX_ASYNC_READS at a time. */
     while (requestQ.size() > 0) {
-      int batchSize = Math.min(requestQ.size(), DEFAULT_MAX_ASYNC_READS);
+      int batchSize = Math.min(requestQ.size(), DEFAULT_MAX_MULTIREAD_SIZE);
       MultiReadObject[] requests = new MultiReadObject[batchSize];
       for (int i = 0; i < batchSize; i++) {
         requests[i] = requestQ.removeFirst();
