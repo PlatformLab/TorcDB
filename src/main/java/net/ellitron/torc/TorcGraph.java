@@ -397,6 +397,14 @@ public final class TorcGraph implements Graph {
   }
 
   /**
+   * Expose RamCloud client to application for testing, probing, debugging, and
+   * statistics gathering purposes.
+   */
+  public RAMCloud ramcloud() {
+    return threadLocalClientMap.get(Thread.currentThread());
+  }
+
+  /**
    * Closes the thread-local transaction (if it is open), and closes the
    * thread-local connection to RAMCloud (if one has been made). This may
    * affect the state of the graph in RAMCloud depending on the close behavior
