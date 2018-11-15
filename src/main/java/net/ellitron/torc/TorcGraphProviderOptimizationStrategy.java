@@ -68,7 +68,13 @@ public final class TorcGraphProviderOptimizationStrategy extends
         TraversalHelper.replaceStep(originalVertexStep, torcVertexStep,
             traversal);
 
-        // Seach for a hasLabel step with which to add neighbor labels
+        // Seach for a hasLabel step with which to add neighbor labels. For
+        // out() and in() steps, the very next step will generally be the
+        // hasLabel() step, however for outE() and inE() steps the hasLabel()
+        // step will generally follow the inV() and outV() steps... so from the
+        // standpoint of the outE() and inE() VertexSteps, the hasLabel() comes
+        // later on down the line. Thus, we need to search head for it in some
+        // cases.
         Step<?, ?> currentStep = torcVertexStep;
         for (int i = 0; i < 5; i++) {
           currentStep = currentStep.getNextStep();
