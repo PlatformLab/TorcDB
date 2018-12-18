@@ -476,6 +476,10 @@ public final class TorcGraph implements Graph {
     return txMode;
   }
 
+  public RAMCloud getClient() {
+    return threadLocalClientMap.get(Thread.currentThread());
+  }
+
   public boolean isInitialized() {
     return initialized;
   }
