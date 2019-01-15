@@ -15,6 +15,8 @@
  */
 package net.ellitron.torc.util;
 
+import net.ellitron.torc.*;
+
 import edu.stanford.ramcloud.RAMCloudObject;
 
 import org.apache.tinkerpop.gremlin.structure.Direction;
@@ -30,6 +32,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 /**
  *
@@ -322,15 +326,15 @@ public class TorcHelper {
    *
    * @return List of all unique neighbor vertices.
    */
-  public static List<Vertex> neighborList(
-      Map<Vertex, List<Vertex>> vMap) {
-    Set<Vertex> set = new HashSet<Vertex>();
+  public static List<TorcVertex> neighborList(
+      Map<TorcVertex, List<TorcVertex>> vMap) {
+    Set<TorcVertex> set = new HashSet<TorcVertex>();
     for (Map.Entry e : vMap.entrySet()) {
-        List<Vertex> list = e.getValue();
+        List<TorcVertex> list = (List<TorcVertex>)e.getValue();
         set.addAll(list);
     }
 
-    List<Vertex> list = new ArrayList<Vertex>(set.size());
+    List<TorcVertex> list = new ArrayList<TorcVertex>(set.size());
     list.addAll(set);
 
     return list;

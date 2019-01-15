@@ -464,21 +464,21 @@ public final class TorcGraph implements Graph {
    *
    * *************************************************************************/
 
-  public Map<Vertex, List<Vertex>> traverse(
-      Vertex v, 
+  public Map<TorcVertex, List<TorcVertex>> getVertices(
+      TorcVertex v, 
       String edgeLabel, 
       Direction dir, 
-      String ... neighborLabel) {
-    return traverse(Arrays.asList(v), edgeLabel, dir, neighborLabel);
+      String ... neighborLabels) {
+    return getVertices(Arrays.asList(v), edgeLabel, dir, neighborLabels);
   }
 
-  public Map<Vertex, List<Vertex>> traverse(
-      Map<Vertex, List<Vertex>> vMap, 
+  public Map<TorcVertex, List<TorcVertex>> getVertices(
+      Map<TorcVertex, List<TorcVertex>> vMap, 
       String edgeLabel, 
       Direction dir, 
-      String ... neighborLabel) {
-    return traverse(TorcHelper.neighborList(vMap), edgeLabel, dir, 
-        neighborLabel);
+      String ... neighborLabels) {
+    return getVertices(TorcHelper.neighborList(vMap), edgeLabel, dir, 
+        neighborLabels);
   }
 
   /** 
@@ -492,12 +492,152 @@ public final class TorcGraph implements Graph {
    *
    * @return Map from start vertices to their neighbors.
    */
-  public Map<Vertex, List<Vertex>> traverse(
-      List<Vertex> vList, 
+  public Map<TorcVertex, List<TorcVertex>> getVertices(
+      List<TorcVertex> vList, 
       String edgeLabel, 
       Direction dir, 
-      String ... neighborLabel) {
+      String ... neighborLabels) {
+    torcGraphTx.readWrite();
+    RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
+    /* Build arguments to TorcEdgeList.batchRead(). */
+    List<byte[]> keyPrefixes = new ArrayList<>(vList.size());
+
+    for (TorcVertex vertex : vList) {
+      for (String neighborLabel : neighborLabels) {
+        keyPrefixes.add(TorcHelper.getEdgeListKeyPrefix(vertex.id(), 
+              edgeLabel, dir, neighborLabel));
+      }
+    }
+
+    Map<byte[], List<TorcSerializedEdge>> serEdgeLists;
+    if (txMode) {
+      serEdgeLists = TorcEdgeList.batchRead(rctx, edgeListTableId, keyPrefixes);
+    } else {
+      serEdgeLists = TorcEdgeList.batchRead(client, edgeListTableId, keyPrefixes);
+    }
+    
+    Map<TorcVertex, List<TorcVertex>> neighborListMap = new HashMap<>();
+
+    int i = 0;
+    for (TorcVertex vertex : vList) {
+      for (String neighborLabel : neighborLabels) {
+        byte[] keyPrefix = keyPrefixes.get(i);
+
+        List<TorcSerializedEdge> serEdgeList = serEdgeLists.get(keyPrefix);
+
+        List<TorcVertex> neighborList;
+        if (neighborListMap.containsKey(vertex)) {
+          neighborList = neighborListMap.get(vertex);
+        } else {
+          neighborList = new ArrayList<>(serEdgeList.size());
+          neighborListMap.put(vertex, neighborList);
+        }
+
+        for (TorcSerializedEdge serEdge : serEdgeList) {
+          neighborList.add(new TorcVertex(this, serEdge.vertexId, neighborLabel));
+        }
+
+        i++;
+      }
+    }    
+
+    return neighborListMap;
+  }
+
+  public Map<TorcVertex, List<TorcEdge>> getEdges(
+      TorcVertex v, 
+      String edgeLabel, 
+      Direction dir, 
+      String ... neighborLabels) {
+    return getEdges(Arrays.asList(v), edgeLabel, dir, neighborLabels);
+  }
+
+  public Map<TorcVertex, List<TorcEdge>> getEdges(
+      Map<TorcVertex, List<TorcVertex>> vMap, 
+      String edgeLabel, 
+      Direction dir, 
+      String ... neighborLabels) {
+    return getEdges(TorcHelper.neighborList(vMap), edgeLabel, dir, 
+        neighborLabels);
+  }
+
+  /** 
+   * Traverses an edge type for a set of vertices and returns a mapping from the
+   * argument vertices to their list of incident edges.
+   *
+   * @param vList List of vertices to start from.
+   * @param edgeLabel Label of edge to traverse.
+   * @param dir Direction of edge.
+   * @param neighborLabel Label of neighbor vertices.
+   *
+   * @return Map from start vertices to their incident edges.
+   */
+  public Map<TorcVertex, List<TorcEdge>> getEdges(
+      List<TorcVertex> vList, 
+      String edgeLabel, 
+      Direction dir, 
+      String ... neighborLabels) {
+    torcGraphTx.readWrite();
+    RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
+
+    /* Build arguments to TorcEdgeList.batchRead(). */
+    List<byte[]> keyPrefixes = new ArrayList<>(vList.size());
+
+    for (TorcVertex vertex : vList) {
+      for (String neighborLabel : neighborLabels) {
+        keyPrefixes.add(TorcHelper.getEdgeListKeyPrefix(vertex.id(), 
+              edgeLabel, dir, neighborLabel));
+      }
+    }
+
+    Map<byte[], List<TorcSerializedEdge>> serEdgeLists;
+    if (txMode) {
+      serEdgeLists = TorcEdgeList.batchRead(rctx, edgeListTableId, keyPrefixes);
+    } else {
+      serEdgeLists = TorcEdgeList.batchRead(client, edgeListTableId, keyPrefixes);
+    }
+    
+    Map<TorcVertex, List<TorcEdge>> edgeListMap = new HashMap<>();
+
+    int i = 0;
+    for (TorcVertex vertex : vList) {
+      for (String neighborLabel : neighborLabels) {
+        byte[] keyPrefix = keyPrefixes.get(i);
+
+        List<TorcSerializedEdge> serEdgeList = serEdgeLists.get(keyPrefix);
+
+        List<TorcEdge> edgeList;
+        if (edgeListMap.containsKey(vertex)) {
+          edgeList = edgeListMap.get(vertex);
+        } else {
+          edgeList = new ArrayList<>(serEdgeList.size());
+          edgeListMap.put(vertex, edgeList);
+        }
+
+        for (TorcSerializedEdge serEdge : serEdgeList) {
+          if (dir == Direction.OUT) {
+            edgeList.add(new TorcEdge(this, 
+                  vertex, 
+                  new TorcVertex(this, serEdge.vertexId, neighborLabel),
+                  edgeLabel, 
+                  serEdge.serializedProperties));
+          } else {
+            edgeList.add(new TorcEdge(this, 
+                  new TorcVertex(this, serEdge.vertexId, neighborLabel),
+                  vertex, 
+                  edgeLabel, 
+                  serEdge.serializedProperties));
+          }
+        }
+
+        i++;
+      }
+    }
+
+    return edgeListMap;
   }
 
   public void enableTx() {

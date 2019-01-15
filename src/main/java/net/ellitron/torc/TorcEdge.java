@@ -38,8 +38,8 @@ import java.util.*;
 public class TorcEdge implements Edge, Element {
 
   private final TorcGraph graph;
-  private final UInt128 v1Id;
-  private final UInt128 v2Id;
+  private final TorcVertex v1;
+  private final TorcVertex v2;
   private String label;
   private ByteBuffer serializedProperties = null;
   private Map<String, List<String>> properties = null;
@@ -79,8 +79,8 @@ public class TorcEdge implements Edge, Element {
      */
     @Override
     public String toString() {
-      return String.format("(%s,%s,%s)", v1Id.toString(),
-          v2Id.toString(), label);
+      return String.format("(%s,%s,%s)", getV1Id().toString(),
+          getV2Id().toString(), label);
     }
 
     /**
@@ -99,8 +99,8 @@ public class TorcEdge implements Edge, Element {
 
       TorcEdge thatEdge = ((Id) that).getEdge();
 
-      return v1Id.equals(thatEdge.v1Id)
-          && v2Id.equals(thatEdge.v2Id)
+      return getV1Id().equals(thatEdge.getV1Id())
+          && getV2Id().equals(thatEdge.getV2Id())
           && label.equals(thatEdge.label);
     }
 
@@ -110,8 +110,8 @@ public class TorcEdge implements Edge, Element {
     @Override
     public int hashCode() {
       int hash = 3;
-      hash = 59 * hash + Objects.hashCode(v1Id);
-      hash = 59 * hash + Objects.hashCode(v2Id);
+      hash = 59 * hash + Objects.hashCode(getV1Id());
+      hash = 59 * hash + Objects.hashCode(getV2Id());
       hash = 59 * hash + Objects.hashCode(label);
       return hash;
     }
@@ -120,8 +120,16 @@ public class TorcEdge implements Edge, Element {
   public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
       final String label) {
     this.graph = graph;
-    this.v1Id = v1Id;
-    this.v2Id = v2Id;
+    this.v1 = new TorcVertex(graph, v1Id);
+    this.v2 = new TorcVertex(graph, v2Id);
+    this.label = label;
+  }
+
+  public TorcEdge(final TorcGraph graph, TorcVertex v1, TorcVertex v2,
+      final String label) {
+    this.graph = graph;
+    this.v1 = v1;
+    this.v2 = v2;
     this.label = label;
   }
 
@@ -140,6 +148,13 @@ public class TorcEdge implements Edge, Element {
   public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
       final String label, byte[] serializedProperties) {
     this(graph, v1Id, v2Id, label);
+    this.serializedProperties = ByteBuffer.wrap(serializedProperties)
+        .order(ByteOrder.LITTLE_ENDIAN);
+  }
+
+  public TorcEdge(final TorcGraph graph, TorcVertex v1, TorcVertex v2,
+      final String label, byte[] serializedProperties) {
+    this(graph, v1, v2, label);
     this.serializedProperties = ByteBuffer.wrap(serializedProperties)
         .order(ByteOrder.LITTLE_ENDIAN);
   }
@@ -184,7 +199,7 @@ public class TorcEdge implements Edge, Element {
    * @return Vertex ID.
    */
   public UInt128 getV1Id() {
-    return v1Id;
+    return v1.id();
   }
 
   /**
@@ -195,7 +210,7 @@ public class TorcEdge implements Edge, Element {
    * @return Vertex ID.
    */
   public UInt128 getV2Id() {
-    return v2Id;
+    return v2.id();
   }
 
   /**
@@ -307,8 +322,8 @@ public class TorcEdge implements Edge, Element {
     TorcEdge thatEdge = (TorcEdge) that;
 
     return this.graph.equals(thatEdge.graph)
-        && this.v1Id.equals(thatEdge.v1Id)
-        && this.v2Id.equals(thatEdge.v2Id)
+        && this.getV1Id().equals(thatEdge.getV1Id())
+        && this.getV2Id().equals(thatEdge.getV2Id())
         && this.label.equals(thatEdge.label);
   }
 

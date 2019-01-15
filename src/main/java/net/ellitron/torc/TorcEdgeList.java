@@ -1054,6 +1054,125 @@ public class TorcEdgeList {
     return edgeMap;
   }
 
+  /**
+   * Batch reads in parallel all of the edges for all the given vertices.
+   *
+   * @param rctx RAMCloud transaction in which to perform the operation.
+   * @param rcTableId The table in which the edge list is (to be) stored.
+   * @param keyPrefix List of key prefixes for the edge lists.
+   *
+   * @return List of all the edges contained in the edge lists.
+   */
+  public static Map<byte[], List<TorcSerializedEdge>> batchRead(
+      RAMCloudTransaction rctx,
+      long rcTableId,
+      List<byte[]> keyPrefixes) {
+    Map<byte[], LinkedList<RAMCloudTransactionReadOp>> readMap = new HashMap<>();
+    Map<byte[], List<TorcSerializedEdge>> eListMap = new HashMap<>();
+
+    /* Async. read head segments. */
+    for (byte[] kp : keyPrefixes) {
+      LinkedList<RAMCloudTransactionReadOp> readOpList = new LinkedList<>();
+      byte[] headSegKey = getSegmentKey(kp, 0);
+      readOpList.addLast(new RAMCloudTransactionReadOp(rctx, rcTableId,
+            headSegKey, true));
+      readMap.put(kp, readOpList);
+    }
+
+    /* Process returned head segments and async. read tail segments. */
+    for (int i = 0; i < keyPrefixes.size(); i++) {
+      byte[] kp = keyPrefixes.get(i);
+
+      List<TorcSerializedEdge> eList = new LinkedList<>();
+      eListMap.put(kp, eList);
+
+      LinkedList<RAMCloudTransactionReadOp> readOpList = readMap.get(kp);
+      RAMCloudTransactionReadOp readOp = readOpList.removeFirst();
+      RAMCloudObject headSegObj;
+      try {
+        headSegObj = readOp.getValue();
+        if (headSegObj == null) {
+          continue;
+        }
+      } catch (ClientException e) {
+        throw new RuntimeException(e);
+      } finally {
+        readOp.close();
+      }
+
+      if (headSegObj == null) {
+        // Object does not exist.
+        continue;
+      }
+
+      ByteBuffer headSeg =
+          ByteBuffer.allocate(headSegObj.getValueBytes().length)
+          .order(ByteOrder.LITTLE_ENDIAN);
+      headSeg.put(headSegObj.getValueBytes());
+      headSeg.flip();
+
+      int numTailSegments = headSeg.getInt();
+
+      while (headSeg.hasRemaining()) {
+        byte[] neighborIdBytes = new byte[UInt128.BYTES];
+        headSeg.get(neighborIdBytes);
+
+        UInt128 neighborId = new UInt128(neighborIdBytes);
+
+        short propLen = headSeg.getShort();
+
+        byte[] serializedProperties = new byte[propLen];
+        headSeg.get(serializedProperties);
+
+        eList.add(new TorcSerializedEdge(serializedProperties, neighborId));
+      }
+
+      /* Queue up async. reads for tail segments. */
+      for (int j = numTailSegments; j > 0; --j) {
+        byte[] tailSegKey = getSegmentKey(kp, j);
+        readOpList.addLast(new RAMCloudTransactionReadOp(rctx, rcTableId,
+              tailSegKey, true));
+      }
+    }
+
+    /* Process returned tail segments. */
+    for (int i = 0; i < keyPrefixes.size(); i++) {
+      byte[] kp = keyPrefixes.get(i);
+
+      List<TorcSerializedEdge> eList = eListMap.get(kp);
+
+      LinkedList<RAMCloudTransactionReadOp> readOpList = readMap.get(kp);
+
+      while (readOpList.size() > 0) {
+        RAMCloudTransactionReadOp readOp = readOpList.removeFirst();
+        RAMCloudObject tailSegObj = readOp.getValue();
+        readOp.close();
+
+        ByteBuffer tailSeg =
+            ByteBuffer.allocate(tailSegObj.getValueBytes().length)
+            .order(ByteOrder.LITTLE_ENDIAN);
+        tailSeg.put(tailSegObj.getValueBytes());
+        tailSeg.flip();
+
+        while (tailSeg.hasRemaining()) {
+          byte[] neighborIdBytes = new byte[UInt128.BYTES];
+          tailSeg.get(neighborIdBytes);
+
+          UInt128 neighborId = new UInt128(neighborIdBytes);
+
+          short propLen = tailSeg.getShort();
+
+          byte[] serializedProperties = new byte[propLen];
+          tailSeg.get(serializedProperties);
+
+          eList.add(new TorcSerializedEdge(serializedProperties, neighborId));
+        }
+      }
+    }
+
+    return eListMap;
+  }
+
   /* Metadata we want to keep track of for MutliReadObjects. */
   private static class MultiReadSpec {
     public byte[] keyPrefix;
@@ -1181,6 +1300,97 @@ public class TorcEdgeList {
     }
 
     return edgeMap;
+  }
+
+  /**
+   * Batch reads in parallel all of the edges for all the given vertices.
+   * This version performs the operation outside of any transaction context.
+   *
+   * @param client RAMCloud client to use to perform the operation.
+   * @param rcTableId The table in which the edge list is (to be) stored.
+   * @param keyPrefix List of key prefixes for the edge lists.
+   *
+   * @return List of all the TorcEdges contained in the edge lists.
+   */ 
+  public static Map<byte[], List<TorcSerializedEdge>> batchRead(
+      RAMCloud client,
+      long rcTableId,
+      List<byte[]> keyPrefixes) {
+    LinkedList<MultiReadObject> requestQ = new LinkedList<>();
+    LinkedList<MultiReadSpec> specQ = new LinkedList<>();
+    Map<byte[], List<TorcSerializedEdge>> eListMap = new HashMap<>();
+
+    /* Add head segments to queue and prepare edgeMap. */
+    for (int i = 0; i < keyPrefixes.size(); i++) {
+      byte[] headSegKey = getSegmentKey(keyPrefixes.get(i), 0);
+      requestQ.addLast(new MultiReadObject(rcTableId, headSegKey));
+      specQ.addLast(new MultiReadSpec(keyPrefixes.get(i), 
+            null, null, null, true));
+
+      List<TorcSerializedEdge> eList = new LinkedList<>();
+      eListMap.put(keyPrefixes.get(i), eList);
+    }
+
+    /* Go through request queue and read at most MAX_ASYNC_READS at a time. */
+    while (requestQ.size() > 0) {
+      int batchSize = Math.min(requestQ.size(), DEFAULT_MAX_MULTIREAD_SIZE);
+      MultiReadObject[] requests = new MultiReadObject[batchSize];
+      for (int i = 0; i < batchSize; i++) {
+        requests[i] = requestQ.removeFirst();
+      }
+
+      client.read(requests);
+
+      /* Process this batch, adding more MultiReadObjects to the queue if
+       * needed. */
+      for (int i = 0; i < batchSize; i++) {
+        MultiReadSpec spec = specQ.removeFirst();
+
+        if (requests[i].getStatus() != Status.STATUS_OK) {
+          if (requests[i].getStatus() == Status.STATUS_OBJECT_DOESNT_EXIST) {
+            continue;
+          } else {
+            throw new RuntimeException("Segment had status " + 
+                requests[i].getStatus());
+          }
+        }
+
+        List<TorcSerializedEdge> eList = eListMap.get(spec.keyPrefix);
+
+        ByteBuffer seg =
+            ByteBuffer.allocate(requests[i].getValueBytes().length)
+            .order(ByteOrder.LITTLE_ENDIAN);
+        seg.put(requests[i].getValueBytes());
+        seg.flip();
+
+        if (spec.isHeadSeg) {
+          /* Queue up async. reads for tail segments. */
+          int numTailSegments = seg.getInt();
+          for (int j = numTailSegments; j > 0; --j) {
+            byte[] tailSegKey = getSegmentKey(spec.keyPrefix, j);
+            requestQ.addLast(new MultiReadObject(rcTableId, tailSegKey));
+            spec.isHeadSeg = false;
+            specQ.addLast(spec);
+          }
+        }
+
+        while (seg.hasRemaining()) {
+          byte[] neighborIdBytes = new byte[UInt128.BYTES];
+          seg.get(neighborIdBytes);
+
+          UInt128 neighborId = new UInt128(neighborIdBytes);
+
+          short propLen = seg.getShort();
+
+          byte[] serializedProperties = new byte[propLen];
+          seg.get(serializedProperties);
+
+          eList.add(new TorcSerializedEdge(serializedProperties, neighborId));
+        }
+      }
+    }
+
+    return eListMap;
   }
 
   /**
