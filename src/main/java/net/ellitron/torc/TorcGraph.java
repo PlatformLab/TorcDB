@@ -464,6 +464,42 @@ public final class TorcGraph implements Graph {
    *
    * *************************************************************************/
 
+  public Map<Vertex, List<Vertex>> traverse(
+      Vertex v, 
+      String edgeLabel, 
+      Direction dir, 
+      String ... neighborLabel) {
+    return traverse(Arrays.asList(v), edgeLabel, dir, neighborLabel);
+  }
+
+  public Map<Vertex, List<Vertex>> traverse(
+      Map<Vertex, List<Vertex>> vMap, 
+      String edgeLabel, 
+      Direction dir, 
+      String ... neighborLabel) {
+    return traverse(TorcHelper.neighborList(vMap), edgeLabel, dir, 
+        neighborLabel);
+  }
+
+  /** 
+   * Traverses an edge type for a set of vertices and returns a mapping from the
+   * argument vertices to their list of neighbor vertices.
+   *
+   * @param vList List of vertices to start from.
+   * @param edgeLabel Label of edge to traverse.
+   * @param dir Direction of edge.
+   * @param neighborLabel Label of neighbor vertices.
+   *
+   * @return Map from start vertices to their neighbors.
+   */
+  public Map<Vertex, List<Vertex>> traverse(
+      List<Vertex> vList, 
+      String edgeLabel, 
+      Direction dir, 
+      String ... neighborLabel) {
+
+  }
+
   public void enableTx() {
     txMode = true;
   }

@@ -314,4 +314,25 @@ public class TorcHelper {
     buffer.put(vertexLabelByteArray);
     return buffer.array();
   }
+
+  /** 
+   * Given a traversal map, return a list of all the unique neighbors.
+   *
+   * @param vMap Map of neighbors
+   *
+   * @return List of all unique neighbor vertices.
+   */
+  public static List<Vertex> neighborList(
+      Map<Vertex, List<Vertex>> vMap) {
+    Set<Vertex> set = new HashSet<Vertex>();
+    for (Map.Entry e : vMap.entrySet()) {
+        List<Vertex> list = e.getValue();
+        set.addAll(list);
+    }
+
+    List<Vertex> list = new ArrayList<Vertex>(set.size());
+    list.addAll(set);
+
+    return list;
+  }
 }
