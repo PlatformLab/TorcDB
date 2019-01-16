@@ -1083,9 +1083,6 @@ public class TorcEdgeList {
     for (int i = 0; i < keyPrefixes.size(); i++) {
       byte[] kp = keyPrefixes.get(i);
 
-      List<TorcSerializedEdge> eList = new LinkedList<>();
-      eListMap.put(kp, eList);
-
       LinkedList<RAMCloudTransactionReadOp> readOpList = readMap.get(kp);
       RAMCloudTransactionReadOp readOp = readOpList.removeFirst();
       RAMCloudObject headSegObj;
@@ -1113,6 +1110,11 @@ public class TorcEdgeList {
 
       int numTailSegments = headSeg.getInt();
 
+      if (headSeg.hasRemaining()) {
+        List<TorcSerializedEdge> eList = new LinkedList<>();
+        eListMap.put(kp, eList);
+      }
+
       while (headSeg.hasRemaining()) {
         byte[] neighborIdBytes = new byte[UInt128.BYTES];
         headSeg.get(neighborIdBytes);
@@ -1139,9 +1141,12 @@ public class TorcEdgeList {
     for (int i = 0; i < keyPrefixes.size(); i++) {
       byte[] kp = keyPrefixes.get(i);
 
-      List<TorcSerializedEdge> eList = eListMap.get(kp);
-
       LinkedList<RAMCloudTransactionReadOp> readOpList = readMap.get(kp);
+
+      List<TorcSerializedEdge> eList;
+      if (readOpList.size() > 0) {
+        eList = eListMap.get(kp);
+      }
 
       while (readOpList.size() > 0) {
         RAMCloudTransactionReadOp readOp = readOpList.removeFirst();
@@ -1326,9 +1331,6 @@ public class TorcEdgeList {
       requestQ.addLast(new MultiReadObject(rcTableId, headSegKey));
       specQ.addLast(new MultiReadSpec(keyPrefixes.get(i), 
             null, null, null, true));
-
-      List<TorcSerializedEdge> eList = new LinkedList<>();
-      eListMap.put(keyPrefixes.get(i), eList);
     }
 
     /* Go through request queue and read at most MAX_ASYNC_READS at a time. */
@@ -1355,7 +1357,13 @@ public class TorcEdgeList {
           }
         }
 
-        List<TorcSerializedEdge> eList = eListMap.get(spec.keyPrefix);
+        List<TorcSerializedEdge> eList;
+        if (eListMap.containsKey(spec.keyPrefix)) {
+          eList = eListMap.get(spec.keyPrefix);
+        } else {
+          eList = new LinkedList<>();
+          eListMap.put(spec.keyPrefix, eList);
+        }
 
         ByteBuffer seg =
             ByteBuffer.allocate(requests[i].getValueBytes().length)
