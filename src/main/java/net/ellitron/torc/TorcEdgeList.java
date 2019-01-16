@@ -1113,20 +1113,20 @@ public class TorcEdgeList {
       if (headSeg.hasRemaining()) {
         List<TorcSerializedEdge> eList = new LinkedList<>();
         eListMap.put(kp, eList);
-      }
 
-      while (headSeg.hasRemaining()) {
-        byte[] neighborIdBytes = new byte[UInt128.BYTES];
-        headSeg.get(neighborIdBytes);
+        while (headSeg.hasRemaining()) {
+          byte[] neighborIdBytes = new byte[UInt128.BYTES];
+          headSeg.get(neighborIdBytes);
 
-        UInt128 neighborId = new UInt128(neighborIdBytes);
+          UInt128 neighborId = new UInt128(neighborIdBytes);
 
-        short propLen = headSeg.getShort();
+          short propLen = headSeg.getShort();
 
-        byte[] serializedProperties = new byte[propLen];
-        headSeg.get(serializedProperties);
+          byte[] serializedProperties = new byte[propLen];
+          headSeg.get(serializedProperties);
 
-        eList.add(new TorcSerializedEdge(serializedProperties, neighborId));
+          eList.add(new TorcSerializedEdge(serializedProperties, neighborId));
+        }
       }
 
       /* Queue up async. reads for tail segments. */
@@ -1143,34 +1143,33 @@ public class TorcEdgeList {
 
       LinkedList<RAMCloudTransactionReadOp> readOpList = readMap.get(kp);
 
-      List<TorcSerializedEdge> eList;
       if (readOpList.size() > 0) {
-        eList = eListMap.get(kp);
-      }
+        List<TorcSerializedEdge> eList = eListMap.get(kp);
 
-      while (readOpList.size() > 0) {
-        RAMCloudTransactionReadOp readOp = readOpList.removeFirst();
-        RAMCloudObject tailSegObj = readOp.getValue();
-        readOp.close();
+        while (readOpList.size() > 0) {
+          RAMCloudTransactionReadOp readOp = readOpList.removeFirst();
+          RAMCloudObject tailSegObj = readOp.getValue();
+          readOp.close();
 
-        ByteBuffer tailSeg =
-            ByteBuffer.allocate(tailSegObj.getValueBytes().length)
-            .order(ByteOrder.LITTLE_ENDIAN);
-        tailSeg.put(tailSegObj.getValueBytes());
-        tailSeg.flip();
+          ByteBuffer tailSeg =
+              ByteBuffer.allocate(tailSegObj.getValueBytes().length)
+              .order(ByteOrder.LITTLE_ENDIAN);
+          tailSeg.put(tailSegObj.getValueBytes());
+          tailSeg.flip();
 
-        while (tailSeg.hasRemaining()) {
-          byte[] neighborIdBytes = new byte[UInt128.BYTES];
-          tailSeg.get(neighborIdBytes);
+          while (tailSeg.hasRemaining()) {
+            byte[] neighborIdBytes = new byte[UInt128.BYTES];
+            tailSeg.get(neighborIdBytes);
 
-          UInt128 neighborId = new UInt128(neighborIdBytes);
+            UInt128 neighborId = new UInt128(neighborIdBytes);
 
-          short propLen = tailSeg.getShort();
+            short propLen = tailSeg.getShort();
 
-          byte[] serializedProperties = new byte[propLen];
-          tailSeg.get(serializedProperties);
+            byte[] serializedProperties = new byte[propLen];
+            tailSeg.get(serializedProperties);
 
-          eList.add(new TorcSerializedEdge(serializedProperties, neighborId));
+            eList.add(new TorcSerializedEdge(serializedProperties, neighborId));
+          }
         }
       }
     }

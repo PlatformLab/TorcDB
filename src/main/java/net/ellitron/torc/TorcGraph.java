@@ -525,21 +525,23 @@ public final class TorcGraph implements Graph {
       for (String neighborLabel : neighborLabels) {
         byte[] keyPrefix = keyPrefixes.get(i);
 
-        List<TorcSerializedEdge> serEdgeList = serEdgeLists.get(keyPrefix);
+        if (serEdgeLists.containsKey(keyPrefix)) {
+          List<TorcSerializedEdge> serEdgeList = serEdgeLists.get(keyPrefix);
 
-        List<TorcVertex> neighborList;
-        if (neighborListMap.containsKey(vertex)) {
-          neighborList = neighborListMap.get(vertex);
-        } else {
-          neighborList = new ArrayList<>(serEdgeList.size());
-          neighborListMap.put(vertex, neighborList);
+          List<TorcVertex> neighborList;
+          if (neighborListMap.containsKey(vertex)) {
+            neighborList = neighborListMap.get(vertex);
+          } else {
+            neighborList = new ArrayList<>(serEdgeList.size());
+            neighborListMap.put(vertex, neighborList);
+          }
+
+          for (TorcSerializedEdge serEdge : serEdgeList) {
+            neighborList.add(new TorcVertex(this, serEdge.vertexId, neighborLabel));
+          }
+
+          i++;
         }
-
-        for (TorcSerializedEdge serEdge : serEdgeList) {
-          neighborList.add(new TorcVertex(this, serEdge.vertexId, neighborLabel));
-        }
-
-        i++;
       }
     }    
 
@@ -607,33 +609,35 @@ public final class TorcGraph implements Graph {
       for (String neighborLabel : neighborLabels) {
         byte[] keyPrefix = keyPrefixes.get(i);
 
-        List<TorcSerializedEdge> serEdgeList = serEdgeLists.get(keyPrefix);
+        if (serEdgeLists.containsKey(keyPrefix)) {
+          List<TorcSerializedEdge> serEdgeList = serEdgeLists.get(keyPrefix);
 
-        List<TorcEdge> edgeList;
-        if (edgeListMap.containsKey(vertex)) {
-          edgeList = edgeListMap.get(vertex);
-        } else {
-          edgeList = new ArrayList<>(serEdgeList.size());
-          edgeListMap.put(vertex, edgeList);
-        }
-
-        for (TorcSerializedEdge serEdge : serEdgeList) {
-          if (dir == Direction.OUT) {
-            edgeList.add(new TorcEdge(this, 
-                  vertex, 
-                  new TorcVertex(this, serEdge.vertexId, neighborLabel),
-                  edgeLabel, 
-                  serEdge.serializedProperties));
+          List<TorcEdge> edgeList;
+          if (edgeListMap.containsKey(vertex)) {
+            edgeList = edgeListMap.get(vertex);
           } else {
-            edgeList.add(new TorcEdge(this, 
-                  new TorcVertex(this, serEdge.vertexId, neighborLabel),
-                  vertex, 
-                  edgeLabel, 
-                  serEdge.serializedProperties));
+            edgeList = new ArrayList<>(serEdgeList.size());
+            edgeListMap.put(vertex, edgeList);
           }
-        }
 
-        i++;
+          for (TorcSerializedEdge serEdge : serEdgeList) {
+            if (dir == Direction.OUT) {
+              edgeList.add(new TorcEdge(this, 
+                    vertex, 
+                    new TorcVertex(this, serEdge.vertexId, neighborLabel),
+                    edgeLabel, 
+                    serEdge.serializedProperties));
+            } else {
+              edgeList.add(new TorcEdge(this, 
+                    new TorcVertex(this, serEdge.vertexId, neighborLabel),
+                    vertex, 
+                    edgeLabel, 
+                    serEdge.serializedProperties));
+            }
+          }
+
+          i++;
+        }
       }
     }
 
