@@ -27,6 +27,8 @@ import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.List;
 
 /**
  *
@@ -37,16 +39,23 @@ public class TorcVertex implements Vertex, Element {
   private final TorcGraph graph;
   private UInt128 id;
   private String label;
+  private Map<String, List<String>> properties = null;
 
   public TorcVertex(final TorcGraph graph, final UInt128 id,
-      final String label) {
+      final String label, Map<String, List<String>> properties) {
     this.graph = graph;
     this.id = id;
     this.label = label;
+    this.properties = properties;
+  }
+
+  public TorcVertex(final TorcGraph graph, final UInt128 id,
+      final String label) {
+    this(graph, id, label, null);
   }
 
   public TorcVertex(final TorcGraph graph, final UInt128 id) {
-    this(graph, id, null);
+    this(graph, id, null, null);
   }
 
   /**
@@ -113,6 +122,26 @@ public class TorcVertex implements Vertex, Element {
   @Override
   public Iterator<Vertex> vertices(Direction direction, String... edgeLabels) {
     throw new UnsupportedOperationException("Must specify the neighbor vertex labels when fetching vertex neighbors.");
+  }
+
+  public List<String> getProperty(String key) {
+    if (properties == null) {
+      graph.fillProperties(this);
+    }
+
+    return properties.get(key);
+  }
+
+  public Map<String, List<String>> getProperties() {
+    if (properties == null) {
+      graph.fillProperties(this);
+    }
+
+    return properties;
+  }
+
+  public void setProperties(Map<String, List<String>> properties) {
+    this.properties = properties;
   }
 
   /**

@@ -20,6 +20,7 @@ import net.ellitron.torc.util.UInt128;
 
 import edu.stanford.ramcloud.*;
 import edu.stanford.ramcloud.ClientException.*;
+import edu.stanford.ramcloud.multiop.MultiReadObject;
 
 import org.apache.commons.configuration.BaseConfiguration;
 import org.apache.commons.configuration.Configuration;
@@ -55,6 +56,7 @@ import java.util.function.Consumer;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -642,6 +644,110 @@ public final class TorcGraph implements Graph {
     }
 
     return edgeListMap;
+  }
+
+  public void fillProperties(TorcVertex v) {
+    fillProperties(Arrays.asList(v));
+  }
+
+  public void fillProperties(Map<TorcVertex, List<TorcVertex>> vMap) {
+    fillProperties(TorcHelper.neighborList(vMap));
+  }
+
+  public void fillProperties(List<TorcVertex> vList) {
+    torcGraphTx.readWrite();
+
+    // Max number of reads to issue in a multiread / batch
+    int DEFAULT_MAX_MULTIREAD_SIZE = 1 << 12; 
+
+    if (txMode) {
+      RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+
+      // Keeps track of where we are in the vList.
+      int vListMarker = 0;
+
+      while (vListMarker < vList.size()) {
+        // Queue up a batchSize of asynchronous ReadOps.
+        int batchSize = Math.min(vList.size() - vListMarker, 
+            DEFAULT_MAX_MULTIREAD_SIZE);
+
+        RAMCloudTransactionReadOp[] readOps = 
+          new RAMCloudTransactionReadOp[batchSize];
+        for (int i = 0; i < batchSize; i++) {
+          readOps[i] = new RAMCloudTransactionReadOp(rctx, vertexTableId,
+              TorcHelper.getVertexPropertiesKey(vList.get(vListMarker + i).id()), 
+              true);
+        }
+
+        for (int i = 0; i < batchSize; i++) {
+          TorcVertex v = vList.get(vListMarker + i);
+
+          RAMCloudObject obj;
+          try {
+            obj = readOps[i].getValue();
+            if (obj == null) {
+              // This vertex has no properties set.
+              v.setProperties(new HashMap<>());
+              continue;
+            }
+          } catch (ClientException e) {
+            throw new RuntimeException(e);
+          } finally {
+            readOps[i].close();
+          }
+
+          Map<String, List<String>> properties = 
+            TorcHelper.deserializeProperties(obj);
+          v.setProperties(properties);
+        }
+
+        vListMarker += batchSize;
+      }
+    } else {
+      RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
+
+      /* Add all read requests to a master list, then bite off chunks of that
+      * master list to read in batches. */
+      LinkedList<MultiReadObject> requestQ = new LinkedList<>();
+      for (int i = 0; i < vList.size(); i++) {
+        requestQ.addLast(new MultiReadObject(vertexTableId, 
+              TorcHelper.getVertexPropertiesKey(vList.get(i).id())));
+      }
+
+      while (requestQ.size() > 0) {
+        int batchSize = Math.min(requestQ.size(), DEFAULT_MAX_MULTIREAD_SIZE);
+        MultiReadObject[] requests = new MultiReadObject[batchSize];
+        for (int i = 0; i < batchSize; i++) {
+          requests[i] = requestQ.removeFirst();
+        }
+
+        client.read(requests);
+     
+        // j tracks the index in the vList for which the curret MultiReadObject
+        // was issued.
+        int j = vList.size() - (requestQ.size() + batchSize);
+        for (int i = 0; i < batchSize; i++) {
+          TorcVertex v = vList.get(j); 
+          j++; 
+
+          if (requests[i].getStatus() != Status.STATUS_OK) {
+            if (requests[i].getStatus() == Status.STATUS_OBJECT_DOESNT_EXIST) {
+              // This vertex has no properties set.
+              v.setProperties(new HashMap<>());
+              continue;
+            } else {
+              throw new RuntimeException(
+                  "Vertex properties RAMCloud object had status " + 
+                  requests[i].getStatus());
+            }
+          }
+
+          Map<String, List<String>> properties = 
+            TorcHelper.deserializeProperties(requests[i]);
+          v.setProperties(properties);
+        }
+      }
+    }
   }
 
   public void enableTx() {
