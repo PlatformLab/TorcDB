@@ -339,4 +339,64 @@ public class TorcHelper {
 
     return list;
   }
+
+  /** 
+   * Take two maps, map1: a to b, map2: b to c, and return map3: a to c.
+   *
+   * @param a First map
+   * @param b Second map
+   *
+   * @return Joined map
+   */
+  public static Map<TorcVertex, List<TorcVertex>> fuse(
+      Map<TorcVertex, List<TorcVertex>> a,
+      Map<TorcVertex, List<TorcVertex>> b) {
+    Map<TorcVertex, List<TorcVertex>> fusedMap = new HashMap<>(a.size());
+
+    for (Map.Entry e : a.entrySet()) {
+      TorcVertex aVertex = (TorcVertex)e.getKey();
+      List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();
+
+      List<TorcVertex> fusedList = new ArrayList<>();
+      for (TorcVertex v : aVertexList) {
+        if (b.containsKey(v)) {
+          List<TorcVertex> bVertexList = b.get(v);
+          fusedList.addAll(bVertexList);
+        }
+      }
+
+      if (fusedList.size() > 0) {
+        fusedMap.put(aVertex, fusedList);
+      }
+    }
+
+    return fusedMap;
+  }
+
+  /**
+   * Intersects the values in the map with the values in the list.
+   * If the resulting value is an empty list, then remove the key from the map.
+   * The resulting map will never have emtpy list values.
+   *
+   * @param a Map to intersect values on.
+   * @param b Values to intersect map values with.
+   */
+  public void intersect(
+      Map<TorcVertex, List<TorcVertex>> a,
+      List<TorcVertex> b) {
+    for (Map.Entry e : a.entrySet()) {
+      List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();
+      aVertexList.retainAll(b);
+      if (aVertexList.size() == 0) {
+        a.remove(e.getKey());
+      }
+    }
+  }
+
+  public List<TorcVertex> keylist(
+      Map<TorcVertex, List<TorcVertex>> a) {
+    List<TorcVertex> keylist = new ArrayList<TorcVertex>(a.size());
+    keylist.addAll(a.keySet());
+    return keylist;
+  }
 }
