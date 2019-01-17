@@ -381,7 +381,7 @@ public class TorcHelper {
    * @param a Map to intersect values on.
    * @param b Values to intersect map values with.
    */
-  public void intersect(
+  public static void intersect(
       Map<TorcVertex, List<TorcVertex>> a,
       List<TorcVertex> b) {
     for (Map.Entry e : a.entrySet()) {
@@ -393,7 +393,7 @@ public class TorcHelper {
     }
   }
 
-  public List<TorcVertex> keylist(
+  public static List<TorcVertex> keylist(
       Map<TorcVertex, List<TorcVertex>> a) {
     List<TorcVertex> keylist = new ArrayList<TorcVertex>(a.size());
     keylist.addAll(a.keySet());
