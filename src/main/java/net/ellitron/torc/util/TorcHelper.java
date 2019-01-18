@@ -384,13 +384,17 @@ public class TorcHelper {
   public static void intersect(
       Map<TorcVertex, List<TorcVertex>> a,
       List<TorcVertex> b) {
+    List<TorcVertex> removeList = new ArrayList<>();
     for (Map.Entry e : a.entrySet()) {
       List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();
       aVertexList.retainAll(b);
       if (aVertexList.size() == 0) {
-        a.remove(e.getKey());
+        removeList.add((TorcVertex)e.getKey());
       }
     }
+
+    for (TorcVertex v : removeList)
+      a.remove(v);
   }
 
   public static List<TorcVertex> keylist(

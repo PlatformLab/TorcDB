@@ -499,6 +499,8 @@ public final class TorcGraph implements Graph {
       String edgeLabel, 
       Direction dir, 
       String ... neighborLabels) {
+    initialize();
+
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
     RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
@@ -541,9 +543,9 @@ public final class TorcGraph implements Graph {
           for (TorcSerializedEdge serEdge : serEdgeList) {
             neighborList.add(new TorcVertex(this, serEdge.vertexId, neighborLabel));
           }
-
-          i++;
         }
+
+        i++;
       }
     }    
 
@@ -583,6 +585,8 @@ public final class TorcGraph implements Graph {
       String edgeLabel, 
       Direction dir, 
       String ... neighborLabels) {
+    initialize();
+
     torcGraphTx.readWrite();
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
     RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
@@ -637,9 +641,9 @@ public final class TorcGraph implements Graph {
                     serEdge.serializedProperties));
             }
           }
-
-          i++;
         }
+
+        i++;
       }
     }
 
@@ -655,6 +659,8 @@ public final class TorcGraph implements Graph {
   }
 
   public void fillProperties(List<TorcVertex> vList) {
+    initialize();
+
     torcGraphTx.readWrite();
 
     // Max number of reads to issue in a multiread / batch
