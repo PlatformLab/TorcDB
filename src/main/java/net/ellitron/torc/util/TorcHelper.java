@@ -345,28 +345,38 @@ public class TorcHelper {
    *
    * @param a First map
    * @param b Second map
+   * @param dedup Whether or not to dedup the lists in the values of map3.
    *
    * @return Joined map
    */
   public static Map<TorcVertex, List<TorcVertex>> fuse(
       Map<TorcVertex, List<TorcVertex>> a,
-      Map<TorcVertex, List<TorcVertex>> b) {
+      Map<TorcVertex, List<TorcVertex>> b,
+      boolean dedup) {
     Map<TorcVertex, List<TorcVertex>> fusedMap = new HashMap<>(a.size());
 
     for (Map.Entry e : a.entrySet()) {
       TorcVertex aVertex = (TorcVertex)e.getKey();
       List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();
 
-      List<TorcVertex> fusedList = new ArrayList<>();
-      for (TorcVertex v : aVertexList) {
-        if (b.containsKey(v)) {
-          List<TorcVertex> bVertexList = b.get(v);
-          fusedList.addAll(bVertexList);
+      if (dedup) {
+        Set<TorcVertex> fusedSet = new HashSet<>();
+        for (TorcVertex v : aVertexList) {
+          if (b.containsKey(v))
+            fusedSet.addAll(b.get(v));
         }
-      }
 
-      if (fusedList.size() > 0) {
-        fusedMap.put(aVertex, fusedList);
+        if (fusedSet.size() > 0)
+          fusedMap.put(aVertex, new ArrayList<>(fusedSet));
+      } else {
+        List<TorcVertex> fusedList = new ArrayList<>();
+        for (TorcVertex v : aVertexList) {
+          if (b.containsKey(v))
+            fusedList.addAll(b.get(v));
+        }
+
+        if (fusedList.size() > 0)
+          fusedMap.put(aVertex, fusedList);
       }
     }
 
