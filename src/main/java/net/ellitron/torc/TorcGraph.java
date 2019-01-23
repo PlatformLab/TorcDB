@@ -523,6 +523,7 @@ public final class TorcGraph implements Graph {
     }
     
     Map<TorcVertex, List<TorcVertex>> neighborListMap = new HashMap<>();
+    Map<UInt128, TorcVertex> neighborDedupMap = new HashMap<>();
 
     int i = 0;
     for (TorcVertex vertex : vList) {
@@ -541,7 +542,13 @@ public final class TorcGraph implements Graph {
           }
 
           for (TorcSerializedEdge serEdge : serEdgeList) {
-            neighborList.add(new TorcVertex(this, serEdge.vertexId, neighborLabel));
+            if (neighborDedupMap.containsKey(serEdge.vertexId)) {
+              neighborList.add(neighborDedupMap.get(serEdge.vertexId));
+            } else {
+              TorcVertex v = new TorcVertex(this, serEdge.vertexId, neighborLabel);
+              neighborList.add(v);
+              neighborDedupMap.put(serEdge.vertexId, v);
+            }
           }
         }
 
