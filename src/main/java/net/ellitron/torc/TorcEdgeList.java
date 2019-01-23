@@ -131,7 +131,7 @@ public class TorcEdgeList {
   /*
    * Limit placed on the maximum size of multireads.
    */
-  private static final int DEFAULT_MAX_MULTIREAD_SIZE = 1 << 10;
+  private static final int DEFAULT_MAX_MULTIREAD_SIZE = 1 << 9;
 
   public static boolean prepend(
       RAMCloudTransaction rctx,
