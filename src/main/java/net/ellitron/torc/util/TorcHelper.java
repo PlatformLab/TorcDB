@@ -309,6 +309,32 @@ public class TorcHelper {
             + Byte.BYTES 
             + Short.BYTES + vertexLabelByteArray.length)
         .order(ByteOrder.LITTLE_ENDIAN);
+    appendEdgeListKeyPrefixToBuffer(vertexId, edgeLabelByteArray, dir, 
+        vertexLabelByteArray, buffer);
+    return buffer.array();
+  }
+
+  /**
+   * Generates a key prefix that defines an exclusive key-space for this
+   * combination of vertex ID, edge label, edge direction, and vertex label. No
+   * other (vertex ID, elabel, direction, vlabel) combination will have a key
+   * prefix that is a prefix of this key, or for which this key is a prefix of.
+   * This key-prefix is used to generate unique keys for RAMCloud objects that
+   * store the potentially multiple segments that make up an edge list.
+   *
+   * @param vertexId
+   * @param edgeLabel
+   * @param dir
+   * @param vertexLabel
+   * @param byteBuffer
+   *
+   * @return RAMCloud Key.
+   */
+  public static void appendEdgeListKeyPrefixToBuffer(UInt128 vertexId, 
+      byte[] edgeLabelByteArray,
+      Direction dir, 
+      byte[] vertexLabelByteArray, 
+      ByteBuffer buffer) {
     buffer.putLong(vertexId.getUpperLong());
     buffer.putLong(vertexId.getLowerLong());
     buffer.putShort((short) edgeLabelByteArray.length);
@@ -316,7 +342,6 @@ public class TorcHelper {
     buffer.put((byte) dir.ordinal());
     buffer.putShort((short) vertexLabelByteArray.length);
     buffer.put(vertexLabelByteArray);
-    return buffer.array();
   }
 
   /** 

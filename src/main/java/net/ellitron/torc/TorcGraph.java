@@ -479,8 +479,10 @@ public final class TorcGraph implements Graph {
       String edgeLabel, 
       Direction dir, 
       String ... neighborLabels) {
-    return getVertices(TorcHelper.neighborList(vMap), edgeLabel, dir, 
+    List<TorcVertex> vList = TorcHelper.neighborList(vMap);
+    Map<TorcVertex, List<TorcVertex>> ret = getVertices(vList, edgeLabel, dir,
         neighborLabels);
+    return ret;
   }
 
   /** 
@@ -508,10 +510,20 @@ public final class TorcGraph implements Graph {
     /* Build arguments to TorcEdgeList.batchRead(). */
     List<byte[]> keyPrefixes = new ArrayList<>(vList.size());
 
-    for (TorcVertex vertex : vList) {
-      for (String neighborLabel : neighborLabels) {
-        keyPrefixes.add(TorcHelper.getEdgeListKeyPrefix(vertex.id(), 
-              edgeLabel, dir, neighborLabel));
+    byte[] edgeLabelByteArray = TorcHelper.serializeString(edgeLabel);
+    for (String neighborLabel : neighborLabels) {
+      byte[] neighborLabelByteArray = TorcHelper.serializeString(neighborLabel);
+      ByteBuffer buffer =
+          ByteBuffer.allocate(UInt128.BYTES 
+              + Short.BYTES + edgeLabelByteArray.length
+              + Byte.BYTES 
+              + Short.BYTES + neighborLabelByteArray.length)
+          .order(ByteOrder.LITTLE_ENDIAN);
+      for (TorcVertex vertex : vList) {
+        buffer.rewind();
+        TorcHelper.appendEdgeListKeyPrefixToBuffer(vertex.id(), 
+            edgeLabelByteArray, dir, neighborLabelByteArray, buffer);
+        keyPrefixes.add(buffer.array().clone());
       }
     }
 
@@ -526,8 +538,8 @@ public final class TorcGraph implements Graph {
     Map<UInt128, TorcVertex> neighborDedupMap = new HashMap<>();
 
     int i = 0;
-    for (TorcVertex vertex : vList) {
-      for (String neighborLabel : neighborLabels) {
+    for (String neighborLabel : neighborLabels) {
+      for (TorcVertex vertex : vList) {
         byte[] keyPrefix = keyPrefixes.get(i);
 
         if (serEdgeLists.containsKey(keyPrefix)) {
@@ -601,10 +613,20 @@ public final class TorcGraph implements Graph {
     /* Build arguments to TorcEdgeList.batchRead(). */
     List<byte[]> keyPrefixes = new ArrayList<>(vList.size());
 
-    for (TorcVertex vertex : vList) {
-      for (String neighborLabel : neighborLabels) {
-        keyPrefixes.add(TorcHelper.getEdgeListKeyPrefix(vertex.id(), 
-              edgeLabel, dir, neighborLabel));
+    byte[] edgeLabelByteArray = TorcHelper.serializeString(edgeLabel);
+    for (String neighborLabel : neighborLabels) {
+      byte[] neighborLabelByteArray = TorcHelper.serializeString(neighborLabel);
+      ByteBuffer buffer =
+          ByteBuffer.allocate(UInt128.BYTES 
+              + Short.BYTES + edgeLabelByteArray.length
+              + Byte.BYTES 
+              + Short.BYTES + neighborLabelByteArray.length)
+          .order(ByteOrder.LITTLE_ENDIAN);
+      for (TorcVertex vertex : vList) {
+        buffer.rewind();
+        TorcHelper.appendEdgeListKeyPrefixToBuffer(vertex.id(), 
+            edgeLabelByteArray, dir, neighborLabelByteArray, buffer);
+        keyPrefixes.add(buffer.array().clone());
       }
     }
 
@@ -618,8 +640,8 @@ public final class TorcGraph implements Graph {
     Map<TorcVertex, List<TorcEdge>> edgeListMap = new HashMap<>();
 
     int i = 0;
-    for (TorcVertex vertex : vList) {
-      for (String neighborLabel : neighborLabels) {
+    for (String neighborLabel : neighborLabels) {
+      for (TorcVertex vertex : vList) {
         byte[] keyPrefix = keyPrefixes.get(i);
 
         if (serEdgeLists.containsKey(keyPrefix)) {
