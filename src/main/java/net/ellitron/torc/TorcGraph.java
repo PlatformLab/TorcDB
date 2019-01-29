@@ -466,7 +466,7 @@ public final class TorcGraph implements Graph {
    *
    * *************************************************************************/
 
-  public Map<TorcVertex, List<TorcVertex>> getVertices(
+  public TraversalResult getVertices(
       TorcVertex v, 
       String edgeLabel, 
       Direction dir, 
@@ -474,13 +474,21 @@ public final class TorcGraph implements Graph {
     return getVertices(Arrays.asList(v), edgeLabel, dir, neighborLabels);
   }
 
-  public Map<TorcVertex, List<TorcVertex>> getVertices(
+  public TraversalResult getVertices(
+      TraversalResult r, 
+      String edgeLabel, 
+      Direction dir, 
+      String ... neighborLabels) {
+    return getVertices(r.vList, edgeLabel, dir, neighborLabels);
+  }
+
+  public TraversalResult getVertices(
       Map<TorcVertex, List<TorcVertex>> vMap, 
       String edgeLabel, 
       Direction dir, 
       String ... neighborLabels) {
     List<TorcVertex> vList = TorcHelper.neighborList(vMap);
-    Map<TorcVertex, List<TorcVertex>> ret = getVertices(vList, edgeLabel, dir,
+    TraversalResult ret = getVertices(vList, edgeLabel, dir,
         neighborLabels);
     return ret;
   }
@@ -496,7 +504,7 @@ public final class TorcGraph implements Graph {
    *
    * @return Map from start vertices to their neighbors.
    */
-  public Map<TorcVertex, List<TorcVertex>> getVertices(
+  public TraversalResult getVertices(
       List<TorcVertex> vList, 
       String edgeLabel, 
       Direction dir, 
@@ -533,9 +541,10 @@ public final class TorcGraph implements Graph {
     } else {
       serEdgeLists = TorcEdgeList.batchRead(client, edgeListTableId, keyPrefixes);
     }
-    
+   
     Map<TorcVertex, List<TorcVertex>> neighborListMap = new HashMap<>();
     Map<UInt128, TorcVertex> neighborDedupMap = new HashMap<>();
+    List<TorcVertex> uniqueNeighborList = new ArrayList<>();
 
     int i = 0;
     for (String neighborLabel : neighborLabels) {
@@ -560,6 +569,7 @@ public final class TorcGraph implements Graph {
               TorcVertex v = new TorcVertex(this, serEdge.vertexId, neighborLabel);
               neighborList.add(v);
               neighborDedupMap.put(serEdge.vertexId, v);
+              uniqueNeighborList.add(v);
             }
           }
         }
@@ -568,7 +578,7 @@ public final class TorcGraph implements Graph {
       }
     }    
 
-    return neighborListMap;
+    return new TraversalResult(neighborListMap, uniqueNeighborList);
   }
 
   public Map<TorcVertex, List<TorcEdge>> getEdges(

@@ -366,19 +366,23 @@ public class TorcHelper {
   }
 
   /** 
-   * Take two maps, map1: a to b, map2: b to c, and return map3: a to c.
+   * Take two traversal results and merge them. 
    *
-   * @param a First map
-   * @param b Second map
-   * @param dedup Whether or not to dedup the lists in the values of map3.
+   * @param a First traversal result
+   * @param b Second traversal result
+   * @param dedup Whether or not to dedup the lists in the values of the merge.
    *
-   * @return Joined map
+   * @return Joined traversal result.
    */
-  public static Map<TorcVertex, List<TorcVertex>> fuse(
-      Map<TorcVertex, List<TorcVertex>> a,
-      Map<TorcVertex, List<TorcVertex>> b,
+  public static TraversalResult fuse(
+      TraversalResult trA,
+      TraversalResult trB,
       boolean dedup) {
+    Map<TorcVertex, List<TorcVertex>> a = trA.vMap;
+    Map<TorcVertex, List<TorcVertex>> b = trB.vMap;
+
     Map<TorcVertex, List<TorcVertex>> fusedMap = new HashMap<>(a.size());
+    Set<TorcVertex> globalFusedSet = new HashSet<>();
 
     for (Map.Entry e : a.entrySet()) {
       TorcVertex aVertex = (TorcVertex)e.getKey();
@@ -391,8 +395,10 @@ public class TorcHelper {
             fusedSet.addAll(b.get(v));
         }
 
-        if (fusedSet.size() > 0)
+        if (fusedSet.size() > 0) {
           fusedMap.put(aVertex, new ArrayList<>(fusedSet));
+          globalFusedSet.addAll(fusedSet);
+        }
       } else {
         List<TorcVertex> fusedList = new ArrayList<>();
         for (TorcVertex v : aVertexList) {
@@ -400,12 +406,14 @@ public class TorcHelper {
             fusedList.addAll(b.get(v));
         }
 
-        if (fusedList.size() > 0)
+        if (fusedList.size() > 0) {
           fusedMap.put(aVertex, fusedList);
+          globalFusedSet.addAll(fusedList);
+        }
       }
     }
 
-    return fusedMap;
+    return new TraversalResult(fusedMap, new ArrayList<>(globalFusedSet));
   }
 
   /**
@@ -417,8 +425,9 @@ public class TorcHelper {
    * @param b Values to intersect map values with.
    */
   public static void intersect(
-      Map<TorcVertex, List<TorcVertex>> a,
+      TraversalResult trA,
       List<TorcVertex> b) {
+    Map<TorcVertex, List<TorcVertex>> a = trA.vMap;
     List<TorcVertex> removeList = new ArrayList<>();
     for (Map.Entry e : a.entrySet()) {
       List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();
@@ -433,7 +442,8 @@ public class TorcHelper {
   }
 
   public static List<TorcVertex> keylist(
-      Map<TorcVertex, List<TorcVertex>> a) {
+      TraversalResult trA) {
+    Map<TorcVertex, List<TorcVertex>> a = trA.vMap;
     List<TorcVertex> keylist = new ArrayList<TorcVertex>(a.size());
     keylist.addAll(a.keySet());
     return keylist;
