@@ -431,7 +431,9 @@ public class TorcHelper {
     List<TorcVertex> removeList = new ArrayList<>();
     for (Map.Entry e : a.entrySet()) {
       List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();
+
       aVertexList.retainAll(b);
+      
       if (aVertexList.size() == 0) {
         removeList.add((TorcVertex)e.getKey());
       }
@@ -439,6 +441,43 @@ public class TorcHelper {
 
     for (TorcVertex v : removeList)
       a.remove(v);
+  }
+
+  /**
+   * Intersects the values in the map with the values in the list.
+   * If the resulting value is an empty list, then remove the key from the map.
+   * The resulting map will never have emtpy list values.
+   *
+   * @param a Map to intersect values on.
+   * @param b Values to intersect map values with.
+   */
+  public static void intersect(
+      TraversalResult trA,
+      Set<TorcVertex> b) {
+    long start, time1=0, time2=0;
+    Map<TorcVertex, List<TorcVertex>> a = trA.vMap;
+    List<TorcVertex> removeList = new ArrayList<>();
+    for (Map.Entry e : a.entrySet()) {
+      List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();
+
+      start = System.nanoTime();
+      aVertexList.retainAll(b);
+      time1 += System.nanoTime() - start;
+
+      start = System.nanoTime();
+      if (aVertexList.size() == 0) {
+        removeList.add((TorcVertex)e.getKey());
+      }
+      time2 += System.nanoTime() - start;
+    }
+
+    System.out.println(String.format("intersect retainAll: %dns", time1));
+    System.out.println(String.format("intersect add: %dns", time2));
+
+    start = System.nanoTime();
+    for (TorcVertex v : removeList)
+      a.remove(v);
+    System.out.println(String.format("intersect remove: %dns", System.nanoTime() - start));
   }
 
   public static List<TorcVertex> keylist(
