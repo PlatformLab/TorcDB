@@ -712,7 +712,7 @@ public final class TorcGraph implements Graph {
     torcGraphTx.readWrite();
 
     // Max number of reads to issue in a multiread / batch
-    int DEFAULT_MAX_MULTIREAD_SIZE = 1 << 9; 
+    int DEFAULT_MAX_MULTIREAD_SIZE = 1 << 11; 
 
     if (txMode) {
       RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();

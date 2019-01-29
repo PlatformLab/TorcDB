@@ -428,19 +428,17 @@ public class TorcHelper {
       TraversalResult trA,
       List<TorcVertex> b) {
     Map<TorcVertex, List<TorcVertex>> a = trA.vMap;
-    List<TorcVertex> removeList = new ArrayList<>();
+    Map<TorcVertex, List<TorcVertex>> newMap = new HashMap<>(a.size());
     for (Map.Entry e : a.entrySet()) {
       List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();
 
       aVertexList.retainAll(b);
       
-      if (aVertexList.size() == 0) {
-        removeList.add((TorcVertex)e.getKey());
-      }
+      if (aVertexList.size() > 0)
+        newMap.put((TorcVertex)e.getKey(), aVertexList);
     }
 
-    for (TorcVertex v : removeList)
-      a.remove(v);
+    trA.vMap = newMap;
   }
 
   /**
@@ -454,30 +452,24 @@ public class TorcHelper {
   public static void intersect(
       TraversalResult trA,
       Set<TorcVertex> b) {
-    long start, time1=0, time2=0;
     Map<TorcVertex, List<TorcVertex>> a = trA.vMap;
-    List<TorcVertex> removeList = new ArrayList<>();
+    Map<TorcVertex, List<TorcVertex>> newMap = new HashMap<>(a.size());
     for (Map.Entry e : a.entrySet()) {
       List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();
 
-      start = System.nanoTime();
       aVertexList.retainAll(b);
-      time1 += System.nanoTime() - start;
-
-      start = System.nanoTime();
-      if (aVertexList.size() == 0) {
-        removeList.add((TorcVertex)e.getKey());
-      }
-      time2 += System.nanoTime() - start;
+      
+      if (aVertexList.size() > 0)
+        newMap.put((TorcVertex)e.getKey(), aVertexList);
     }
 
-    System.out.println(String.format("intersect retainAll: %dns", time1));
-    System.out.println(String.format("intersect add: %dns", time2));
+    trA.vMap = newMap;
 
-    start = System.nanoTime();
-    for (TorcVertex v : removeList)
-      a.remove(v);
-    System.out.println(String.format("intersect remove: %dns", System.nanoTime() - start));
+//    trA.vMap.entrySet().removeIf( e -> {
+//        List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();
+//        aVertexList.retainAll(b);
+//        return aVertexList.size() == 0;
+//      });
   }
 
   public static List<TorcVertex> keylist(
