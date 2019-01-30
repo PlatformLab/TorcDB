@@ -509,9 +509,6 @@ public final class TorcGraph implements Graph {
       String edgeLabel, 
       Direction dir, 
       String ... neighborLabels) {
-    long start;
-    //System.out.println(String.format("getVertices(): edgeLabel: %s, vList.size(): %d", edgeLabel, vList.size()));
-
     initialize();
 
     torcGraphTx.readWrite();
@@ -519,7 +516,6 @@ public final class TorcGraph implements Graph {
     RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
     /* Build arguments to TorcEdgeList.batchRead(). */
-    start = System.nanoTime();
     List<byte[]> keyPrefixes = new ArrayList<>(vList.size());
 
     byte[] edgeLabelByteArray = TorcHelper.serializeString(edgeLabel);
@@ -538,22 +534,18 @@ public final class TorcGraph implements Graph {
         keyPrefixes.add(buffer.array().clone());
       }
     }
-    //System.out.println(String.format("getVertices(): generating prefixes: %dns", System.nanoTime() - start));
 
-    start = System.nanoTime();
     Map<byte[], List<TorcSerializedEdge>> serEdgeLists;
     if (txMode) {
       serEdgeLists = TorcEdgeList.batchRead(rctx, edgeListTableId, keyPrefixes);
     } else {
       serEdgeLists = TorcEdgeList.batchRead(client, edgeListTableId, keyPrefixes);
     }
-    //System.out.println(String.format("getVertices(): TorcEdgeList.batchRead(): %dns", System.nanoTime() - start));
    
     Map<TorcVertex, List<TorcVertex>> neighborListMap = new HashMap<>();
     Map<UInt128, TorcVertex> neighborDedupMap = new HashMap<>();
     List<TorcVertex> uniqueNeighborList = new ArrayList<>();
 
-    start = System.nanoTime();
     int i = 0;
     for (String neighborLabel : neighborLabels) {
       for (TorcVertex vertex : vList) {
@@ -585,7 +577,6 @@ public final class TorcGraph implements Graph {
         i++;
       }
     }    
-    //System.out.println(String.format("getVertices(): Unique vertices: %d, Edge list processing time: %dns", neighborDedupMap.size(), System.nanoTime() - start));
 
     return new TraversalResult(neighborListMap, uniqueNeighborList);
   }

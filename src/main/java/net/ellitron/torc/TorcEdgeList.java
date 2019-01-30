@@ -1333,6 +1333,9 @@ public class TorcEdgeList {
     }
 
     /* Go through request queue and read at most MAX_ASYNC_READS at a time. */
+    ByteBuffer seg =
+        ByteBuffer.allocate(DEFAULT_SEGMENT_SIZE_LIMIT*2)
+        .order(ByteOrder.LITTLE_ENDIAN);
     while (requestQ.size() > 0) {
       int batchSize = Math.min(requestQ.size(), DEFAULT_MAX_MULTIREAD_SIZE);
       MultiReadObject[] requests = new MultiReadObject[batchSize];
@@ -1364,9 +1367,7 @@ public class TorcEdgeList {
           eListMap.put(spec.keyPrefix, eList);
         }
 
-        ByteBuffer seg =
-            ByteBuffer.allocate(requests[i].getValueBytes().length)
-            .order(ByteOrder.LITTLE_ENDIAN);
+        seg.clear();
         seg.put(requests[i].getValueBytes());
         seg.flip();
 
@@ -1381,8 +1382,8 @@ public class TorcEdgeList {
           }
         }
 
+        byte[] neighborIdBytes = new byte[UInt128.BYTES];
         while (seg.hasRemaining()) {
-          byte[] neighborIdBytes = new byte[UInt128.BYTES];
           seg.get(neighborIdBytes);
 
           UInt128 neighborId = new UInt128(neighborIdBytes);
