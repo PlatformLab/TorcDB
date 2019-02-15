@@ -17,6 +17,7 @@ package net.ellitron.torc;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Represents the result of a traversal (ie getVertices or getEdges).
@@ -25,13 +26,13 @@ import java.util.Map;
  */
 public class TraversalResult {
   public Map<TorcVertex, List<TorcVertex>> vMap;
-  public List<TorcVertex> vList;
+  public Set<TorcVertex> vSet;
 
   public TraversalResult(
       Map<TorcVertex, List<TorcVertex>> vMap, 
-      List<TorcVertex> vList) {
+      Set<TorcVertex> vSet) {
     this.vMap = vMap;
-    this.vList = vList;
+    this.vSet = vSet;
   }
 }
 

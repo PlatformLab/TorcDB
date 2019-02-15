@@ -354,15 +354,29 @@ public class TorcHelper {
   public static List<TorcVertex> neighborList(
       Map<TorcVertex, List<TorcVertex>> vMap) {
     Set<TorcVertex> set = new HashSet<TorcVertex>();
-    for (Map.Entry e : vMap.entrySet()) {
-        List<TorcVertex> list = (List<TorcVertex>)e.getValue();
-        set.addAll(list);
-    }
+    for (Map.Entry e : vMap.entrySet())
+        set.addAll((List<TorcVertex>)e.getValue());
 
     List<TorcVertex> list = new ArrayList<TorcVertex>(set.size());
     list.addAll(set);
 
     return list;
+  }
+
+  /** 
+   * Given a traversal map, return a set of all the unique neighbors.
+   *
+   * @param vMap Map of neighbors
+   *
+   * @return Set of all unique neighbor vertices.
+   */
+  public static Set<TorcVertex> neighborSet(
+      Map<TorcVertex, List<TorcVertex>> vMap) {
+    Set<TorcVertex> set = new HashSet<TorcVertex>();
+    for (Map.Entry e : vMap.entrySet()) 
+        set.addAll((List<TorcVertex>)e.getValue());
+
+    return set;
   }
 
   /** 
@@ -413,7 +427,7 @@ public class TorcHelper {
       }
     }
 
-    return new TraversalResult(fusedMap, new ArrayList<>(globalFusedSet));
+    return new TraversalResult(fusedMap, globalFusedSet);
   }
 
   /**
@@ -439,6 +453,7 @@ public class TorcHelper {
     }
 
     trA.vMap = newMap;
+    trA.vSet.retainAll(b);
   }
 
   /**
@@ -464,6 +479,7 @@ public class TorcHelper {
     }
 
     trA.vMap = newMap;
+    trA.vSet.retainAll(b);
 
 //    trA.vMap.entrySet().removeIf( e -> {
 //        List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();

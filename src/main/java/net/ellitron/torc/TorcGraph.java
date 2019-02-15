@@ -51,15 +51,19 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.function.Consumer;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.stream.*;
+import java.util.Set;
 
 import javax.xml.bind.DatatypeConverter;
 
@@ -471,7 +475,8 @@ public final class TorcGraph implements Graph {
       String edgeLabel, 
       Direction dir, 
       String ... neighborLabels) {
-    return getVertices(Arrays.asList(v), edgeLabel, dir, neighborLabels);
+    return getVertices(Stream.of(v).collect(Collectors.toSet()), edgeLabel, dir, 
+        neighborLabels);
   }
 
   public TraversalResult getVertices(
@@ -479,7 +484,7 @@ public final class TorcGraph implements Graph {
       String edgeLabel, 
       Direction dir, 
       String ... neighborLabels) {
-    return getVertices(r.vList, edgeLabel, dir, neighborLabels);
+    return getVertices(r.vSet, edgeLabel, dir, neighborLabels);
   }
 
   public TraversalResult getVertices(
@@ -487,8 +492,8 @@ public final class TorcGraph implements Graph {
       String edgeLabel, 
       Direction dir, 
       String ... neighborLabels) {
-    List<TorcVertex> vList = TorcHelper.neighborList(vMap);
-    TraversalResult ret = getVertices(vList, edgeLabel, dir,
+    Set<TorcVertex> vSet = TorcHelper.neighborSet(vMap);
+    TraversalResult ret = getVertices(vSet, edgeLabel, dir,
         neighborLabels);
     return ret;
   }
@@ -497,7 +502,7 @@ public final class TorcGraph implements Graph {
    * Traverses an edge type for a set of vertices and returns a mapping from the
    * argument vertices to their list of neighbor vertices.
    *
-   * @param vList List of vertices to start from.
+   * @param vSet List of vertices to start from.
    * @param edgeLabel Label of edge to traverse.
    * @param dir Direction of edge.
    * @param neighborLabel Label of neighbor vertices.
@@ -505,7 +510,7 @@ public final class TorcGraph implements Graph {
    * @return Map from start vertices to their neighbors.
    */
   public TraversalResult getVertices(
-      List<TorcVertex> vList, 
+      Set<TorcVertex> vSet,
       String edgeLabel, 
       Direction dir, 
       String ... neighborLabels) {
@@ -516,7 +521,7 @@ public final class TorcGraph implements Graph {
     RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
     /* Build arguments to TorcEdgeList.batchRead(). */
-    List<byte[]> keyPrefixes = new ArrayList<>(vList.size());
+    List<byte[]> keyPrefixes = new ArrayList<>(vSet.size());
 
     byte[] edgeLabelByteArray = TorcHelper.serializeString(edgeLabel);
     for (String neighborLabel : neighborLabels) {
@@ -527,7 +532,7 @@ public final class TorcGraph implements Graph {
               + Byte.BYTES 
               + Short.BYTES + neighborLabelByteArray.length)
           .order(ByteOrder.LITTLE_ENDIAN);
-      for (TorcVertex vertex : vList) {
+      for (TorcVertex vertex : vSet) {
         buffer.rewind();
         TorcHelper.appendEdgeListKeyPrefixToBuffer(vertex.id(), 
             edgeLabelByteArray, dir, neighborLabelByteArray, buffer);
@@ -544,11 +549,11 @@ public final class TorcGraph implements Graph {
    
     Map<TorcVertex, List<TorcVertex>> neighborListMap = new HashMap<>();
     Map<UInt128, TorcVertex> neighborDedupMap = new HashMap<>();
-    List<TorcVertex> uniqueNeighborList = new ArrayList<>();
+    Set<TorcVertex> uniqueNeighborSet = new HashSet<>();
 
     int i = 0;
     for (String neighborLabel : neighborLabels) {
-      for (TorcVertex vertex : vList) {
+      for (TorcVertex vertex : vSet) {
         byte[] keyPrefix = keyPrefixes.get(i);
 
         if (serEdgeLists.containsKey(keyPrefix)) {
@@ -569,7 +574,7 @@ public final class TorcGraph implements Graph {
               TorcVertex v = new TorcVertex(this, serEdge.vertexId, neighborLabel);
               neighborList.add(v);
               neighborDedupMap.put(serEdge.vertexId, v);
-              uniqueNeighborList.add(v);
+              uniqueNeighborSet.add(v);
             }
           }
         }
@@ -578,7 +583,7 @@ public final class TorcGraph implements Graph {
       }
     }    
 
-    return new TraversalResult(neighborListMap, uniqueNeighborList);
+    return new TraversalResult(neighborListMap, uniqueNeighborSet);
   }
 
   public Map<TorcVertex, List<TorcEdge>> getEdges(
@@ -586,7 +591,7 @@ public final class TorcGraph implements Graph {
       String edgeLabel, 
       Direction dir, 
       String ... neighborLabels) {
-    return getEdges(Arrays.asList(v), edgeLabel, dir, neighborLabels);
+    return getEdges(Stream.of(v).collect(Collectors.toSet()), edgeLabel, dir, neighborLabels);
   }
 
   public Map<TorcVertex, List<TorcEdge>> getEdges(
@@ -594,7 +599,7 @@ public final class TorcGraph implements Graph {
       String edgeLabel, 
       Direction dir, 
       String ... neighborLabels) {
-    return getEdges(TorcHelper.neighborList(vMap), edgeLabel, dir, 
+    return getEdges(TorcHelper.neighborSet(vMap), edgeLabel, dir, 
         neighborLabels);
   }
 
@@ -602,7 +607,7 @@ public final class TorcGraph implements Graph {
    * Traverses an edge type for a set of vertices and returns a mapping from the
    * argument vertices to their list of incident edges.
    *
-   * @param vList List of vertices to start from.
+   * @param vSet Set of vertices to start from.
    * @param edgeLabel Label of edge to traverse.
    * @param dir Direction of edge.
    * @param neighborLabel Label of neighbor vertices.
@@ -610,7 +615,7 @@ public final class TorcGraph implements Graph {
    * @return Map from start vertices to their incident edges.
    */
   public Map<TorcVertex, List<TorcEdge>> getEdges(
-      List<TorcVertex> vList, 
+      Set<TorcVertex> vSet, 
       String edgeLabel, 
       Direction dir, 
       String ... neighborLabels) {
@@ -621,7 +626,7 @@ public final class TorcGraph implements Graph {
     RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
     /* Build arguments to TorcEdgeList.batchRead(). */
-    List<byte[]> keyPrefixes = new ArrayList<>(vList.size());
+    List<byte[]> keyPrefixes = new ArrayList<>(vSet.size());
 
     byte[] edgeLabelByteArray = TorcHelper.serializeString(edgeLabel);
     for (String neighborLabel : neighborLabels) {
@@ -632,7 +637,7 @@ public final class TorcGraph implements Graph {
               + Byte.BYTES 
               + Short.BYTES + neighborLabelByteArray.length)
           .order(ByteOrder.LITTLE_ENDIAN);
-      for (TorcVertex vertex : vList) {
+      for (TorcVertex vertex : vSet) {
         buffer.rewind();
         TorcHelper.appendEdgeListKeyPrefixToBuffer(vertex.id(), 
             edgeLabelByteArray, dir, neighborLabelByteArray, buffer);
@@ -651,7 +656,7 @@ public final class TorcGraph implements Graph {
 
     int i = 0;
     for (String neighborLabel : neighborLabels) {
-      for (TorcVertex vertex : vList) {
+      for (TorcVertex vertex : vSet) {
         byte[] keyPrefix = keyPrefixes.get(i);
 
         if (serEdgeLists.containsKey(keyPrefix)) {
@@ -690,11 +695,17 @@ public final class TorcGraph implements Graph {
   }
 
   public void fillProperties(TorcVertex v) {
-    fillProperties(Arrays.asList(v));
+    fillProperties(Stream.of(v).collect(Collectors.toSet()));
   }
 
   public void fillProperties(Map<TorcVertex, List<TorcVertex>> vMap) {
-    fillProperties(TorcHelper.neighborList(vMap));
+    fillProperties(TorcHelper.neighborSet(vMap));
+  }
+
+  public void fillProperties(Set<TorcVertex> vSet) {
+    List<TorcVertex> vList = new ArrayList<>(vSet.size());
+    vList.addAll(vSet);
+    fillProperties(vList);
   }
 
   public void fillProperties(List<TorcVertex> vList) {
