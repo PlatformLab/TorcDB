@@ -457,7 +457,7 @@ public class TorcHelper {
   }
 
   /**
-   * Intersects the values in the map with the values in the list.
+   * Intersects the values in the map with the values in the set.
    * If the resulting value is an empty list, then remove the key from the map.
    * The resulting map will never have emtpy list values.
    *
@@ -486,6 +486,32 @@ public class TorcHelper {
 //        aVertexList.retainAll(b);
 //        return aVertexList.size() == 0;
 //      });
+  }
+
+  /**
+   * Subtract the set from the map.
+   * If the resulting value is an empty list, then remove the key from the map.
+   * The resulting map will never have emtpy list values.
+   *
+   * @param a Map to intersect values on.
+   * @param b Values to filter map values with.
+   */
+  public static void subtract(
+      TraversalResult trA,
+      Set<TorcVertex> b) {
+    Map<TorcVertex, List<TorcVertex>> a = trA.vMap;
+    Map<TorcVertex, List<TorcVertex>> newMap = new HashMap<>(a.size());
+    for (Map.Entry e : a.entrySet()) {
+      List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();
+
+      aVertexList.removeAll(b);
+      
+      if (aVertexList.size() > 0)
+        newMap.put((TorcVertex)e.getKey(), aVertexList);
+    }
+
+    trA.vMap = newMap;
+    trA.vSet.removeAll(b);
   }
 
   public static List<TorcVertex> keylist(
