@@ -345,41 +345,6 @@ public class TorcHelper {
   }
 
   /** 
-   * Given a traversal map, return a list of all the unique neighbors.
-   *
-   * @param vMap Map of neighbors
-   *
-   * @return List of all unique neighbor vertices.
-   */
-  public static List<TorcVertex> neighborList(
-      Map<TorcVertex, List<TorcVertex>> vMap) {
-    Set<TorcVertex> set = new HashSet<TorcVertex>();
-    for (Map.Entry e : vMap.entrySet())
-        set.addAll((List<TorcVertex>)e.getValue());
-
-    List<TorcVertex> list = new ArrayList<TorcVertex>(set.size());
-    list.addAll(set);
-
-    return list;
-  }
-
-  /** 
-   * Given a traversal map, return a set of all the unique neighbors.
-   *
-   * @param vMap Map of neighbors
-   *
-   * @return Set of all unique neighbor vertices.
-   */
-  public static Set<TorcVertex> neighborSet(
-      Map<TorcVertex, List<TorcVertex>> vMap) {
-    Set<TorcVertex> set = new HashSet<TorcVertex>();
-    for (Map.Entry e : vMap.entrySet()) 
-        set.addAll((List<TorcVertex>)e.getValue());
-
-    return set;
-  }
-
-  /** 
    * Take two traversal results and merge them. 
    *
    * @param a First traversal result
@@ -427,90 +392,126 @@ public class TorcHelper {
       }
     }
 
-    return new TraversalResult(fusedMap, globalFusedSet);
+    return new TraversalResult(fusedMap, null, globalFusedSet);
   }
 
   /**
-   * Intersects the values in the map with the values in the list.
+   * Intersects the values in the list with those in the TraversalResult.
    * If the resulting value is an empty list, then remove the key from the map.
    * The resulting map will never have emtpy list values.
    *
-   * @param a Map to intersect values on.
-   * @param b Values to intersect map values with.
+   * @param trA TraversalResult to intersect values on.
+   * @param b Values to intersect TraversalResult values with.
    */
   public static void intersect(
       TraversalResult trA,
       List<TorcVertex> b) {
-    Map<TorcVertex, List<TorcVertex>> a = trA.vMap;
-    Map<TorcVertex, List<TorcVertex>> newMap = new HashMap<>(a.size());
-    for (Map.Entry e : a.entrySet()) {
-      List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();
-
-      aVertexList.retainAll(b);
-      
-      if (aVertexList.size() > 0)
-        newMap.put((TorcVertex)e.getKey(), aVertexList);
-    }
-
-    trA.vMap = newMap;
-    trA.vSet.retainAll(b);
+    intersect(trA, new HashSet<>(b));
   }
 
   /**
-   * Intersects the values in the map with the values in the set.
+   * Intersects the values in the set with those in the TraversalResult.
    * If the resulting value is an empty list, then remove the key from the map.
    * The resulting map will never have emtpy list values.
    *
-   * @param a Map to intersect values on.
-   * @param b Values to intersect map values with.
+   * @param trA TraversalResult to intersect values on.
+   * @param b Values to intersect TraversalResult values with.
    */
   public static void intersect(
       TraversalResult trA,
       Set<TorcVertex> b) {
-    Map<TorcVertex, List<TorcVertex>> a = trA.vMap;
-    Map<TorcVertex, List<TorcVertex>> newMap = new HashMap<>(a.size());
-    for (Map.Entry e : a.entrySet()) {
-      List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();
+    if (trA.pMap == null) {
+      Map<TorcVertex, List<TorcVertex>> newMap = new HashMap<>(trA.vMap.size());
+      for (TorcVertex v : trA.vMap.keySet()) {
+        List<TorcVertex> vList = trA.vMap.get(v);
 
-      aVertexList.retainAll(b);
-      
-      if (aVertexList.size() > 0)
-        newMap.put((TorcVertex)e.getKey(), aVertexList);
+        vList.retainAll(b);
+        
+        if (vList.size() > 0)
+          newMap.put(v, vList);
+      }
+
+      trA.vMap = newMap;
+    } else {
+      Map<TorcVertex, List<TorcVertex>> newVMap = new HashMap<>(trA.vMap.size());
+      Map<TorcVertex, List<Map<String, List<String>>>> newPMap = new HashMap<>(trA.pMap.size());
+
+      for (TorcVertex v : trA.vMap.keySet()) {
+        List<TorcVertex> vList = trA.vMap.get(v);
+        List<Map<String, List<String>>> pList = trA.pMap.get(v);
+        List<TorcVertex> newVList = new ArrayList<>(vList.size());
+        List<Map<String, List<String>>> newPList = new ArrayList<>(pList.size());
+
+        for (int i = 0; i < vList.size(); i++) {
+          if (b.contains(vList.get(i))) {
+            newVList.add(vList.get(i));
+            newPList.add(pList.get(i));
+          }
+        }
+
+        if (newVList.size() > 0) {
+          newVMap.put(v, newVList);
+          newPMap.put(v, newPList);
+        }
+      }
+
+      trA.vMap = newVMap;
+      trA.pMap = newPMap;
     }
 
-    trA.vMap = newMap;
     trA.vSet.retainAll(b);
-
-//    trA.vMap.entrySet().removeIf( e -> {
-//        List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();
-//        aVertexList.retainAll(b);
-//        return aVertexList.size() == 0;
-//      });
   }
 
   /**
-   * Subtract the set from the map.
+   * Subtract the set from the TraversalResult.
    * If the resulting value is an empty list, then remove the key from the map.
    * The resulting map will never have emtpy list values.
    *
-   * @param a Map to intersect values on.
-   * @param b Values to filter map values with.
+   * @param trA TraveresalResult to subtract values from.
+   * @param b Values to subtract out of TraversalResult.
    */
   public static void subtract(
       TraversalResult trA,
       Set<TorcVertex> b) {
-    Map<TorcVertex, List<TorcVertex>> a = trA.vMap;
-    Map<TorcVertex, List<TorcVertex>> newMap = new HashMap<>(a.size());
-    for (Map.Entry e : a.entrySet()) {
-      List<TorcVertex> aVertexList = (List<TorcVertex>)e.getValue();
+    if (trA.pMap == null) {
+      Map<TorcVertex, List<TorcVertex>> newMap = new HashMap<>(trA.vMap.size());
+      for (TorcVertex v : trA.vMap.keySet()) {
+        List<TorcVertex> vList = trA.vMap.get(v);
 
-      aVertexList.removeAll(b);
-      
-      if (aVertexList.size() > 0)
-        newMap.put((TorcVertex)e.getKey(), aVertexList);
+        vList.removeAll(b);
+
+        if (vList.size() > 0)
+          newMap.put(v, vList);
+      }
+
+      trA.vMap = newMap;
+    } else {
+      Map<TorcVertex, List<TorcVertex>> newVMap = new HashMap<>(trA.vMap.size());
+      Map<TorcVertex, List<Map<String, List<String>>>> newPMap = new HashMap<>(trA.pMap.size());
+
+      for (TorcVertex v : trA.vMap.keySet()) {
+        List<TorcVertex> vList = trA.vMap.get(v);
+        List<Map<String, List<String>>> pList = trA.pMap.get(v);
+        List<TorcVertex> newVList = new ArrayList<>(vList.size());
+        List<Map<String, List<String>>> newPList = new ArrayList<>(pList.size());
+
+        for (int i = 0; i < vList.size(); i++) {
+          if (!b.contains(vList.get(i))) {
+            newVList.add(vList.get(i));
+            newPList.add(pList.get(i));
+          }
+        }
+
+        if (newVList.size() > 0) {
+          newVMap.put(v, newVList);
+          newPMap.put(v, newPList);
+        }
+      }
+
+      trA.vMap = newVMap;
+      trA.pMap = newPMap;
     }
 
-    trA.vMap = newMap;
     trA.vSet.removeAll(b);
   }
 

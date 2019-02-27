@@ -26,12 +26,15 @@ import java.util.Set;
  */
 public class TraversalResult {
   public Map<TorcVertex, List<TorcVertex>> vMap;
+  public Map<TorcVertex, List<Map<String, List<String>>>> pMap;
   public Set<TorcVertex> vSet;
 
   public TraversalResult(
       Map<TorcVertex, List<TorcVertex>> vMap, 
+      Map<TorcVertex, List<Map<String, List<String>>>> pMap,
       Set<TorcVertex> vSet) {
     this.vMap = vMap;
+    this.pMap = pMap;
     this.vSet = vSet;
   }
 }
