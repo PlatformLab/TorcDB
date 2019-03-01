@@ -111,6 +111,24 @@ public class TorcHelper {
     public byte val() {
       return val;
     }
+
+    public static TypeCode valueOf(byte val) {
+      switch(val) {
+        case 0x00:
+          return INTEGER;
+        case 0x01:
+          return LONG;
+        case 0x02:
+          return STRING;
+        case 0x03:
+          return LIST;
+        case 0x04:
+          return MAP;
+        default:
+          throw new RuntimeException(String.format(
+                "Unrecognized TypeCode: %d", val));
+      }
+    }
   };
 
   /* 
@@ -186,6 +204,90 @@ public class TorcHelper {
       throw new RuntimeException(String.format(
             "Unrecognized data type: %s. Unable to serialize.", 
             value.getClass()));
+    }
+  }
+
+  /* 
+   * ParseInfo is used as an OUT parameter to parsing functions that allow them
+   * to return metadata about the parse to the caller.
+   */
+  public static class ParseInfo {
+    public int length; // Number of bytes that were parsed.
+    public ParseInfo() {
+      this.length = 0;
+    }
+  }
+
+  /* 
+   * Take a byte array containing a serialized object and parse it out,
+   * returning an instance of the object. Objects are always serialized in
+   * LITTLE_ENDIAN byte order.
+   */
+  public static Object deserializeObject(byte[] value) {
+    return deserializeObject(value, 0);
+  }
+
+  public static Object deserializeObject(byte[] value, int offset) {
+    return deserializeObject(value, offset, new ParseInfo());
+  }
+
+  public static Object deserializeObject(byte[] value, int offset, 
+      ParseInfo pinfo) {
+    int subOffset;
+    TypeCode type = TypeCode.valueOf(value[offset+0]);
+    switch (type) {
+      case INTEGER:
+        int intVal = ((value[offset+1] & 0xFF) << 0) | 
+                     ((value[offset+2] & 0xFF) << 8) | 
+                     ((value[offset+3] & 0xFF) << 16) | 
+                     ((value[offset+4] & 0xFF) << 24);
+        pinfo.length = 5;
+        return new Integer(intVal);
+      case LONG:
+        long longVal = ((long)(value[offset+1] & 0xFF) << 0) | 
+                       ((long)(value[offset+2] & 0xFF) << 8) | 
+                       ((long)(value[offset+3] & 0xFF) << 16) | 
+                       ((long)(value[offset+4] & 0xFF) << 24) |
+                       ((long)(value[offset+5] & 0xFF) << 32) | 
+                       ((long)(value[offset+6] & 0xFF) << 40) |
+                       ((long)(value[offset+7] & 0xFF) << 48) | 
+                       ((long)(value[offset+8] & 0xFF) << 56);
+        pinfo.length = 9;
+        return new Long(longVal);
+      case STRING:
+        short strLen = (short)(((value[offset+1] & 0xFF) << 0) | 
+                               ((value[offset+2] & 0xFF) << 8));
+        pinfo.length = 3 + strLen;
+        return new String(value, offset+3, strLen, DEFAULT_CHAR_ENCODING);
+      case LIST:
+        short size = (short)(((value[offset+1] & 0xFF) << 0) | 
+                             ((value[offset+2] & 0xFF) << 8));
+        List<Object> list = new ArrayList<>(size);
+        subOffset = offset + 3;
+        for (int i = 0; i < size; i++) {
+          list.add(deserializeObject(value, subOffset, pinfo));
+          subOffset += pinfo.length;
+        }
+        pinfo.length = subOffset - offset;
+        return list;
+      case MAP:
+        short entries = (short)(((value[offset+1] & 0xFF) << 0) | 
+                                ((value[offset+2] & 0xFF) << 8));
+        Map<Object, Object> map = new HashMap<>(entries);
+        subOffset = offset + 3;
+        for (int i = 0; i < entries; i++) {
+          Object key = deserializeObject(value, subOffset, pinfo);
+          subOffset += pinfo.length;
+          Object val = deserializeObject(value, subOffset, pinfo);
+          subOffset += pinfo.length;
+          map.put(key, val);
+        }
+        pinfo.length = subOffset - offset;
+        return map;
+      default:
+        throw new RuntimeException(String.format(
+              "Unrecognized data type: %s. Unable to serialize.", 
+              type));
     }
   }
 
