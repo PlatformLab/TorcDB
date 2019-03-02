@@ -127,32 +127,42 @@ public class TorcHelper {
    * Serialize supported data types into byte array. The returned byte array
    * always begins with a TypeCode encoding the type of the object in the
    * proceeding bytes and therefore how to parse it. If the data type is a
-   * collection type, then the method calls itself recusively.
+   * collection type, then the method calls itself recusively. 
+   *
+   * Note: Serialization format is always LITTLE_ENDIAN
    */
   public static byte[] serializeObject(Object value) {
     if (value instanceof Integer) {
-      ByteBuffer buffer = 
-          ByteBuffer.allocate(TypeCode.BYTES + Integer.BYTES)
-          .order(ByteOrder.LITTLE_ENDIAN);
-      buffer.put(TypeCode.INTEGER.val());
-      buffer.putInt((Integer)value);
-      return buffer.array();
+      int intVal = ((Integer)value).intValue();
+      byte[] b = new byte[5];
+      b[0] = TypeCode.INTEGER.val();
+      b[1] = (byte)((intVal >> 0) & 0xFF);
+      b[2] = (byte)((intVal >> 8) & 0xFF);
+      b[3] = (byte)((intVal >> 16) & 0xFF);
+      b[4] = (byte)((intVal >> 24) & 0xFF);
+      return b;
     } else if (value instanceof Long) {
-      ByteBuffer buffer = 
-          ByteBuffer.allocate(TypeCode.BYTES + Long.BYTES)
-          .order(ByteOrder.LITTLE_ENDIAN);
-      buffer.put(TypeCode.LONG.val());
-      buffer.putLong((Long)value);
-      return buffer.array();
+      long longVal = ((Long)value).longValue();
+      byte[] b = new byte[9];
+      b[0] = TypeCode.LONG.val();
+      b[1] = (byte)((longVal >> 0) & 0xFF);
+      b[2] = (byte)((longVal >> 8) & 0xFF);
+      b[3] = (byte)((longVal >> 16) & 0xFF);
+      b[4] = (byte)((longVal >> 24) & 0xFF);
+      b[5] = (byte)((longVal >> 32) & 0xFF);
+      b[6] = (byte)((longVal >> 40) & 0xFF);
+      b[7] = (byte)((longVal >> 48) & 0xFF);
+      b[8] = (byte)((longVal >> 56) & 0xFF);
+      return b;
     } else if (value instanceof String) {
       byte[] strBytes = ((String)value).getBytes(DEFAULT_CHAR_ENCODING);
-      ByteBuffer buffer = 
-          ByteBuffer.allocate(TypeCode.BYTES + Short.BYTES + strBytes.length)
-          .order(ByteOrder.LITTLE_ENDIAN);
-      buffer.put(TypeCode.STRING.val());
-      buffer.putShort((short)strBytes.length);
-      buffer.put(strBytes);
-      return buffer.array();
+      short strLen = (short)strBytes.length;
+      byte[] b = new byte[3 + strBytes.length];
+      b[0] = TypeCode.STRING.val();
+      b[1] = (byte)((strLen >> 0) & 0xFF);
+      b[2] = (byte)((strLen >> 8) & 0xFF);
+      System.arraycopy(strBytes, 0, b, 3, strLen);
+      return b;
     } else if (value instanceof List) {
       List listValue = (List)value;
       List<byte[]> serElems = new ArrayList<>(listValue.size());
@@ -160,17 +170,20 @@ public class TorcHelper {
       for (int i = 0; i < listValue.size(); i++ ) {
         byte[] serElem = serializeObject(listValue.get(i));
         serElems.add(serElem);
-        totalBytes += serElem.length;
+        totalBytes += (short)serElem.length;
       }
-      ByteBuffer buffer = 
-          ByteBuffer.allocate(TypeCode.BYTES + Short.BYTES + totalBytes)
-          .order(ByteOrder.LITTLE_ENDIAN);
-      buffer.put(TypeCode.LIST.val());
-      buffer.putShort((short)serElems.size());
-      for (int i = 0; i < serElems.size(); i++ ) {
-        buffer.put(serElems.get(i));
+      short elements = (short)serElems.size();
+      byte[] b = new byte[3 + totalBytes];
+      b[0] = TypeCode.LIST.val();
+      b[1] = (byte)((elements >> 0) & 0xFF);
+      b[2] = (byte)((elements >> 8) & 0xFF);
+      int offset = 3;
+      for (int i = 0; i < serElems.size(); i++) {
+        byte[] serElem = serElems.get(i);
+        System.arraycopy(serElem, 0, b, offset, serElem.length);
+        offset += serElem.length;
       }
-      return buffer.array();
+      return b;
     } else if (value instanceof Map) {
       Map mapValue = (Map)value;
       List<byte[]> serEnts = new ArrayList<>(2 * mapValue.size());
@@ -182,16 +195,21 @@ public class TorcHelper {
         serEnts.add(serVal);
         totalBytes += serKey.length + serVal.length;
       }
-      ByteBuffer buffer = 
-          ByteBuffer.allocate(TypeCode.BYTES + Short.BYTES + totalBytes)
-          .order(ByteOrder.LITTLE_ENDIAN);
-      buffer.put(TypeCode.MAP.val());
-      buffer.putShort((short)(serEnts.size()/2));
-      for (int i = 0; i < serEnts.size(); i += 2 ) {
-        buffer.put(serEnts.get(i));
-        buffer.put(serEnts.get(i + 1));
+      short entries = (short)(serEnts.size()/2);
+      byte[] b = new byte[3 + totalBytes];
+      b[0] = TypeCode.MAP.val();
+      b[1] = (byte)((entries >> 0) & 0xFF);
+      b[2] = (byte)((entries >> 8) & 0xFF);
+      int offset = 3;
+      for (int i = 0; i < serEnts.size(); i += 2) {
+        byte[] serEntKey = serEnts.get(i);
+        System.arraycopy(serEntKey, 0, b, offset, serEntKey.length);
+        offset += serEntKey.length;
+        byte[] serEntVal = serEnts.get(i + 1);
+        System.arraycopy(serEntVal, 0, b, offset, serEntVal.length);
+        offset += serEntVal.length;
       }
-      return buffer.array();
+      return b;
     } else {
       throw new RuntimeException(String.format(
             "Unrecognized data type: %s. Unable to serialize.", 
