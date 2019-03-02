@@ -26,8 +26,6 @@ import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.*;
 
 /**
@@ -40,8 +38,8 @@ public class TorcEdge implements Edge, Element {
   private final TorcVertex v1;
   private final TorcVertex v2;
   private String label;
-  private ByteBuffer serializedProperties = null;
-  private Map<String, List<String>> properties = null;
+  private byte[] serializedProperties = null;
+  private Map<Object, Object> properties = null;
 
   /**
    * Inner class that represents this edge's Id. The TorcEdge class itself is
@@ -133,34 +131,20 @@ public class TorcEdge implements Edge, Element {
   }
 
   public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
-      final String label, Map<String, List<String>> properties) {
+      final String label, Map<Object, Object> properties) {
     this(graph, v1Id, v2Id, label);
     this.properties = properties;
   }
 
   public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
-      final String label, ByteBuffer serializedProperties) {
+      final String label, byte[] serializedProperties) {
     this(graph, v1Id, v2Id, label);
     this.serializedProperties = serializedProperties;
   }
 
   public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
-      final String label, byte[] serializedProperties) {
-    this(graph, v1Id, v2Id, label);
-    this.serializedProperties = ByteBuffer.wrap(serializedProperties)
-        .order(ByteOrder.LITTLE_ENDIAN);
-  }
-
-  public TorcEdge(final TorcGraph graph, TorcVertex v1, TorcVertex v2,
-      final String label, byte[] serializedProperties) {
-    this(graph, v1, v2, label);
-    this.serializedProperties = ByteBuffer.wrap(serializedProperties)
-        .order(ByteOrder.LITTLE_ENDIAN);
-  }
-
-  public TorcEdge(final TorcGraph graph, UInt128 v1Id, UInt128 v2Id,
-      final String label, Map<String, List<String>> properties,
-      ByteBuffer serializedProperties) {
+      final String label, Map<Object, Object> properties,
+      byte[] serializedProperties) {
     this(graph, v1Id, v2Id, label);
     this.properties = properties;
     this.serializedProperties = serializedProperties;
@@ -217,12 +201,13 @@ public class TorcEdge implements Edge, Element {
    *
    * @return Edge properties.
    */
-  public Map<String, List<String>> getProperties() {
+  public Map<Object, Object> getProperties() {
     if (properties != null) {
       return properties;
     } else {
       if (serializedProperties != null) {
-        properties = TorcHelper.deserializeProperties(serializedProperties);
+        properties = (Map<Object, Object>)
+          TorcHelper.deserializeObject(serializedProperties);
         return properties;
       } else {
         return null;
@@ -235,12 +220,12 @@ public class TorcEdge implements Edge, Element {
    *
    * @return Edge serialized properties.
    */
-  public ByteBuffer getSerializedProperties() {
+  public byte[] getSerializedProperties() {
     if (serializedProperties != null) {
       return serializedProperties;
     } else {
       if (properties != null) {
-        serializedProperties = TorcHelper.serializeProperties(properties);
+        serializedProperties = TorcHelper.serializeObject(properties);
         return serializedProperties;
       } else {
         return null;

@@ -85,14 +85,6 @@ public class TorcHelper {
     }
   }
 
-  public static byte[] serializeString(String str) {
-    return str.getBytes(DEFAULT_CHAR_ENCODING);
-  }
-
-  public static String deserializeString(byte[] b) {
-    return new String(b, DEFAULT_CHAR_ENCODING);
-  }
-
   /* Supported data types. */
   private enum TypeCode {
     INTEGER((byte)0x00),
@@ -291,116 +283,6 @@ public class TorcHelper {
     }
   }
 
-  public static ByteBuffer serializeProperties(
-      Map<String, List<String>> propertyMap) {
-    int serializedLength = 0;
-    for (Map.Entry<String, List<String>> property : propertyMap.entrySet()) {
-      for (String value : property.getValue()) {
-        serializedLength += Short.BYTES + serializeString(value).length;
-      }
-    }
-
-    ByteBuffer buffer = ByteBuffer.allocate(serializedLength)
-        .order(ByteOrder.LITTLE_ENDIAN);
-    for (Map.Entry<String, List<String>> property : propertyMap.entrySet()) {
-      int propLenPos = buffer.position();
-      buffer.putInt(0); // will fill this in when we've got the total len
-      String key = property.getKey();
-      byte[] keyByteArray = serializeString(key);
-      buffer.putShort((short) keyByteArray.length);
-      buffer.put(keyByteArray);
-      for (String value : property.getValue()) {
-        byte[] valueByteArray = serializeString(value);
-        buffer.putShort((short) valueByteArray.length);
-        buffer.put(valueByteArray);
-      }
-      int propLen = buffer.position() - propLenPos - Integer.BYTES;
-      buffer.putInt(propLenPos, propLen);
-    }
-
-    return buffer;
-  }
-
-  public static Map<String, List<String>> deserializeProperties(
-      ByteBuffer buffer) {
-    Map<String, List<String>> propertyMap = new HashMap<>();
-    while (buffer.hasRemaining()) {
-      int propLen = buffer.getInt();
-      if (propLen > 0) {
-        int propStartPos = buffer.position();
-        short keyLen = buffer.getShort();
-        byte key[] = new byte[keyLen];
-        buffer.get(key);
-        List<String> values = new ArrayList<>();
-        while (buffer.position() - propStartPos < propLen) {
-          short valLen = buffer.getShort();
-          byte value[] = new byte[valLen];
-          buffer.get(value);
-          values.add(deserializeString(value));
-        }
-
-        propertyMap.put(deserializeString(key), values);
-      }
-    }
-
-    return propertyMap;
-  }
-
-  public static Map<String, List<String>> deserializeProperties(
-      RAMCloudObject obj) {
-    ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length)
-        .order(ByteOrder.LITTLE_ENDIAN);
-    value.put(obj.getValueBytes());
-    value.rewind();
-    return deserializeProperties(value);
-  }
-
-  public static Map<String, List<String>> deserializeProperties(byte[] buf) {
-    ByteBuffer value = ByteBuffer.allocate(buf.length)
-        .order(ByteOrder.LITTLE_ENDIAN);
-    value.put(buf);
-    value.rewind();
-    return deserializeProperties(value);
-  }
-
-  public static ByteBuffer serializeStringList(List<String> list) {
-    int serializedLength = 0;
-    for (String s : list) {
-      serializedLength += Short.BYTES + serializeString(s).length;
-    }
-
-    ByteBuffer buffer = ByteBuffer.allocate(serializedLength)
-        .order(ByteOrder.LITTLE_ENDIAN);
-    for (String s : list) {
-      byte[] byteArray = serializeString(s);
-      buffer.putShort((short) byteArray.length);
-      buffer.put(byteArray);
-    }
-
-    return buffer;
-  }
-
-  public static List<String> deserializeStringList(ByteBuffer buffer) {
-    List<String> list = new ArrayList<>();
-    while (buffer.hasRemaining()) {
-      short len = buffer.getShort();
-      byte byteArray[] = new byte[len];
-      buffer.get(byteArray);
-
-      list.add(deserializeString(byteArray));
-    }
-
-    return list;
-  }
-
-  public static List<String> deserializeStringList(RAMCloudObject obj) {
-    ByteBuffer value = ByteBuffer.allocate(obj.getValueBytes().length)
-        .order(ByteOrder.LITTLE_ENDIAN);
-    value.put(obj.getValueBytes());
-    value.rewind();
-    return deserializeStringList(value);
-  }
-
   public static enum VertexKeyType {
 
     LABEL,
@@ -465,7 +347,7 @@ public class TorcHelper {
    */
   public static byte[] getNeighborLabelListKey(UInt128 vertexId, 
       String edgeLabel, Direction dir) {
-    byte[] labelByteArray = serializeString(edgeLabel);
+    byte[] labelByteArray = serializeObject(edgeLabel);
     ByteBuffer buffer =
         ByteBuffer.allocate(UInt128.BYTES + Short.BYTES + labelByteArray.length
             + Byte.BYTES)
@@ -495,8 +377,8 @@ public class TorcHelper {
    */
   public static byte[] getEdgeListKeyPrefix(UInt128 vertexId, String edgeLabel,
       Direction dir, String vertexLabel) {
-    byte[] edgeLabelByteArray = serializeString(edgeLabel);
-    byte[] vertexLabelByteArray = serializeString(vertexLabel);
+    byte[] edgeLabelByteArray = serializeObject(edgeLabel);
+    byte[] vertexLabelByteArray = serializeObject(vertexLabel);
     ByteBuffer buffer =
         ByteBuffer.allocate(UInt128.BYTES 
             + Short.BYTES + edgeLabelByteArray.length
@@ -628,13 +510,13 @@ public class TorcHelper {
       trA.vMap = newMap;
     } else {
       Map<TorcVertex, List<TorcVertex>> newVMap = new HashMap<>(trA.vMap.size());
-      Map<TorcVertex, List<Map<String, List<String>>>> newPMap = new HashMap<>(trA.pMap.size());
+      Map<TorcVertex, List<Map<Object, Object>>> newPMap = new HashMap<>(trA.pMap.size());
 
       for (TorcVertex v : trA.vMap.keySet()) {
         List<TorcVertex> vList = trA.vMap.get(v);
-        List<Map<String, List<String>>> pList = trA.pMap.get(v);
+        List<Map<Object, Object>> pList = trA.pMap.get(v);
         List<TorcVertex> newVList = new ArrayList<>(vList.size());
-        List<Map<String, List<String>>> newPList = new ArrayList<>(pList.size());
+        List<Map<Object, Object>> newPList = new ArrayList<>(pList.size());
 
         for (int i = 0; i < vList.size(); i++) {
           if (b.contains(vList.get(i))) {
@@ -681,13 +563,13 @@ public class TorcHelper {
       trA.vMap = newMap;
     } else {
       Map<TorcVertex, List<TorcVertex>> newVMap = new HashMap<>(trA.vMap.size());
-      Map<TorcVertex, List<Map<String, List<String>>>> newPMap = new HashMap<>(trA.pMap.size());
+      Map<TorcVertex, List<Map<Object, Object>>> newPMap = new HashMap<>(trA.pMap.size());
 
       for (TorcVertex v : trA.vMap.keySet()) {
         List<TorcVertex> vList = trA.vMap.get(v);
-        List<Map<String, List<String>>> pList = trA.pMap.get(v);
+        List<Map<Object, Object>> pList = trA.pMap.get(v);
         List<TorcVertex> newVList = new ArrayList<>(vList.size());
-        List<Map<String, List<String>>> newPList = new ArrayList<>(pList.size());
+        List<Map<Object, Object>> newPList = new ArrayList<>(pList.size());
 
         for (int i = 0; i < vList.size(); i++) {
           if (!b.contains(vList.get(i))) {

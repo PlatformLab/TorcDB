@@ -249,7 +249,7 @@ public class TorcEdgeListTest {
         UInt128 expectedId = new UInt128(j);
         assertEquals(expectedId, edge.getV1Id());
         assertTrue(java.util.Arrays.equals(expectedId.toByteArray(), 
-            edge.getSerializedProperties().array()));
+            edge.getSerializedProperties()));
         j--;
       }
     }
@@ -348,7 +348,7 @@ public class TorcEdgeListTest {
       UInt128 expectedId = new UInt128(j);
       assertEquals(expectedId, edge.getV1Id());
       assertTrue(java.util.Arrays.equals(expectedId.toByteArray(), 
-          edge.getSerializedProperties().array()));
+          edge.getSerializedProperties()));
       j--;
     }
 

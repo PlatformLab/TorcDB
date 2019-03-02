@@ -38,10 +38,10 @@ public class TorcVertex implements Vertex, Element {
   private final TorcGraph graph;
   private UInt128 id;
   private String label;
-  private Map<String, List<String>> properties = null;
+  private Map<Object, Object> properties = null;
 
   public TorcVertex(final TorcGraph graph, final UInt128 id,
-      final String label, Map<String, List<String>> properties) {
+      final String label, Map<Object, Object> properties) {
     this.graph = graph;
     this.id = id;
     this.label = label;
@@ -123,15 +123,15 @@ public class TorcVertex implements Vertex, Element {
     throw new UnsupportedOperationException("Must specify the neighbor vertex labels when fetching vertex neighbors.");
   }
 
-  public List<String> getProperty(String key) {
+  public <V> V getProperty(String key) {
     if (properties == null) {
       graph.fillProperties(this);
     }
 
-    return properties.get(key);
+    return (V)properties.get(key);
   }
 
-  public Map<String, List<String>> getProperties() {
+  public Map<Object, Object> getProperties() {
     if (properties == null) {
       graph.fillProperties(this);
     }
@@ -139,7 +139,7 @@ public class TorcVertex implements Vertex, Element {
     return properties;
   }
 
-  public void setProperties(Map<String, List<String>> properties) {
+  public void setProperties(Map<Object, Object> properties) {
     this.properties = properties;
   }
 
