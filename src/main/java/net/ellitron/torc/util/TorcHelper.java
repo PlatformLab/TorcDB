@@ -28,6 +28,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -365,7 +367,7 @@ public class TorcHelper {
    */
   public static byte[] getNeighborLabelListKey(UInt128 vertexId, 
       String edgeLabel, Direction dir) {
-    byte[] labelByteArray = serializeObject(edgeLabel);
+    byte[] labelByteArray = edgeLabel.getBytes(DEFAULT_CHAR_ENCODING);
     ByteBuffer buffer =
         ByteBuffer.allocate(UInt128.BYTES + Short.BYTES + labelByteArray.length
             + Byte.BYTES)
@@ -395,40 +397,14 @@ public class TorcHelper {
    */
   public static byte[] getEdgeListKeyPrefix(UInt128 vertexId, String edgeLabel,
       Direction dir, String vertexLabel) {
-    byte[] edgeLabelByteArray = serializeObject(edgeLabel);
-    byte[] vertexLabelByteArray = serializeObject(vertexLabel);
+    byte[] edgeLabelByteArray = edgeLabel.getBytes(DEFAULT_CHAR_ENCODING);
+    byte[] vertexLabelByteArray = vertexLabel.getBytes(DEFAULT_CHAR_ENCODING);
     ByteBuffer buffer =
         ByteBuffer.allocate(UInt128.BYTES 
             + Short.BYTES + edgeLabelByteArray.length
             + Byte.BYTES 
             + Short.BYTES + vertexLabelByteArray.length)
         .order(ByteOrder.LITTLE_ENDIAN);
-    appendEdgeListKeyPrefixToBuffer(vertexId, edgeLabelByteArray, dir, 
-        vertexLabelByteArray, buffer);
-    return buffer.array();
-  }
-
-  /**
-   * Generates a key prefix that defines an exclusive key-space for this
-   * combination of vertex ID, edge label, edge direction, and vertex label. No
-   * other (vertex ID, elabel, direction, vlabel) combination will have a key
-   * prefix that is a prefix of this key, or for which this key is a prefix of.
-   * This key-prefix is used to generate unique keys for RAMCloud objects that
-   * store the potentially multiple segments that make up an edge list.
-   *
-   * @param vertexId
-   * @param edgeLabel
-   * @param dir
-   * @param vertexLabel
-   * @param byteBuffer
-   *
-   * @return RAMCloud Key.
-   */
-  public static void appendEdgeListKeyPrefixToBuffer(UInt128 vertexId, 
-      byte[] edgeLabelByteArray,
-      Direction dir, 
-      byte[] vertexLabelByteArray, 
-      ByteBuffer buffer) {
     buffer.putLong(vertexId.getUpperLong());
     buffer.putLong(vertexId.getLowerLong());
     buffer.putShort((short) edgeLabelByteArray.length);
@@ -436,6 +412,42 @@ public class TorcHelper {
     buffer.put((byte) dir.ordinal());
     buffer.putShort((short) vertexLabelByteArray.length);
     buffer.put(vertexLabelByteArray);
+    return buffer.array();
+  }
+
+  /* 
+   * A more efficient implementation of getEdgeListKeyPrefix when we have a lot
+   * of key prefixes to generate.
+   */
+  public static List<byte[]> getEdgeListKeyPrefixes(
+      Collection<TorcVertex> vCol, 
+      String eLabel,
+      Direction dir, 
+      String ... nLabels) {
+    List<byte[]> keyPrefixes = new ArrayList<>(vCol.size());
+    byte[] eLabelByteArray = eLabel.getBytes(TorcHelper.DEFAULT_CHAR_ENCODING);
+    for (String nLabel : nLabels) {
+      byte[] nLabelByteArray =
+        nLabel.getBytes(TorcHelper.DEFAULT_CHAR_ENCODING);
+      ByteBuffer buffer =
+          ByteBuffer.allocate(UInt128.BYTES 
+              + Short.BYTES + eLabelByteArray.length
+              + Byte.BYTES 
+              + Short.BYTES + nLabelByteArray.length)
+          .order(ByteOrder.LITTLE_ENDIAN);
+      for (TorcVertex vertex : vCol) {
+        buffer.rewind();
+        buffer.putLong(vertex.id().getUpperLong());
+        buffer.putLong(vertex.id().getLowerLong());
+        buffer.putShort((short) eLabelByteArray.length);
+        buffer.put(eLabelByteArray);
+        buffer.put((byte) dir.ordinal());
+        buffer.putShort((short) nLabelByteArray.length);
+        buffer.put(nLabelByteArray);
+        keyPrefixes.add(buffer.array().clone());
+      }
+    }
+    return keyPrefixes;
   }
 
   /** 

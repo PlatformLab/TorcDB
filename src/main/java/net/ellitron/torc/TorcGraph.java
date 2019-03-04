@@ -518,26 +518,8 @@ public final class TorcGraph implements Graph {
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
     RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
-    /* Build arguments to TorcEdgeList.batchRead(). */
-    List<byte[]> keyPrefixes = new ArrayList<>(vCol.size());
-
-    byte[] eLabelByteArray = eLabel.getBytes(TorcHelper.DEFAULT_CHAR_ENCODING);
-    for (String nLabel : nLabels) {
-      byte[] nLabelByteArray =
-        nLabel.getBytes(TorcHelper.DEFAULT_CHAR_ENCODING);
-      ByteBuffer buffer =
-          ByteBuffer.allocate(UInt128.BYTES 
-              + Short.BYTES + eLabelByteArray.length
-              + Byte.BYTES 
-              + Short.BYTES + nLabelByteArray.length)
-          .order(ByteOrder.LITTLE_ENDIAN);
-      for (TorcVertex vertex : vCol) {
-        buffer.rewind();
-        TorcHelper.appendEdgeListKeyPrefixToBuffer(vertex.id(), 
-            eLabelByteArray, dir, nLabelByteArray, buffer);
-        keyPrefixes.add(buffer.array().clone());
-      }
-    }
+    List<byte[]> keyPrefixes = 
+        TorcHelper.getEdgeListKeyPrefixes(vCol, eLabel, dir, nLabels);
 
     Map<byte[], List<TorcSerializedEdge>> serEdgeLists;
     if (txMode) {
@@ -545,7 +527,7 @@ public final class TorcGraph implements Graph {
     } else {
       serEdgeLists = TorcEdgeList.batchRead(client, edgeListTableId, keyPrefixes);
     }
-   
+
     Map<TorcVertex, List<TorcVertex>> nbrListMap = new HashMap<>();
 
     Map<TorcVertex, List<Map<Object, Object>>> ePropListMap = null;
