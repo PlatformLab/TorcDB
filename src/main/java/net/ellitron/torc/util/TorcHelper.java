@@ -333,53 +333,6 @@ public class TorcHelper {
     return VertexKeyType.values()[key[UInt128.BYTES]];
   }
 
-
-  /**
-   * Generates the key for the RAMCloud object that stores the list of edge
-   * labels of all incident edges to the given vertex. This is useful
-   * because edges are stored by edge label, direction, and neighbor vertex
-   * label. Therefore, to get all the edges incident to a vertex, one must know
-   * the incident edge labels (as well as the neighbor labels for each of those
-   * edge labels). In normal queries, however, the edge label is specified and
-   * there's no need to read this list.
-   *
-   * @param vertexId
-   *
-   * @return RAMCloud Key.
-   */
-  public static byte[] getIncidentEdgeLabelListKey(UInt128 vertexId) {
-    return vertexId.toByteArray();
-  }
-
-  /**
-   * Generates the key for the RAMCloud object that stores the list of vertex
-   * labels of vertices that lie on the other side of edges with label
-   * edgeLabel for vertex with ID vertexId and in direction dir. This is useful
-   * because edges are stored by edge label, direction, and neighbor vertex
-   * label. Therefore, to get all the edges given an edge label, one must know
-   * all the vertex labels that lie on the other side of those edges.
-   *
-   * @param vertexId
-   * @param edgeLabel
-   * @param dir
-   *
-   * @return RAMCloud Key.
-   */
-  public static byte[] getNeighborLabelListKey(UInt128 vertexId, 
-      String edgeLabel, Direction dir) {
-    byte[] labelByteArray = edgeLabel.getBytes(DEFAULT_CHAR_ENCODING);
-    ByteBuffer buffer =
-        ByteBuffer.allocate(UInt128.BYTES + Short.BYTES + labelByteArray.length
-            + Byte.BYTES)
-        .order(ByteOrder.LITTLE_ENDIAN);
-    buffer.putLong(vertexId.getUpperLong());
-    buffer.putLong(vertexId.getLowerLong());
-    buffer.putShort((short) labelByteArray.length);
-    buffer.put(labelByteArray);
-    buffer.put((byte) dir.ordinal());
-    return buffer.array();
-  }
-
   /**
    * Generates a key prefix that defines an exclusive key-space for this
    * combination of vertex ID, edge label, edge direction, and vertex label. No
