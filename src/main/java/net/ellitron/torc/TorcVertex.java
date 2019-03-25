@@ -27,6 +27,7 @@ import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -38,6 +39,8 @@ public class TorcVertex implements Vertex, Element {
   private final TorcGraph graph;
   private UInt128 id;
   private String label;
+  private String propKey1 = null;
+  private Object propVal1 = null;
   private Map<Object, Object> properties = null;
 
   public TorcVertex(final TorcGraph graph, final UInt128 id,
@@ -123,14 +126,6 @@ public class TorcVertex implements Vertex, Element {
     throw new UnsupportedOperationException("Must specify the neighbor vertex labels when fetching vertex neighbors.");
   }
 
-  public <V> V getProperty(String key) {
-    if (properties == null) {
-      graph.fillProperties(this);
-    }
-
-    return (V)properties.get(key);
-  }
-
   public Map<Object, Object> getProperties() {
     if (properties == null) {
       graph.fillProperties(this);
@@ -139,8 +134,33 @@ public class TorcVertex implements Vertex, Element {
     return properties;
   }
 
+  public Object getProperty(String key) {
+    if (propKey1 != null) {
+      if (propKey1.equals(key))
+        return propVal1;
+    }
+
+    if (properties != null)
+      return properties.get(key);
+    else
+      return null;
+  }
+
   public void setProperties(Map<Object, Object> properties) {
     this.properties = properties;
+  }
+
+  public void setProperty(String key, Object value) {
+    if (properties == null && propKey1 != null) {
+      properties = new HashMap<>();
+      properties.put(propKey1, propVal1);
+      properties.put(key, value);
+    } else if (properties != null) {
+      properties.put(key, value);
+    }
+
+    propKey1 = key;
+    propVal1 = value;
   }
 
   /**

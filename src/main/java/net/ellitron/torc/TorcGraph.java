@@ -603,7 +603,7 @@ public final class TorcGraph implements Graph {
     }
   }
 
-  public void fillProperties(Iterable<TorcVertex> vertices) {
+  public void fillProperties(Iterable<TorcVertex> vertices, String ... keys) {
     initialize();
 
     torcGraphTx.readWrite();
@@ -679,7 +679,6 @@ public final class TorcGraph implements Graph {
             if (requests[i].getStatus() != Status.STATUS_OK) {
               if (requests[i].getStatus() == Status.STATUS_OBJECT_DOESNT_EXIST) {
                 // This vertex has no properties set.
-                v.setProperties(new HashMap<>());
                 continue;
               } else {
                 throw new RuntimeException(
@@ -690,7 +689,11 @@ public final class TorcGraph implements Graph {
 
             Map<Object, Object> properties = (Map<Object, Object>)
               TorcHelper.deserializeObject(requests[i].getValueBytes());
-            v.setProperties(properties);
+            if (keys.length == 1) {
+              v.setProperty(keys[0], properties.get(keys[0]));
+            } else {
+              v.setProperties(properties);
+            }
           } 
         } 
       }
@@ -709,7 +712,6 @@ public final class TorcGraph implements Graph {
           if (requests[i].getStatus() != Status.STATUS_OK) {
             if (requests[i].getStatus() == Status.STATUS_OBJECT_DOESNT_EXIST) {
               // This vertex has no properties set.
-              v.setProperties(new HashMap<>());
               continue;
             } else {
               throw new RuntimeException(
@@ -720,7 +722,11 @@ public final class TorcGraph implements Graph {
 
           Map<Object, Object> properties = (Map<Object, Object>)
             TorcHelper.deserializeObject(requests[i].getValueBytes());
-          v.setProperties(properties);
+          if (keys.length == 1) {
+            v.setProperty(keys[0], properties.get(keys[0]));
+          } else {
+            v.setProperties(properties);
+          }
         }
       }
     }
