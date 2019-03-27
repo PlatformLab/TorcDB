@@ -286,7 +286,7 @@ public class TorcHelper {
       case MAP:
         short entries = (short)(((value[offset+1] & 0xFF) << 0) | 
                                 ((value[offset+2] & 0xFF) << 8));
-        Map<Object, Object> map = new HashMap<>(entries);
+        Map<Object, Object> map = new ArrayMap<>(entries);
         subOffset = offset + 3;
         for (int i = 0; i < entries; i++) {
           Object key = deserializeObject(value, subOffset, pinfo);
