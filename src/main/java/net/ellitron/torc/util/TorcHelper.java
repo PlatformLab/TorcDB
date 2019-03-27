@@ -30,6 +30,7 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Collection;
+import java.util.function.BiFunction;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -572,6 +573,48 @@ public class TorcHelper {
     }
 
     trA.vSet.removeAll(b);
+  }
+
+  public static void removeEdgeIf(
+      TraversalResult tr,
+      BiFunction<TorcVertex, Map<Object, Object>, Boolean> f) {
+    Map<TorcVertex, List<TorcVertex>> newVMap = new HashMap<>(tr.vMap.size());
+    Map<TorcVertex, List<Map<Object, Object>>> newPMap = null;
+    if (tr.pMap != null)
+      newPMap = new HashMap<>(tr.pMap.size());
+
+    for (TorcVertex b : tr.vMap.keySet()) {
+      List<TorcVertex> nList = tr.vMap.get(b);
+      List<TorcVertex> newNList = new ArrayList<>(nList.size());
+      List<Map<Object, Object>> pList = null;
+      List<Map<Object, Object>> newPList = null;
+      if (tr.pMap != null) {
+        pList = tr.pMap.get(b);
+        newPList = new ArrayList<>(pList.size());
+      }
+
+      for (int i = 0; i < nList.size(); i++) {
+        boolean remove;
+        if (pList != null)
+          remove = f.apply(nList.get(i), pList.get(i));
+        else
+          remove = f.apply(nList.get(i), null);
+
+        if (!remove) {
+          newNList.add(nList.get(i));
+          if (newPList != null)
+            newPList.add(pList.get(i));
+        } else {
+          tr.vSet.remove(nList.get(i));
+        }
+      }
+
+      if (newNList.size() > 0) {
+        newVMap.put(b, newNList);
+        if (newPMap != null)
+          newPMap.put(b, newPList);
+      }
+    }
   }
 
   public static List<TorcVertex> keylist(
