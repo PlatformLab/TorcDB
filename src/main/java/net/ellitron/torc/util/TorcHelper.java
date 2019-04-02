@@ -580,6 +580,7 @@ public class TorcHelper {
       BiFunction<TorcVertex, Map<Object, Object>, Boolean> f) {
     Map<TorcVertex, List<TorcVertex>> newVMap = new HashMap<>(tr.vMap.size());
     Map<TorcVertex, List<Map<Object, Object>>> newPMap = null;
+    Set<TorcVertex> newVSet = new HashSet<>(tr.vSet.size());
     if (tr.pMap != null)
       newPMap = new HashMap<>(tr.pMap.size());
 
@@ -604,8 +605,7 @@ public class TorcHelper {
           newNList.add(nList.get(i));
           if (newPList != null)
             newPList.add(pList.get(i));
-        } else {
-          tr.vSet.remove(nList.get(i));
+          newVSet.add(nList.get(i));
         }
       }
 
@@ -615,6 +615,10 @@ public class TorcHelper {
           newPMap.put(b, newPList);
       }
     }
+
+    tr.vMap = newVMap;
+    tr.pMap = newPMap;
+    tr.vSet = newVSet;
   }
 
   public static List<TorcVertex> keylist(
