@@ -461,6 +461,22 @@ public class TorcHelper {
    * The resulting map will never have emtpy list values.
    *
    * @param trA TraversalResult to intersect values on.
+   * @param b Value to intersect TraversalResult values with.
+   */
+  public static void intersect(
+      TraversalResult trA,
+      TorcVertex b) {
+    Set<TorcVertex> set = new HashSet<>();
+    set.add(b);
+    intersect(trA, set);
+  }
+
+  /**
+   * Intersects the values in the list with those in the TraversalResult.
+   * If the resulting value is an empty list, then remove the key from the map.
+   * The resulting map will never have emtpy list values.
+   *
+   * @param trA TraversalResult to intersect values on.
    * @param b Values to intersect TraversalResult values with.
    */
   public static void intersect(
