@@ -33,6 +33,7 @@ import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Property;
+import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Transaction;
 import org.apache.tinkerpop.gremlin.structure.util.AbstractTransaction;
 import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
@@ -246,7 +247,7 @@ public final class TorcGraph implements Graph {
     RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
     RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
 
-    TorcHelper.legalPropertyKeyValueArray(Vertex.class, keyValues);
+//    TorcHelper.legalPropertyKeyValueArray(Vertex.class, keyValues);
 
     Object idValue = ElementHelper.getIdValue(keyValues).orElse(null);
     final String label =
@@ -262,7 +263,7 @@ public final class TorcGraph implements Graph {
     // Create property map.
     Map<Object, Object> properties = new HashMap<>();
     for (int i = 0; i < keyValues.length; i = i + 2) {
-      if (keyValues[i] instanceof String) {
+      if (!(keyValues[i] instanceof T)) {
         Object key = keyValues[i];
         Object val = keyValues[i + 1];
         if (properties.containsKey(key)) {
@@ -1210,7 +1211,7 @@ public final class TorcGraph implements Graph {
 
     ElementHelper.validateLabel(edgeLabel);
 
-    TorcHelper.legalPropertyKeyValueArray(Edge.class, keyValues);
+//    TorcHelper.legalPropertyKeyValueArray(Edge.class, keyValues);
 
     // Create property map.
     Map<Object, Object> properties = new HashMap<>();
@@ -1396,6 +1397,31 @@ public final class TorcGraph implements Graph {
     return vertices.iterator();
   }
 
+  Map<Object, Object> getVertexPropeteryMap(final TorcVertex vertex) {
+    torcGraphTx.readWrite();
+    RAMCloudTransaction rctx = torcGraphTx.getThreadLocalRAMCloudTx();
+    RAMCloud client = threadLocalClientMap.get(Thread.currentThread());
+
+    RAMCloudObject obj;
+    if (txMode) {
+      obj  = rctx.read(vertexTableId,
+        TorcHelper.getVertexPropertiesKey(vertex.id()));
+    } else {
+      obj  = client.read(vertexTableId,
+        TorcHelper.getVertexPropertiesKey(vertex.id()));
+    }
+
+    Map<Object, Object> properties;
+    if (obj != null) {
+      properties = 
+        (Map<Object, Object>)TorcHelper.deserializeObject(obj.getValueBytes());
+    } else {
+      properties = new HashMap<>();
+    }
+  
+    return properties;
+  }
+
   <V> Iterator<VertexProperty<V>> getVertexProperties(final TorcVertex vertex,
       final String[] propertyKeys) {
     torcGraphTx.readWrite();
@@ -1450,9 +1476,9 @@ public final class TorcGraph implements Graph {
       throw VertexProperty.Exceptions.metaPropertiesNotSupported();
     }
 
-    if (!(value instanceof String)) {
-      throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(value);
-    }
+//    if (!(value instanceof String)) {
+//      throw Property.Exceptions.dataTypeOfPropertyValueNotSupported(value);
+//    }
 
     RAMCloudObject obj; 
     if (txMode) {
